@@ -47,7 +47,7 @@ router.post("/prescriptions", requireRole("admin", "doctor"), async (req, res) =
   const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "medication_scheduled",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId,
     variables: { patientName: pt?.name, drug: row.drug, scheduledAt: requiredIso(row.createdAt) },
   });
@@ -65,7 +65,7 @@ router.post("/prescriptions/:id/remind", requireRole("admin", "doctor", "nurse")
   if (!r) return res.status(404).json({ error: "Not found" });
   await sendNotification({
     eventKey: "medication_reminder",
-    channel: "whatsapp",
+    channel: "both",
     patientId: r.p.patientId,
     variables: { patientName: r.pt.name, drug: r.p.drug, doseTime: new Date().toISOString() },
   });

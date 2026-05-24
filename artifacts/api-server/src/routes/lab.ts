@@ -60,7 +60,7 @@ router.post("/lab/orders/:id/result", requireRole("admin", "labtech"), async (re
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "lab_result_ready",
-    channel: "sms",
+    channel: "both",
     patientId: row.patientId,
     variables: { testName: row.testName },
   });

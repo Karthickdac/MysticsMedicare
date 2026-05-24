@@ -44,7 +44,7 @@ router.post("/consent", requireRole("admin", "doctor", "nurse"), async (req, res
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "consent_request",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId,
     variables: { patientName: p?.name, consentType: row.type },
   });

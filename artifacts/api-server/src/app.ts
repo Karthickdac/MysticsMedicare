@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { attachUser, requireAuth } from "./lib/auth";
+import { auditMiddleware } from "./lib/audit-middleware";
 
 const app: Express = express();
 
@@ -32,6 +33,6 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", attachUser, requireAuth, router);
+app.use("/api", attachUser, requireAuth, auditMiddleware, router);
 
 export default app;

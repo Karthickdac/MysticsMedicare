@@ -44,7 +44,7 @@ router.post("/ot/bookings", requireRole("admin", "doctor", "nurse"), async (req,
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "ot_scheduled",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId,
     variables: { procedure: row.procedure, scheduledAt: requiredIso(row.scheduledAt) },
   });

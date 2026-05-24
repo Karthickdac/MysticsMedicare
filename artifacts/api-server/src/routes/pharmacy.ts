@@ -46,7 +46,7 @@ router.post("/prescriptions/:id/dispense", requireRole("admin", "pharmacist"), a
   const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "prescription_ready",
-    channel: "sms",
+    channel: "both",
     patientId: row.patientId,
     variables: { drug: row.drug },
   });

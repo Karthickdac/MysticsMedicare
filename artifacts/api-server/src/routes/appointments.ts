@@ -64,7 +64,7 @@ router.post("/appointments", requireRole("admin", "doctor", "nurse", "receptioni
   const [s] = await db.select().from(staffTable).where(eq(staffTable.id, row.doctorId));
   await sendNotification({
     eventKey: "appointment_booked",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId,
     variables: { doctorName: s?.name, department: row.department, scheduledAt: requiredIso(row.scheduledAt) },
   });
@@ -84,7 +84,7 @@ router.post("/appointments/:id/remind", async (req, res) => {
   if (!r) return res.status(404).json({ error: "Not found" });
   await sendNotification({
     eventKey: "appointment_reminder",
-    channel: "whatsapp",
+    channel: "both",
     patientId: r.a.patientId,
     variables: { patientName: r.p.name, doctorName: r.s.name, scheduledAt: requiredIso(r.a.scheduledAt) },
   });
@@ -113,7 +113,7 @@ router.delete("/appointments/:id", requireRole("admin", "doctor", "receptionist"
   if (row) {
     await sendNotification({
       eventKey: "appointment_cancelled",
-      channel: "whatsapp",
+      channel: "both",
       patientId: row.patientId,
       variables: { scheduledAt: requiredIso(row.scheduledAt) },
     });

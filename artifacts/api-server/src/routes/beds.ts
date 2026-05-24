@@ -50,7 +50,7 @@ router.post("/beds/:id/assign", requireRole("admin", "nurse", "doctor", "recepti
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId!));
   await sendNotification({
     eventKey: "ipd_admission",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId!,
     variables: { bedCode: row.code, ward: row.ward },
   });
@@ -63,7 +63,7 @@ router.post("/beds/:id/discharge", requireRole("admin", "nurse", "doctor"), asyn
   if (existing?.patientId) {
     await sendNotification({
       eventKey: "ipd_discharge",
-      channel: "whatsapp",
+      channel: "both",
       patientId: existing.patientId,
       variables: { bedCode: existing.code },
     });

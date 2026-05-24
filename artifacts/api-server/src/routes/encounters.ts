@@ -92,7 +92,7 @@ router.patch("/encounters/:id", requireRole("admin", "doctor", "nurse"), async (
   if (data.status === "discharged" || data.endedAt) {
     await sendNotification({
       eventKey: "discharge_summary_ready",
-      channel: "whatsapp",
+      channel: "both",
       patientId: row.patientId,
       variables: { patientName: p?.name, summaryUrl: `/api/pdf/discharge-summary/${row.id}` },
     });

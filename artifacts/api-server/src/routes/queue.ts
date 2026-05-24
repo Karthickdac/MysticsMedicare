@@ -77,7 +77,7 @@ router.post("/queue/opd/next", requireRole("admin", "doctor", "nurse", "receptio
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "opd_queue_called",
-    channel: "sms",
+    channel: "both",
     patientId: row.patientId,
     variables: { tokenNumber: row.tokenNumber, department: row.department },
   });

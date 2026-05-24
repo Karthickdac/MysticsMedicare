@@ -46,7 +46,7 @@ router.post("/vaccinations", requireRole("admin", "doctor", "nurse"), async (req
   if (row.nextDueDate) {
     await sendNotification({
       eventKey: "vaccination_reminder",
-      channel: "whatsapp",
+      channel: "both",
       patientId: row.patientId,
       variables: { patientName: p?.name, vaccineName: row.vaccineName, nextDueDate: dateOnly(row.nextDueDate) },
     });

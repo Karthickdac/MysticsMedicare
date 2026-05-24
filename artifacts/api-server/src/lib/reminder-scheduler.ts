@@ -22,6 +22,7 @@ async function tick() {
         ),
       );
     for (const appt of due) {
+      const tag = `appt:${appt.id}`;
       const already = await db
         .select({ id: notificationLogTable.id })
         .from(notificationLogTable)
@@ -29,14 +30,16 @@ async function tick() {
           and(
             eq(notificationLogTable.eventKey, "appointment_reminder"),
             eq(notificationLogTable.patientId, appt.patientId),
+            eq(notificationLogTable.providerRef, tag),
           ),
         )
-        .limit(50);
+        .limit(1);
       if (already.length > 0) continue;
       await sendNotification({
         eventKey: "appointment_reminder",
         channel: "both",
         patientId: appt.patientId,
+        providerRef: tag,
         variables: {
           appointmentId: appt.id,
           scheduledAt: appt.scheduledAt.toISOString(),

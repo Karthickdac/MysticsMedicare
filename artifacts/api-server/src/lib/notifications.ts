@@ -4,7 +4,7 @@ import {
   notificationLogTable,
   patientsTable,
 } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 
 export const NOTIFICATION_EVENTS: Array<{
@@ -39,37 +39,28 @@ export function renderTemplate(body: string, vars: Record<string, string | numbe
   });
 }
 
-export async function sendNotification(opts: {
+export interface SendNotificationOpts {
   eventKey: string;
   channel: string;
   patientId: number;
   staffId?: number | null;
   recipientPhone?: string;
+  providerRef?: string | null;
   variables: Record<string, string | number | null | undefined>;
-}) {
-  const { inArray } = await import("drizzle-orm");
-  const channelMatches = [opts.channel, "both"];
+}
+
+async function dispatchOne(opts: SendNotificationOpts, channel: "whatsapp" | "sms", phone: string, patientName: string | undefined) {
   const [template] = await db
     .select()
     .from(notificationTemplatesTable)
     .where(
       and(
         eq(notificationTemplatesTable.eventKey, opts.eventKey),
-        inArray(notificationTemplatesTable.channel, channelMatches),
+        inArray(notificationTemplatesTable.channel, [channel, "both"]),
         eq(notificationTemplatesTable.isActive, true),
       ),
     )
     .limit(1);
-
-  let phone = opts.recipientPhone;
-  let patientName: string | undefined;
-  if (!phone || !opts.variables.patientName) {
-    const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, opts.patientId)).limit(1);
-    if (p) {
-      phone = phone ?? p.phone;
-      patientName = p.name;
-    }
-  }
 
   const merged = { patientName, ...opts.variables };
   const rendered = template
@@ -85,19 +76,41 @@ export async function sendNotification(opts: {
       patientId: opts.patientId,
       staffId: opts.staffId ?? null,
       eventKey: opts.eventKey,
-      channel: opts.channel,
+      channel,
       templateId: template?.id,
       renderedBody: rendered,
-      recipientPhone: phone ?? "",
+      recipientPhone: phone,
       status,
       errorMessage,
-      providerRef: template ? `stub-${Date.now()}` : null,
+      providerRef: opts.providerRef ?? (template ? `stub-${Date.now()}` : null),
     })
     .returning();
 
   logger.info(
-    { eventKey: opts.eventKey, channel: opts.channel, patientId: opts.patientId, status },
+    { eventKey: opts.eventKey, channel, patientId: opts.patientId, status },
     "notification dispatched (stub provider)",
   );
   return logEntry;
+}
+
+export async function sendNotification(opts: SendNotificationOpts) {
+  let phone = opts.recipientPhone ?? "";
+  let patientName: string | undefined = typeof opts.variables.patientName === "string" ? opts.variables.patientName : undefined;
+  if (!phone || !patientName) {
+    const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, opts.patientId)).limit(1);
+    if (p) {
+      phone = phone || p.phone;
+      patientName = patientName ?? p.name;
+    }
+  }
+
+  const channels: Array<"whatsapp" | "sms"> = opts.channel === "both"
+    ? ["whatsapp", "sms"]
+    : opts.channel === "sms" ? ["sms"] : ["whatsapp"];
+
+  let last;
+  for (const ch of channels) {
+    last = await dispatchOne(opts, ch, phone, patientName);
+  }
+  return last!;
 }

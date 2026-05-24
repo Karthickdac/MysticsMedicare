@@ -79,7 +79,7 @@ router.post("/bills", requireRole("admin", "accountant", "receptionist"), async 
   const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "bill_generated",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId,
     variables: { billNumber: row.billNumber, total: total.toFixed(2) },
   });
@@ -109,7 +109,7 @@ router.post("/bills/:id/pay", requireRole("admin", "accountant", "receptionist")
   const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   await sendNotification({
     eventKey: "bill_paid",
-    channel: "whatsapp",
+    channel: "both",
     patientId: row.patientId,
     variables: { billNumber: row.billNumber, total: row.total },
   });
