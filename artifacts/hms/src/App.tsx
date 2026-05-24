@@ -38,6 +38,9 @@ import EncounterDetail from "@/pages/encounter-detail";
 import Settings from "@/pages/settings";
 
 import { Shell } from "@/components/layout/shell";
+import { RequireAuth } from "@/components/require-auth";
+import PortalLogin from "@/pages/portal-login";
+import { PortalAppointments, PortalBills } from "@/pages/portal-home";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,7 +56,12 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
+      <Route path="/portal/login" component={PortalLogin} />
+      <Route path="/portal" component={PortalAppointments} />
+      <Route path="/portal/appointments" component={PortalAppointments} />
+      <Route path="/portal/bills" component={PortalBills} />
       <Route>
+        <RequireAuth>
         <Shell>
           <Switch>
             <Route path="/dashboard" component={Dashboard} />
@@ -88,6 +96,7 @@ function Router() {
             <Route component={NotFound} />
           </Switch>
         </Shell>
+        </RequireAuth>
       </Route>
       <Route component={NotFound} />
     </Switch>

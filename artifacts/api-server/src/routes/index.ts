@@ -26,6 +26,7 @@ import videosRouter from "./videos";
 import notificationsRouter from "./notifications";
 import auditRouter from "./audit";
 import pdfRouter from "./pdf";
+import portalRouter from "./portal";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(videosRouter);
 router.use(notificationsRouter);
 router.use(auditRouter);
 router.use(pdfRouter);
+router.use(portalRouter);
 
 export default router;

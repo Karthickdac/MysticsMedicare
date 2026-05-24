@@ -47,7 +47,7 @@ function AppSidebar() {
     {
       label: "Clinical",
       items: [
-        { icon: Activity, label: "Dashboard", href: "/" },
+        { icon: Activity, label: "Dashboard", href: "/dashboard" },
         { icon: Users, label: "Patients", href: "/patients", roles: ["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"] },
         { icon: Calendar, label: "Appointments", href: "/appointments", roles: ["admin", "doctor", "nurse", "receptionist"] },
         { icon: Clock, label: "OPD Queue", href: "/opd", roles: ["admin", "doctor", "nurse", "receptionist"] },
@@ -77,7 +77,7 @@ function AppSidebar() {
     {
       label: "Inventory & Billing",
       items: [
-        { icon: IndianRupee, label: "Billing", href: "/billing", roles: ["admin", "accountant", "receptionist"] },
+        { icon: IndianRupee, label: "Billing", href: "/billing", roles: ["admin", "accountant", "cashier", "receptionist"] },
         { icon: Package, label: "Inventory", href: "/inventory", roles: ["admin", "pharmacist"] },
         { icon: ShieldPlus, label: "Drug Library", href: "/drugs", roles: ["admin", "pharmacist", "doctor"] },
       ],
@@ -122,7 +122,7 @@ function AppSidebar() {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton 
                     asChild 
-                    isActive={location === item.href || (item.href !== "/" && location.startsWith(item.href))}
+                    isActive={location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href))}
                     tooltip={item.label}
                   >
                     <Link href={item.href} className="flex items-center gap-3">

@@ -36,7 +36,10 @@ function verify(token: string): string | null {
   const payload = token.slice(0, idx);
   const sig = token.slice(idx + 1);
   const expected = crypto.createHmac("sha256", SECRET).update(payload).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length) return null;
+  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { uid: number; exp: number };
     if (data.exp < Date.now()) return null;
@@ -45,6 +48,61 @@ function verify(token: string): string | null {
     return null;
   }
 }
+
+function signPatient(payload: string): string {
+  const sig = crypto.createHmac("sha256", SECRET + ":patient").update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+function verifyPatientToken(token: string): number | null {
+  const idx = token.lastIndexOf(".");
+  if (idx < 0) return null;
+  const payload = token.slice(0, idx);
+  const sig = token.slice(idx + 1);
+  const expected = crypto.createHmac("sha256", SECRET + ":patient").update(payload).digest("base64url");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return null;
+  if (!crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { pid: number; exp: number };
+    if (data.exp < Date.now()) return null;
+    return data.pid;
+  } catch {
+    return null;
+  }
+}
+
+const PATIENT_COOKIE = "hms_patient_session";
+
+export function issuePatientCookie(res: Response, patientId: number): void {
+  const payload = Buffer.from(JSON.stringify({ pid: patientId, exp: Date.now() + MAX_AGE_MS })).toString("base64url");
+  res.cookie(PATIENT_COOKIE, signPatient(payload), {
+    httpOnly: true, sameSite: "lax",
+    secure: process.env["NODE_ENV"] === "production",
+    maxAge: MAX_AGE_MS, path: "/",
+  });
+}
+
+export function clearPatientCookie(res: Response): void {
+  res.clearCookie(PATIENT_COOKIE, { path: "/" });
+}
+
+export function readPatientId(req: Request): number | null {
+  const raw = req.cookies?.[PATIENT_COOKIE];
+  if (typeof raw !== "string" || !raw) return null;
+  return verifyPatientToken(raw);
+}
+
+export const requirePatient: RequestHandler = (req, res, next) => {
+  const pid = readPatientId(req);
+  if (!pid) {
+    res.status(401).json({ error: "Patient session required" });
+    return;
+  }
+  (req as Request & { patientId?: number }).patientId = pid;
+  next();
+};
 
 export function issueSessionCookie(res: Response, userId: number): void {
   const payload = Buffer.from(JSON.stringify({ uid: userId, exp: Date.now() + MAX_AGE_MS })).toString("base64url");
@@ -97,8 +155,11 @@ const PUBLIC_PATHS = new Set<string>([
   "/auth/me",
   "/health",
   "/healthz",
+  "/portal/login",
+  "/portal/logout",
+  "/portal/me",
 ]);
-const PUBLIC_PREFIXES = ["/storage/public-objects/"];
+const PUBLIC_PREFIXES = ["/storage/public-objects/", "/portal/"];
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (PUBLIC_PATHS.has(req.path) || PUBLIC_PREFIXES.some((p) => req.path.startsWith(p))) return next();
