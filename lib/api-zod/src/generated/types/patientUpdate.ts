@@ -18,4 +18,5 @@ export interface PatientUpdate {
   emergencyContact?: string;
   insuranceProvider?: string;
   insuranceNumber?: string;
+  avatarUrl?: string;
 }

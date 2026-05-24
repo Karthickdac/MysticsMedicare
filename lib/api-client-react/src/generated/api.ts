@@ -144,6 +144,9 @@ import type {
   Role,
   RoleInput,
   RoleUpdate,
+  RosterBulkInput,
+  RosterBulkResult,
+  RosterCopyWeekInput,
   RosterShift,
   RosterShiftInput,
   ScheduleRadiologyInput,
@@ -9647,6 +9650,136 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getDeleteRosterShiftMutationOptions(options));
+    }
+
+export const getBulkCreateRosterShiftsUrl = () => {
+
+
+
+
+  return `/api/roster/bulk`
+}
+
+export const bulkCreateRosterShifts = async (rosterBulkInput: RosterBulkInput, options?: RequestInit): Promise<RosterBulkResult> => {
+
+  return customFetch<RosterBulkResult>(getBulkCreateRosterShiftsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      rosterBulkInput,)
+  }
+);}
+
+
+
+
+export const getBulkCreateRosterShiftsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkCreateRosterShifts>>, TError,{data: BodyType<RosterBulkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkCreateRosterShifts>>, TError,{data: BodyType<RosterBulkInput>}, TContext> => {
+
+const mutationKey = ['bulkCreateRosterShifts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkCreateRosterShifts>>, {data: BodyType<RosterBulkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkCreateRosterShifts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkCreateRosterShiftsMutationResult = NonNullable<Awaited<ReturnType<typeof bulkCreateRosterShifts>>>
+    export type BulkCreateRosterShiftsMutationBody = BodyType<RosterBulkInput>
+    export type BulkCreateRosterShiftsMutationError = ErrorType<unknown>
+
+    export const useBulkCreateRosterShifts = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkCreateRosterShifts>>, TError,{data: BodyType<RosterBulkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkCreateRosterShifts>>,
+        TError,
+        {data: BodyType<RosterBulkInput>},
+        TContext
+      > => {
+      return useMutation(getBulkCreateRosterShiftsMutationOptions(options));
+    }
+
+export const getCopyRosterWeekUrl = () => {
+
+
+
+
+  return `/api/roster/copy-week`
+}
+
+export const copyRosterWeek = async (rosterCopyWeekInput: RosterCopyWeekInput, options?: RequestInit): Promise<RosterBulkResult> => {
+
+  return customFetch<RosterBulkResult>(getCopyRosterWeekUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      rosterCopyWeekInput,)
+  }
+);}
+
+
+
+
+export const getCopyRosterWeekMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof copyRosterWeek>>, TError,{data: BodyType<RosterCopyWeekInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof copyRosterWeek>>, TError,{data: BodyType<RosterCopyWeekInput>}, TContext> => {
+
+const mutationKey = ['copyRosterWeek'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof copyRosterWeek>>, {data: BodyType<RosterCopyWeekInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  copyRosterWeek(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CopyRosterWeekMutationResult = NonNullable<Awaited<ReturnType<typeof copyRosterWeek>>>
+    export type CopyRosterWeekMutationBody = BodyType<RosterCopyWeekInput>
+    export type CopyRosterWeekMutationError = ErrorType<unknown>
+
+    export const useCopyRosterWeek = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof copyRosterWeek>>, TError,{data: BodyType<RosterCopyWeekInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof copyRosterWeek>>,
+        TError,
+        {data: BodyType<RosterCopyWeekInput>},
+        TContext
+      > => {
+      return useMutation(getCopyRosterWeekMutationOptions(options));
     }
 
 export const getGetOpdQueueUrl = (params?: GetOpdQueueParams,) => {

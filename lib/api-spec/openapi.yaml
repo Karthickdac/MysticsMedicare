@@ -1763,6 +1763,36 @@ paths:
         - { in: path, name: id, required: true, schema: { type: integer } }
       responses:
         "204": { description: Deleted }
+  /roster/bulk:
+    post:
+      operationId: bulkCreateRosterShifts
+      tags: [roster]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RosterBulkInput" }
+      responses:
+        "200":
+          description: Bulk insert result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RosterBulkResult" }
+  /roster/copy-week:
+    post:
+      operationId: copyRosterWeek
+      tags: [roster]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RosterCopyWeekInput" }
+      responses:
+        "200":
+          description: Copy result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RosterBulkResult" }
 
   /queue/opd:
     get:
@@ -2201,6 +2231,7 @@ components:
         emergencyContact: { type: string }
         insuranceProvider: { type: string }
         insuranceNumber: { type: string }
+        avatarUrl: { type: string }
     PatientUpdate:
       type: object
       properties:
@@ -2215,6 +2246,7 @@ components:
         emergencyContact: { type: string }
         insuranceProvider: { type: string }
         insuranceNumber: { type: string }
+        avatarUrl: { type: string }
 
     Appointment:
       type: object
@@ -3632,6 +3664,36 @@ components:
         shift: { type: string }
         date: { type: string }
         notes: { type: string }
+    RosterBulkInput:
+      type: object
+      required: [shifts]
+      properties:
+        shifts:
+          type: array
+          items: { $ref: "#/components/schemas/RosterShiftInput" }
+    RosterCopyWeekInput:
+      type: object
+      required: [fromWeekStart, toWeekStart]
+      properties:
+        fromWeekStart: { type: string }
+        toWeekStart: { type: string }
+        department: { type: string }
+    RosterBulkResult:
+      type: object
+      required: [created, skipped]
+      properties:
+        created: { type: integer }
+        skipped: { type: integer }
+        skippedReasons:
+          type: array
+          items:
+            type: object
+            required: [staffId, date, shift, reason]
+            properties:
+              staffId: { type: integer }
+              date: { type: string }
+              shift: { type: string }
+              reason: { type: string }
 
     QueueToken:
       type: object

@@ -77,6 +77,7 @@ router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (
       emergencyContact: parsed.data.emergencyContact,
       insuranceProvider: parsed.data.insuranceProvider,
       insuranceNumber: parsed.data.insuranceNumber,
+      avatarUrl: parsed.data.avatarUrl,
     })
     .returning();
   res.status(201).json(shape(row));

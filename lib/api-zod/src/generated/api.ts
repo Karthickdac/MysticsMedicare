@@ -116,7 +116,8 @@ export const CreatePatientBody = zod.object({
   "allergies": zod.string().optional(),
   "emergencyContact": zod.string().optional(),
   "insuranceProvider": zod.string().optional(),
-  "insuranceNumber": zod.string().optional()
+  "insuranceNumber": zod.string().optional(),
+  "avatarUrl": zod.string().optional()
 })
 
 
@@ -159,7 +160,8 @@ export const UpdatePatientBody = zod.object({
   "allergies": zod.string().optional(),
   "emergencyContact": zod.string().optional(),
   "insuranceProvider": zod.string().optional(),
-  "insuranceNumber": zod.string().optional()
+  "insuranceNumber": zod.string().optional(),
+  "avatarUrl": zod.string().optional()
 })
 
 export const UpdatePatientResponse = zod.object({
@@ -3084,6 +3086,46 @@ export const CreateRosterShiftBody = zod.object({
 
 export const DeleteRosterShiftParams = zod.object({
   "id": zod.coerce.number()
+})
+
+
+export const BulkCreateRosterShiftsBody = zod.object({
+  "shifts": zod.array(zod.object({
+  "staffId": zod.number(),
+  "department": zod.string(),
+  "shift": zod.string(),
+  "date": zod.string(),
+  "notes": zod.string().optional()
+}))
+})
+
+export const BulkCreateRosterShiftsResponse = zod.object({
+  "created": zod.number(),
+  "skipped": zod.number(),
+  "skippedReasons": zod.array(zod.object({
+  "staffId": zod.number(),
+  "date": zod.string(),
+  "shift": zod.string(),
+  "reason": zod.string()
+})).optional()
+})
+
+
+export const CopyRosterWeekBody = zod.object({
+  "fromWeekStart": zod.string(),
+  "toWeekStart": zod.string(),
+  "department": zod.string().optional()
+})
+
+export const CopyRosterWeekResponse = zod.object({
+  "created": zod.number(),
+  "skipped": zod.number(),
+  "skippedReasons": zod.array(zod.object({
+  "staffId": zod.number(),
+  "date": zod.string(),
+  "shift": zod.string(),
+  "reason": zod.string()
+})).optional()
 })
 
 

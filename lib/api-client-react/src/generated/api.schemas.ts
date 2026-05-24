@@ -119,6 +119,7 @@ export interface PatientInput {
   emergencyContact?: string;
   insuranceProvider?: string;
   insuranceNumber?: string;
+  avatarUrl?: string;
 }
 
 export interface PatientUpdate {
@@ -133,6 +134,7 @@ export interface PatientUpdate {
   emergencyContact?: string;
   insuranceProvider?: string;
   insuranceNumber?: string;
+  avatarUrl?: string;
 }
 
 export interface Appointment {
@@ -1644,6 +1646,29 @@ export interface RosterShiftInput {
   shift: string;
   date: string;
   notes?: string;
+}
+
+export interface RosterBulkInput {
+  shifts: RosterShiftInput[];
+}
+
+export interface RosterCopyWeekInput {
+  fromWeekStart: string;
+  toWeekStart: string;
+  department?: string;
+}
+
+export type RosterBulkResultSkippedReasonsItem = {
+  staffId: number;
+  date: string;
+  shift: string;
+  reason: string;
+};
+
+export interface RosterBulkResult {
+  created: number;
+  skipped: number;
+  skippedReasons?: RosterBulkResultSkippedReasonsItem[];
 }
 
 export interface QueueToken {
