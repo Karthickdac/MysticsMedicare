@@ -43,7 +43,8 @@ router.get("/bills", async (req, res) => {
   res.json(rows.map((r) => shape(r.b, r.pt)));
 });
 
-router.post("/bills", async (req, res) => {
+import { requireRole } from "../lib/auth";
+router.post("/bills", requireRole("admin", "accountant", "receptionist"), async (req, res) => {
   const parsed = CreateBillBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const items = (parsed.data.items as BillItem[]).map((it) => ({
@@ -97,7 +98,7 @@ router.get("/bills/:id", async (req, res) => {
   res.json(shape(r.b, r.pt));
 });
 
-router.post("/bills/:id/pay", async (req, res) => {
+router.post("/bills/:id/pay", requireRole("admin", "accountant", "receptionist"), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db
     .update(billsTable)

@@ -4,7 +4,14 @@ import type { Request, Response, NextFunction, RequestHandler } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const SECRET = process.env["SESSION_SECRET"] ?? "dev-medicare-hms-secret-change-me";
+const SECRET = (() => {
+  const s = process.env["SESSION_SECRET"];
+  if (s && s.length >= 16) return s;
+  if (process.env["NODE_ENV"] === "production") {
+    throw new Error("SESSION_SECRET env var is required in production (min 16 chars)");
+  }
+  return "dev-medicare-hms-secret-change-me-please-only-for-local-dev";
+})();
 const COOKIE_NAME = "hms_session";
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 

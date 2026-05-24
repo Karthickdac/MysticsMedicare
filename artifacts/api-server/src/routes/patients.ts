@@ -46,7 +46,8 @@ router.get("/patients", async (req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/patients", async (req, res) => {
+import { requireRole } from "../lib/auth";
+router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (req, res) => {
   const parsed = CreatePatientBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [{ next }] = await db.execute<{ next: string }>(
@@ -80,7 +81,7 @@ router.get("/patients/:id", async (req, res) => {
   res.json(shape(row));
 });
 
-router.patch("/patients/:id", async (req, res) => {
+router.patch("/patients/:id", requireRole("admin", "receptionist", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdatePatientBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -89,7 +90,7 @@ router.patch("/patients/:id", async (req, res) => {
   res.json(shape(row));
 });
 
-router.delete("/patients/:id", async (req, res) => {
+router.delete("/patients/:id", requireRole("admin"), async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(patientsTable).where(eq(patientsTable.id, id));
   res.status(204).send();

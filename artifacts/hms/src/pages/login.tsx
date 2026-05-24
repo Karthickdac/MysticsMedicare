@@ -39,7 +39,7 @@ export default function Login() {
       { data },
       {
         onSuccess: () => {
-          setLocation("/");
+          setLocation("/dashboard");
         },
         onError: (err: any) => {
           setError(err?.message || "Invalid email or password");

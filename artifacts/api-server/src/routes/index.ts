@@ -25,6 +25,7 @@ import queueRouter from "./queue";
 import videosRouter from "./videos";
 import notificationsRouter from "./notifications";
 import auditRouter from "./audit";
+import pdfRouter from "./pdf";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(queueRouter);
 router.use(videosRouter);
 router.use(notificationsRouter);
 router.use(auditRouter);
+router.use(pdfRouter);
 
 export default router;

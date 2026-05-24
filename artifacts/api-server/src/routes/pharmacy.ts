@@ -34,7 +34,8 @@ router.get("/pharmacy/queue", async (_req, res) => {
   res.json(rows.map((r) => shape(r.p, r.pt)));
 });
 
-router.post("/prescriptions/:id/dispense", async (req, res) => {
+import { requireRole } from "../lib/auth";
+router.post("/prescriptions/:id/dispense", requireRole("admin", "pharmacist"), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db
     .update(prescriptionsTable)

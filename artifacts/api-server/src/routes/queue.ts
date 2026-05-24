@@ -20,6 +20,36 @@ function shape(q: typeof queueTokensTable.$inferSelect, p: typeof patientsTable.
   };
 }
 
+router.post("/queue/opd/check-in", async (req, res) => {
+  const patientId = Number(req.body?.patientId);
+  const department = String(req.body?.department ?? "OPD");
+  const doctorName = req.body?.doctorName ? String(req.body.doctorName) : null;
+  if (!patientId) return res.status(400).json({ error: "patientId required" });
+  const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, patientId));
+  if (!p) return res.status(404).json({ error: "Patient not found" });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const existing = await db.select().from(queueTokensTable).where(eq(queueTokensTable.department, department));
+  const todays = existing.filter((t) => t.createdAt >= today);
+  const tokenNumber = (todays.reduce((m, t) => Math.max(m, t.tokenNumber), 0)) + 1;
+  const [row] = await db.insert(queueTokensTable).values({
+    tokenNumber, patientId, department, doctorName, status: "waiting",
+  }).returning();
+  res.status(201).json(shape(row, p));
+});
+
+router.get("/queue/opd/:id/position", async (req, res) => {
+  const id = Number(req.params.id);
+  const [target] = await db.select().from(queueTokensTable).where(eq(queueTokensTable.id, id));
+  if (!target) return res.status(404).json({ error: "Token not found" });
+  const waiting = await db
+    .select()
+    .from(queueTokensTable)
+    .where(and(eq(queueTokensTable.status, "waiting"), eq(queueTokensTable.department, target.department)))
+    .orderBy(asc(queueTokensTable.tokenNumber));
+  const ahead = waiting.filter((t) => t.tokenNumber < target.tokenNumber).length;
+  res.json({ tokenId: id, tokenNumber: target.tokenNumber, status: target.status, ahead, position: ahead + 1, totalWaiting: waiting.length });
+});
+
 router.get("/queue/opd", async (_req, res) => {
   const rows = await db
     .select({ q: queueTokensTable, p: patientsTable })

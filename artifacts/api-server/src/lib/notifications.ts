@@ -26,6 +26,10 @@ export const NOTIFICATION_EVENTS: Array<{
   { key: "vaccination_reminder", label: "Vaccination Reminder", description: "Sent before next dose due", defaultVariables: ["patientName", "vaccineName", "nextDueDate"] },
   { key: "ot_scheduled", label: "OT Scheduled", description: "Sent when surgery is scheduled", defaultVariables: ["patientName", "procedure", "scheduledAt"] },
   { key: "checkup_due", label: "Health Checkup Due", description: "Sent when health checkup is due", defaultVariables: ["patientName", "packageName"] },
+  { key: "medication_scheduled", label: "Medication Scheduled", description: "Sent when medication is scheduled", defaultVariables: ["patientName", "drug", "scheduledAt"] },
+  { key: "medication_reminder", label: "Medication Reminder", description: "Sent before each dose", defaultVariables: ["patientName", "drug", "doseTime"] },
+  { key: "consent_request", label: "Consent Request", description: "Sent when patient consent is required", defaultVariables: ["patientName", "consentType"] },
+  { key: "discharge_summary_ready", label: "Discharge Summary Ready", description: "Sent when discharge summary PDF is ready", defaultVariables: ["patientName", "summaryUrl"] },
 ];
 
 export function renderTemplate(body: string, vars: Record<string, string | number | null | undefined>): string {
@@ -39,6 +43,7 @@ export async function sendNotification(opts: {
   eventKey: string;
   channel: string;
   patientId: number;
+  staffId?: number | null;
   recipientPhone?: string;
   variables: Record<string, string | number | null | undefined>;
 }) {
@@ -69,19 +74,22 @@ export async function sendNotification(opts: {
     ? renderTemplate(template.bodyTemplate, merged)
     : `[${opts.eventKey}] ${JSON.stringify(merged)}`;
 
-  const status = template ? "sent" : "no_template";
+  const status = template ? "sent" : "failed";
+  const errorMessage = template ? null : "no active template for event/channel";
 
   const [logEntry] = await db
     .insert(notificationLogTable)
     .values({
       patientId: opts.patientId,
+      staffId: opts.staffId ?? null,
       eventKey: opts.eventKey,
       channel: opts.channel,
       templateId: template?.id,
       renderedBody: rendered,
       recipientPhone: phone ?? "",
       status,
-      providerRef: `stub-${Date.now()}`,
+      errorMessage,
+      providerRef: template ? `stub-${Date.now()}` : null,
     })
     .returning();
 

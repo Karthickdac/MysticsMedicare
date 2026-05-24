@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import NotFound from "@/pages/not-found";
 
 import Login from "@/pages/login";
+import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Patients from "@/pages/patients";
 import PatientNew from "@/pages/patient-new";
@@ -50,11 +51,11 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
+      <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route>
         <Shell>
           <Switch>
-            <Route path="/" component={Dashboard} />
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/patients/new" component={PatientNew} />
             <Route path="/patients/:id" component={PatientProfile} />

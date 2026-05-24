@@ -38,7 +38,8 @@ router.get("/prescriptions", async (req, res) => {
   res.json(rows.map((r) => shape(r.p, r.pt)));
 });
 
-router.post("/prescriptions", async (req, res) => {
+import { requireRole } from "../lib/auth";
+router.post("/prescriptions", requireRole("admin", "doctor"), async (req, res) => {
   const parsed = CreatePrescriptionBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(prescriptionsTable).values(parsed.data).returning();

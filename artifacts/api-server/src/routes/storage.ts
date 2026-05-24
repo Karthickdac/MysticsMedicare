@@ -95,7 +95,15 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    void ObjectPermission;
+    const allowed = await objectStorageService.canAccessObjectEntity({
+      userId: String(req.user.id),
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!allowed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 

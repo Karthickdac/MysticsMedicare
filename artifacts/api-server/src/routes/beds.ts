@@ -29,14 +29,15 @@ router.get("/beds", async (_req, res) => {
   res.json(rows.map((r) => shape(r.b, r.p)));
 });
 
-router.post("/beds", async (req, res) => {
+import { requireRole } from "../lib/auth";
+router.post("/beds", requireRole("admin"), async (req, res) => {
   const parsed = CreateBedBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(bedsTable).values(parsed.data).returning();
   res.status(201).json(shape(row));
 });
 
-router.post("/beds/:id/assign", async (req, res) => {
+router.post("/beds/:id/assign", requireRole("admin", "nurse", "doctor", "receptionist"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = AssignBedBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -56,7 +57,7 @@ router.post("/beds/:id/assign", async (req, res) => {
   res.json(shape(row, p));
 });
 
-router.post("/beds/:id/discharge", async (req, res) => {
+router.post("/beds/:id/discharge", requireRole("admin", "nurse", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const [existing] = await db.select().from(bedsTable).where(eq(bedsTable.id, id));
   if (existing?.patientId) {

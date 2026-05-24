@@ -286,6 +286,7 @@ export const notificationTemplatesTable = pgTable("notification_templates", {
 export const notificationLogTable = pgTable("notification_log", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").references(() => patientsTable.id, { onDelete: "set null" }),
+  staffId: integer("staff_id").references(() => staffTable.id, { onDelete: "set null" }),
   eventKey: text("event_key").notNull(),
   channel: text("channel").notNull(),
   templateId: integer("template_id").references(() => notificationTemplatesTable.id),

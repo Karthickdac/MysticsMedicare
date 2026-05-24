@@ -38,7 +38,8 @@ router.get("/lab/orders", async (req, res) => {
   res.json(rows.map((r) => shape(r.l, r.p)));
 });
 
-router.post("/lab/orders", async (req, res) => {
+import { requireRole } from "../lib/auth";
+router.post("/lab/orders", requireRole("admin", "doctor"), async (req, res) => {
   const parsed = CreateLabOrderBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(labOrdersTable).values(parsed.data).returning();
@@ -46,7 +47,7 @@ router.post("/lab/orders", async (req, res) => {
   res.status(201).json(shape(row, p!));
 });
 
-router.post("/lab/orders/:id/result", async (req, res) => {
+router.post("/lab/orders/:id/result", requireRole("admin", "lab_technician"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordLabResultBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
