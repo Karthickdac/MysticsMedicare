@@ -1,0 +1,93 @@
+import { db } from "@workspace/db";
+import {
+  notificationTemplatesTable,
+  notificationLogTable,
+  patientsTable,
+} from "@workspace/db";
+import { and, eq } from "drizzle-orm";
+import { logger } from "./logger";
+
+export const NOTIFICATION_EVENTS: Array<{
+  key: string;
+  label: string;
+  description: string;
+  defaultVariables: string[];
+}> = [
+  { key: "appointment_booked", label: "Appointment Booked", description: "Sent when a new appointment is created", defaultVariables: ["patientName", "doctorName", "department", "scheduledAt"] },
+  { key: "appointment_reminder", label: "Appointment Reminder", description: "Sent before scheduled appointment", defaultVariables: ["patientName", "doctorName", "scheduledAt"] },
+  { key: "appointment_cancelled", label: "Appointment Cancelled", description: "Sent on cancellation", defaultVariables: ["patientName", "doctorName", "scheduledAt"] },
+  { key: "opd_queue_called", label: "OPD Queue Called", description: "Sent when patient token is called", defaultVariables: ["patientName", "tokenNumber", "department"] },
+  { key: "lab_result_ready", label: "Lab Result Ready", description: "Sent when lab result is recorded", defaultVariables: ["patientName", "testName"] },
+  { key: "prescription_ready", label: "Prescription Ready", description: "Sent when prescription is dispensed", defaultVariables: ["patientName", "drug"] },
+  { key: "bill_generated", label: "Bill Generated", description: "Sent when a new bill is created", defaultVariables: ["patientName", "billNumber", "total"] },
+  { key: "bill_paid", label: "Bill Paid", description: "Sent when bill is marked paid", defaultVariables: ["patientName", "billNumber", "total"] },
+  { key: "ipd_admission", label: "IPD Admission", description: "Sent on admission", defaultVariables: ["patientName", "bedCode", "ward"] },
+  { key: "ipd_discharge", label: "IPD Discharge", description: "Sent on discharge", defaultVariables: ["patientName", "bedCode"] },
+  { key: "vaccination_reminder", label: "Vaccination Reminder", description: "Sent before next dose due", defaultVariables: ["patientName", "vaccineName", "nextDueDate"] },
+  { key: "ot_scheduled", label: "OT Scheduled", description: "Sent when surgery is scheduled", defaultVariables: ["patientName", "procedure", "scheduledAt"] },
+  { key: "checkup_due", label: "Health Checkup Due", description: "Sent when health checkup is due", defaultVariables: ["patientName", "packageName"] },
+];
+
+export function renderTemplate(body: string, vars: Record<string, string | number | null | undefined>): string {
+  return body.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => {
+    const v = vars[key];
+    return v === null || v === undefined ? "" : String(v);
+  });
+}
+
+export async function sendNotification(opts: {
+  eventKey: string;
+  channel: string;
+  patientId: number;
+  recipientPhone?: string;
+  variables: Record<string, string | number | null | undefined>;
+}) {
+  const [template] = await db
+    .select()
+    .from(notificationTemplatesTable)
+    .where(
+      and(
+        eq(notificationTemplatesTable.eventKey, opts.eventKey),
+        eq(notificationTemplatesTable.channel, opts.channel),
+        eq(notificationTemplatesTable.isActive, true),
+      ),
+    )
+    .limit(1);
+
+  let phone = opts.recipientPhone;
+  let patientName: string | undefined;
+  if (!phone || !opts.variables.patientName) {
+    const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, opts.patientId)).limit(1);
+    if (p) {
+      phone = phone ?? p.phone;
+      patientName = p.name;
+    }
+  }
+
+  const merged = { patientName, ...opts.variables };
+  const rendered = template
+    ? renderTemplate(template.bodyTemplate, merged)
+    : `[${opts.eventKey}] ${JSON.stringify(merged)}`;
+
+  const status = template ? "sent" : "no_template";
+
+  const [logEntry] = await db
+    .insert(notificationLogTable)
+    .values({
+      patientId: opts.patientId,
+      eventKey: opts.eventKey,
+      channel: opts.channel,
+      templateId: template?.id,
+      renderedBody: rendered,
+      recipientPhone: phone ?? "",
+      status,
+      providerRef: `stub-${Date.now()}`,
+    })
+    .returning();
+
+  logger.info(
+    { eventKey: opts.eventKey, channel: opts.channel, patientId: opts.patientId, status },
+    "notification dispatched (stub provider)",
+  );
+  return logEntry;
+}
