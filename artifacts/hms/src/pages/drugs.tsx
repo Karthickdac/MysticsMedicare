@@ -1,4 +1,4 @@
-import { useListDrugs, useCreateDrug, useUpdateDrug, getListDrugsQueryKey } from "@workspace/api-client-react";
+import { useListDrugs, useCreateDrug, useUpdateDrug, useDeleteDrug, getListDrugsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldPlus, Plus, Pencil } from "lucide-react";
+import { ShieldPlus, Plus, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -205,6 +205,35 @@ function DrugDialog({
   );
 }
 
+function DeleteDrugButton({ drugId, drugName }: { drugId: number; drugName: string }) {
+  const del = useDeleteDrug();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      data-testid={`button-delete-drug-${drugId}`}
+      disabled={del.isPending}
+      onClick={() => {
+        if (!window.confirm(`Delete "${drugName}" from the formulary? This fails if the drug is referenced by any prescription, batch, or sale.`)) return;
+        del.mutate(
+          { id: drugId },
+          {
+            onSuccess: () => {
+              toast({ title: "Drug deleted" });
+              queryClient.invalidateQueries({ queryKey: getListDrugsQueryKey() });
+            },
+            onError: (e: unknown) => toast({ title: "Cannot delete", description: (e as Error).message, variant: "destructive" }),
+          },
+        );
+      }}
+    >
+      <Trash2 className="w-4 h-4 text-destructive" />
+    </Button>
+  );
+}
+
 export default function Drugs() {
   const { data: drugs, isLoading } = useListDrugs();
   const [editing, setEditing] = useState<DrugLike | null>(null);
@@ -271,11 +300,14 @@ export default function Drugs() {
                     <TableCell className="text-right">{d.mrp != null ? `₹${Number(d.mrp).toFixed(2)}` : "-"}</TableCell>
                     <TableCell className="text-right">{d.reorderLevel}</TableCell>
                     <TableCell>
-                      <DrugDialog
-                        drug={d as DrugLike}
-                        onClose={() => setEditing(null)}
-                        trigger={<Button variant="ghost" size="sm" data-testid={`button-edit-drug-${d.id}`}><Pencil className="w-4 h-4" /></Button>}
-                      />
+                      <div className="flex gap-1 justify-end">
+                        <DrugDialog
+                          drug={d as DrugLike}
+                          onClose={() => setEditing(null)}
+                          trigger={<Button variant="ghost" size="sm" data-testid={`button-edit-drug-${d.id}`}><Pencil className="w-4 h-4" /></Button>}
+                        />
+                        <DeleteDrugButton drugId={d.id} drugName={d.name} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

@@ -904,9 +904,13 @@ router.get("/pharmacy/reports/stock-value", requireRole("admin", "pharmacist", "
 
 router.get("/pharmacy/reports/movers", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 20), 200);
+  const order = String(req.query.order ?? "desc").toLowerCase() === "asc" ? "asc" : "desc";
   const conds: ReturnType<typeof eq>[] = [];
   if (req.query.from) conds.push(gte(pharmacySalesTable.dispensedAt, new Date(String(req.query.from))));
   if (req.query.to) conds.push(lte(pharmacySalesTable.dispensedAt, new Date(String(req.query.to))));
+  const sortExpr = order === "asc"
+    ? sql`sum(${pharmacySaleItemsTable.qty} - ${pharmacySaleItemsTable.qtyReturned}) asc`
+    : sql`sum(${pharmacySaleItemsTable.qty} - ${pharmacySaleItemsTable.qtyReturned}) desc`;
   const rows = await db
     .select({
       drugId: pharmacySaleItemsTable.drugId,
@@ -919,7 +923,7 @@ router.get("/pharmacy/reports/movers", requireRole("admin", "pharmacist", "accou
     .innerJoin(drugsTable, eq(pharmacySaleItemsTable.drugId, drugsTable.id))
     .where(conds.length ? and(...conds) : undefined)
     .groupBy(pharmacySaleItemsTable.drugId, drugsTable.name)
-    .orderBy(sql`sum(${pharmacySaleItemsTable.qty} - ${pharmacySaleItemsTable.qtyReturned}) desc`)
+    .orderBy(sortExpr)
     .limit(limit);
   res.json(rows.map((r) => ({
     drugId: r.drugId, drugName: r.drugName,

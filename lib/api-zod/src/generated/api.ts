@@ -831,6 +831,15 @@ export const UpdateDrugResponse = zod.object({
 })
 
 
+export const DeleteDrugParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteDrugResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
 export const ListDrugBatchesParams = zod.object({
   "id": zod.coerce.number()
 })
@@ -1135,7 +1144,8 @@ export const GetStockValueReportResponse = zod.array(GetStockValueReportResponse
 export const GetMoversReportQueryParams = zod.object({
   "from": zod.coerce.string().optional(),
   "to": zod.coerce.string().optional(),
-  "limit": zod.coerce.number().optional()
+  "limit": zod.coerce.number().optional(),
+  "order": zod.enum(['desc', 'asc']).optional().describe('desc=top movers (default), asc=slow movers')
 })
 
 export const GetMoversReportResponseItem = zod.object({

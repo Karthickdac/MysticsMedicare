@@ -1460,6 +1460,10 @@ export type DispensePrescription200 = {
   ok: boolean;
 };
 
+export type DeleteDrug200 = {
+  ok: boolean;
+};
+
 export type ListAllBatchesParams = {
 nearExpiryDays?: number;
 };
@@ -1474,7 +1478,19 @@ export type GetMoversReportParams = {
 from?: string;
 to?: string;
 limit?: number;
+/**
+ * desc=top movers (default), asc=slow movers
+ */
+order?: GetMoversReportOrder;
 };
+
+export type GetMoversReportOrder = typeof GetMoversReportOrder[keyof typeof GetMoversReportOrder];
+
+
+export const GetMoversReportOrder = {
+  desc: 'desc',
+  asc: 'asc',
+} as const;
 
 export type GetNearExpiryReportParams = {
 days?: number;

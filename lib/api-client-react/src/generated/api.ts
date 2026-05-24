@@ -47,6 +47,7 @@ import type {
   ConsentFormInput,
   DashboardCharts,
   DashboardSummary,
+  DeleteDrug200,
   DispensePrescription200,
   Drug,
   DrugInput,
@@ -3402,6 +3403,70 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdateDrugMutationOptions(options));
+    }
+
+export const getDeleteDrugUrl = (id: number,) => {
+
+
+
+
+  return `/api/drugs/${id}`
+}
+
+export const deleteDrug = async (id: number, options?: RequestInit): Promise<DeleteDrug200> => {
+
+  return customFetch<DeleteDrug200>(getDeleteDrugUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteDrugMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDrug>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDrug>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDrug'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDrug>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDrug(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDrugMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDrug>>>
+
+    export type DeleteDrugMutationError = ErrorType<void>
+
+    export const useDeleteDrug = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDrug>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDrug>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDrugMutationOptions(options));
     }
 
 export const getListDrugBatchesUrl = (id: number,) => {

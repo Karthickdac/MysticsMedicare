@@ -5,9 +5,14 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetMoversReportOrder } from './getMoversReportOrder';
 
 export type GetMoversReportParams = {
 from?: string;
 to?: string;
 limit?: number;
+/**
+ * desc=top movers (default), asc=slow movers
+ */
+order?: GetMoversReportOrder;
 };

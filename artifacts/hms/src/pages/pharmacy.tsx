@@ -43,7 +43,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { ShieldPlus, Plus, AlertTriangle, Trash2, Package, TrendingUp, FileText, Truck, Undo2 } from "lucide-react";
+import { ShieldPlus, Plus, AlertTriangle, Trash2, Package, TrendingUp, FileText, Truck, Undo2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function inr(n: number | string | null | undefined) {
@@ -107,6 +107,54 @@ function DispenseTab() {
 }
 
 // ---------------------------------------------------------------------------
+// Label printing — opens a print-ready window with one label per dispensed
+// unit (drug name, strength, batch, expiry, qty, patient/walk-in). Done
+// client-side: all data we need is already on the sale payload, so no extra
+// server round-trip is required.
+// ---------------------------------------------------------------------------
+function printSaleLabels(sale: {
+  saleNumber: string;
+  patientName?: string | null;
+  walkInName?: string | null;
+  dispensedAt: string;
+  items: Array<{ drugName: string; batchNo: string; qty: number; unitPrice: number }>;
+}) {
+  const recipient = sale.patientName ?? sale.walkInName ?? "Walk-in";
+  const when = new Date(sale.dispensedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const labels = sale.items.map((it) => `
+    <div class="lbl">
+      <div class="hdr">Mystics MediCare</div>
+      <div class="drug">${escapeHtml(it.drugName)}</div>
+      <div class="row"><span>Batch</span><b>${escapeHtml(it.batchNo)}</b></div>
+      <div class="row"><span>Qty</span><b>${it.qty}</b></div>
+      <div class="row"><span>For</span><b>${escapeHtml(recipient)}</b></div>
+      <div class="row"><span>Sale</span><b>${escapeHtml(sale.saleNumber)}</b></div>
+      <div class="row"><span>Dispensed</span><b>${escapeHtml(when)}</b></div>
+    </div>
+  `).join("");
+  const html = `<!doctype html><html><head><title>Labels ${escapeHtml(sale.saleNumber)}</title>
+    <style>
+      @page { size: 50mm 30mm; margin: 2mm; }
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 4mm; }
+      .lbl { border: 1px dashed #999; padding: 3mm; margin-bottom: 2mm; page-break-after: always; width: 46mm; }
+      .hdr { font-size: 9px; color: #555; text-align: center; }
+      .drug { font-weight: 700; font-size: 12px; margin: 1mm 0; }
+      .row { display: flex; justify-content: space-between; font-size: 10px; }
+      @media print { .lbl { page-break-after: always; } }
+    </style></head><body>${labels}
+    <script>window.onload = () => { window.print(); };<\/script>
+    </body></html>`;
+  const w = window.open("", "_blank", "width=400,height=600");
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c));
+}
+
+// ---------------------------------------------------------------------------
 // OTC sale — walk-in customer; optional patient link.
 // ---------------------------------------------------------------------------
 function OtcTab() {
@@ -144,9 +192,12 @@ function OtcTab() {
                   <TableCell className="text-right font-semibold">{inr(s.total)}</TableCell>
                   <TableCell><Badge variant={s.status === "returned" ? "destructive" : s.status === "partial_return" ? "secondary" : "default"}>{s.status}</Badge></TableCell>
                   <TableCell className="text-right">
-                    {s.status !== "returned" && (
-                      <Button size="sm" variant="outline" onClick={() => setReturnFor(s.id)} data-testid={`button-return-${s.id}`}>Return</Button>
-                    )}
+                    <div className="flex gap-1 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => printSaleLabels({ saleNumber: s.saleNumber, patientName: s.patientName, walkInName: s.walkInName, dispensedAt: s.dispensedAt, items: s.items.map((it) => ({ drugName: it.drugName ?? "", batchNo: it.batchNo ?? "", qty: it.qty, unitPrice: it.unitPrice })) })} data-testid={`button-print-labels-${s.id}`}><Printer className="w-4 h-4" /></Button>
+                      {s.status !== "returned" && (
+                        <Button size="sm" variant="outline" onClick={() => setReturnFor(s.id)} data-testid={`button-return-${s.id}`}>Return</Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -804,8 +855,9 @@ function AlertsTab() {
 // Reports tab — stock value, movers, supplier purchases.
 // ---------------------------------------------------------------------------
 function ReportsTab() {
+  const [moversOrder, setMoversOrder] = useState<"desc" | "asc">("desc");
   const { data: stock } = useGetStockValueReport();
-  const { data: movers } = useGetMoversReport({ limit: 10 });
+  const { data: movers } = useGetMoversReport({ limit: 10, order: moversOrder });
   const { data: purchases } = useGetSupplierPurchasesReport();
   const totalCost = (stock ?? []).reduce((s, r) => s + r.costValue, 0);
   const totalMrp = (stock ?? []).reduce((s, r) => s + r.mrpValue, 0);
@@ -818,7 +870,13 @@ function ReportsTab() {
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Top Movers</CardTitle></CardHeader>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-4 h-4" /> {moversOrder === "desc" ? "Top Movers" : "Slow Movers"}</CardTitle>
+            <div className="flex gap-1">
+              <Button size="sm" variant={moversOrder === "desc" ? "default" : "outline"} onClick={() => setMoversOrder("desc")} data-testid="button-movers-top">Top</Button>
+              <Button size="sm" variant={moversOrder === "asc" ? "default" : "outline"} onClick={() => setMoversOrder("asc")} data-testid="button-movers-slow">Slow</Button>
+            </div>
+          </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader><TableRow><TableHead>Drug</TableHead><TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Sales</TableHead></TableRow></TableHeader>

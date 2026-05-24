@@ -59,4 +59,22 @@ router.patch("/drugs/:id", requireRole("admin", "pharmacist"), async (req, res) 
   res.json(shape(row));
 });
 
+router.delete("/drugs/:id", requireRole("admin", "pharmacist"), async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const [row] = await db.delete(drugsTable).where(eq(drugsTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "Not found" });
+    res.json({ ok: true });
+  } catch (e) {
+    // Drug is referenced by prescriptions, batches, or sale history — refuse
+    // hard delete (FK violation) and ask caller to deactivate instead. Soft
+    // delete would require a schema column; for now block with 409.
+    const msg = (e as Error).message ?? "";
+    if (msg.includes("foreign key") || msg.includes("violates")) {
+      return res.status(409).json({ error: "Drug is referenced by existing prescriptions, batches, or sales and cannot be deleted." });
+    }
+    throw e;
+  }
+});
+
 export default router;

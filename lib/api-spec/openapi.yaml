@@ -687,6 +687,13 @@ paths:
             schema: { $ref: "#/components/schemas/DrugInput" }
       responses:
         "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Drug" } } } }
+    delete:
+      operationId: deleteDrug
+      tags: [pharmacy]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Deleted, content: { application/json: { schema: { type: object, required: [ok], properties: { ok: { type: boolean } } } } } }
+        "409": { description: Referenced and cannot be deleted }
   /pharmacy/drugs/{id}/batches:
     get:
       operationId: listDrugBatches
@@ -797,6 +804,7 @@ paths:
         - { in: query, name: from, schema: { type: string } }
         - { in: query, name: to, schema: { type: string } }
         - { in: query, name: limit, schema: { type: integer } }
+        - { in: query, name: order, schema: { type: string, enum: [desc, asc] }, description: "desc=top movers (default), asc=slow movers" }
       responses:
         "200": { description: Rows, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MoverRow" } } } } }
   /pharmacy/reports/near-expiry:
