@@ -519,11 +519,55 @@ router.get("/pdf/vitals/:id", async (req, res) => {
 const IMAGE_FETCH_TIMEOUT_MS = 4_000;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // skip oversized assets to keep PDFs light
 
+// SSRF guard: only allow HTTPS image URLs hosted on an explicit allowlist of
+// trusted CDN / object-storage hostnames. Free-form `radiology.imageUrl`
+// values arrive from staff input, so without this gate a patient downloading
+// their history PDF would trigger arbitrary outbound fetches from the server
+// (including to internal hosts and cloud metadata endpoints).
+//
+// IMAGE_HOST_ALLOWLIST defaults to Replit's object-storage host. Operators
+// can extend it via a comma-separated env var if they self-host images on a
+// different CDN. Anything not on the list is silently dropped from the PDF.
+const DEFAULT_IMAGE_HOST_ALLOWLIST = [
+  "storage.googleapis.com",
+  "replit.com",
+  "objectstorage.replit.com",
+];
+const IMAGE_HOST_ALLOWLIST = new Set(
+  (process.env.PDF_IMAGE_HOST_ALLOWLIST ?? "")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean)
+    .concat(DEFAULT_IMAGE_HOST_ALLOWLIST),
+);
+
+function isImageUrlAllowed(raw: string): boolean {
+  let u: URL;
+  try { u = new URL(raw); } catch { return false; }
+  // HTTPS only — no http://, file://, ftp://, gopher://, etc.
+  if (u.protocol !== "https:") return false;
+  // Reject explicit credentials in URL.
+  if (u.username || u.password) return false;
+  const host = u.hostname.toLowerCase();
+  // Block bare-IP hosts entirely (defense in depth — would still need to
+  // bypass the allowlist, but rules out e.g. 169.254.169.254 metadata if the
+  // operator ever extends the allowlist carelessly).
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return false;
+  if (host.includes(":") /* IPv6 */) return false;
+  if (host === "localhost") return false;
+  // Allowlist check: exact host or *.suffix of an allowlisted host.
+  for (const allowed of IMAGE_HOST_ALLOWLIST) {
+    if (host === allowed || host.endsWith(`.${allowed}`)) return true;
+  }
+  return false;
+}
+
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+  if (!isImageUrlAllowed(url)) return null;
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
-    const resp = await fetch(url, { signal: controller.signal });
+    const resp = await fetch(url, { signal: controller.signal, redirect: "error" });
     clearTimeout(t);
     if (!resp.ok) return null;
     const ct = resp.headers.get("content-type") ?? "";
