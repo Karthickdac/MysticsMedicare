@@ -1,5 +1,5 @@
 import { db, rosterShiftsTable, staffTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 // Minute-of-day intervals for each roster shift band. Mirrors the labels the
 // admin roster UI exposes (Morning 08:00–16:00, Evening 16:00–24:00,
@@ -114,4 +114,67 @@ function fmt(m: number): string {
 /** Build a human-readable summary of on-duty windows, e.g. "08:00–16:00, 18:00–22:00". */
 export function describeIntervals(intervals: Array<[number, number]>): string {
   return intervals.map(([s, e]) => `${fmt(s)}–${fmt(e)}`).join(", ");
+}
+
+/**
+ * Batched variant for listing screens (e.g. /portal/doctors?date=). Resolves
+ * availability for many doctors in just two queries instead of ~3 per doctor.
+ * `doctors` carries the names already so we don't re-fetch them.
+ */
+export async function getDoctorAvailabilityMap(
+  doctors: Array<{ id: number; name: string | null }>,
+  dateStr: string,
+): Promise<Map<number, DoctorAvailability>> {
+  const out = new Map<number, DoctorAvailability>();
+  if (doctors.length === 0) return out;
+  const ids = doctors.map((d) => d.id);
+
+  // Shifts on the target date, grouped by staff id.
+  const dateShifts = await db
+    .select({ staffId: rosterShiftsTable.staffId, shift: rosterShiftsTable.shift })
+    .from(rosterShiftsTable)
+    .where(
+      and(inArray(rosterShiftsTable.staffId, ids), eq(rosterShiftsTable.date, dateStr)),
+    );
+  const byDoctor = new Map<number, string[]>();
+  for (const r of dateShifts) {
+    const arr = byDoctor.get(r.staffId) ?? [];
+    arr.push(r.shift);
+    byDoctor.set(r.staffId, arr);
+  }
+
+  // Doctors who have *any* roster entry — used for the unrostered fallback.
+  const anyRosterRows = await db
+    .select({ staffId: rosterShiftsTable.staffId })
+    .from(rosterShiftsTable)
+    .where(inArray(rosterShiftsTable.staffId, ids));
+  const hasAnyRoster = new Set(anyRosterRows.map((r) => r.staffId));
+
+  for (const d of doctors) {
+    const label = honorific(d.name);
+    const shifts = byDoctor.get(d.id) ?? [];
+    if (shifts.includes("Leave")) {
+      out.set(d.id, { closed: true, reason: `${label} is on leave that day.`, intervals: [], unrostered: false });
+      continue;
+    }
+    if (shifts.length === 0) {
+      if (!hasAnyRoster.has(d.id)) {
+        out.set(d.id, { closed: false, reason: null, intervals: [[0, 24 * 60]], unrostered: true });
+      } else {
+        out.set(d.id, { closed: true, reason: `${label} is off duty that day.`, intervals: [], unrostered: false });
+      }
+      continue;
+    }
+    const intervals: Array<[number, number]> = [];
+    for (const s of shifts) {
+      const range = SHIFT_INTERVALS[s];
+      if (range) intervals.push([range[0], range[1]]);
+    }
+    if (intervals.length === 0) {
+      out.set(d.id, { closed: false, reason: null, intervals: [[0, 24 * 60]], unrostered: false });
+    } else {
+      out.set(d.id, { closed: false, reason: null, intervals: mergeIntervals(intervals), unrostered: false });
+    }
+  }
+  return out;
 }

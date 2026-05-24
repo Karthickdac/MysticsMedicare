@@ -446,14 +446,18 @@ function RescheduleDialog({ appt, onClose, onDone }: { appt: Appt | null; onClos
 // ============================================================================
 // Book a new appointment
 // ============================================================================
-type Doctor = { id: number; name: string; department: string | null; specialization: string | null };
+type Doctor = {
+  id: number; name: string; department: string | null; specialization: string | null;
+  availability?: { closed: boolean; reason: string | null; unrostered: boolean };
+};
 
 export function PortalBook() {
   const [, setLocation] = useLocation();
-  const { data: doctors, loading } = useApi<Doctor[]>("/portal/doctors", []);
-  const { data: settings } = useApi<PublicHospitalSettings>("/hospital-settings/public", []);
   const [doctorId, setDoctorId] = useState<string>("");
   const [date, setDate] = useState("");
+  const doctorsPath = date ? `/portal/doctors?date=${date}` : "/portal/doctors";
+  const { data: doctors, loading } = useApi<Doctor[]>(doctorsPath, [date]);
+  const { data: settings } = useApi<PublicHospitalSettings>("/hospital-settings/public", []);
   const [time, setTime] = useState("");
   const [reason, setReason] = useState("");
   const [slots, setSlots] = useState<Array<{ time: string; taken: boolean }>>([]);
@@ -468,6 +472,15 @@ export function PortalBook() {
 
   const chosenDoctor = doctors?.find((d) => String(d.id) === doctorId);
   const department = chosenDoctor?.department ?? "";
+
+  // If the picked doctor turns out to be off-duty for the chosen date, clear
+  // the selection so the patient must pick again rather than silently failing
+  // at the slots step.
+  useEffect(() => {
+    if (!doctorId || !doctors) return;
+    const d = doctors.find((x) => String(x.id) === doctorId);
+    if (d?.availability?.closed) { setDoctorId(""); setTime(""); }
+  }, [doctorId, doctors]);
 
   useEffect(() => {
     if (!doctorId || !date) { setSlots([]); setClosedReason(null); return; }
@@ -515,11 +528,17 @@ export function PortalBook() {
                 <Select value={doctorId} onValueChange={setDoctorId}>
                   <SelectTrigger><SelectValue placeholder="Select a doctor" /></SelectTrigger>
                   <SelectContent>
-                    {doctors?.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}{d.specialization ? ` · ${d.specialization}` : ""}{d.department ? ` (${d.department})` : ""}
-                      </SelectItem>
-                    ))}
+                    {doctors?.map((d) => {
+                      const off = d.availability?.closed;
+                      return (
+                        <SelectItem key={d.id} value={String(d.id)} disabled={off}>
+                          <span className={off ? "text-muted-foreground" : ""}>
+                            {d.name}{d.specialization ? ` · ${d.specialization}` : ""}{d.department ? ` (${d.department})` : ""}
+                            {off ? ` — ${d.availability?.reason ?? "off duty"}` : ""}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

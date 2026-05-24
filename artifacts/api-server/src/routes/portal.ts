@@ -17,7 +17,7 @@ import {
 import { and, desc, eq, inArray, sql, gte, lte } from "drizzle-orm";
 import { hasSlotConflict } from "../lib/slot-conflict";
 import { nextReceiptNumber, validateAppointmentSlot, generateSlotsForDate } from "../lib/hospital-settings";
-import { getDoctorAvailability, minuteOfDayInInterval, describeIntervals } from "../lib/doctor-availability";
+import { getDoctorAvailability, getDoctorAvailabilityMap, minuteOfDayInInterval, describeIntervals } from "../lib/doctor-availability";
 import { z } from "zod";
 import {
   renderLabReportPdf,
@@ -348,20 +348,52 @@ router.get("/portal/appointments", requirePatient, async (req, res) => {
 });
 
 // Doctor directory restricted to fields the portal needs for booking.
-router.get("/portal/doctors", requirePatient, async (_req, res) => {
+// When `?date=YYYY-MM-DD` is supplied, each doctor is annotated with
+// availability for that date (closed + reason) so the UI can dim/sort
+// off-duty doctors before the patient invests a click.
+router.get("/portal/doctors", requirePatient, async (req, res) => {
+  const dateStr = String(req.query["date"] ?? "");
+  const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
   const rows = await db
     .select()
     .from(staffTable)
     .where(and(eq(staffTable.role, "doctor"), eq(staffTable.status, "active")))
     .orderBy(staffTable.name);
-  res.json(
-    rows.map((s) => ({
+
+  if (!hasDate) {
+    return res.json(
+      rows.map((s) => ({
+        id: s.id,
+        name: s.name,
+        department: s.department,
+        specialization: s.specialization,
+      })),
+    );
+  }
+
+  const availMap = await getDoctorAvailabilityMap(
+    rows.map((s) => ({ id: s.id, name: s.name })),
+    dateStr,
+  );
+  const annotated = rows.map((s) => {
+    const av = availMap.get(s.id)!;
+    return {
       id: s.id,
       name: s.name,
       department: s.department,
       specialization: s.specialization,
-    })),
-  );
+      availability: { closed: av.closed, reason: av.reason, unrostered: av.unrostered },
+    };
+  });
+  // Sort on-duty (or unrostered fallback) first, then off-duty, preserving
+  // alphabetical order within each group.
+  annotated.sort((a, b) => {
+    const ac = a.availability.closed ? 1 : 0;
+    const bc = b.availability.closed ? 1 : 0;
+    if (ac !== bc) return ac - bc;
+    return a.name.localeCompare(b.name);
+  });
+  res.json(annotated);
 });
 
 // Existing booked slots for a doctor on a given date (so the UI can grey out
