@@ -1,2 +1,2 @@
-- [Orval zod naming](orval-zod-naming.md) — operation body zod schemas come from operationId+"Body", not the OpenAPI schema name; use *Input for schema components to avoid wildcard re-export collisions in api-zod index.
-- [IPD discharge concurrency](ipd-discharge-concurrency.md) — admission discharge must take advisory locks on both the admission id and bed id and re-read latest state to avoid losing concurrent transfers; MAR POST must verify admission active + prescription↔encounter/patient ownership and dedupe on (admission, prescription, scheduledAt).
+- [Orval zod naming](orval-zod-naming.md) — name request-body schema components `*Input` to avoid api-zod re-export collision with operationId-based zod.
+- [IPD locking & MAR dedupe](ipd-discharge-concurrency.md) — admit/transfer/discharge must lock admission first then beds; MAR upsert needs DB unique index.

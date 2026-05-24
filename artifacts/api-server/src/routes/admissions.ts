@@ -179,6 +179,11 @@ router.post(
 
     try {
       const result = await db.transaction(async (tx) => {
+        // Lock admission first (same protocol as discharge), then beds in
+        // deterministic order. Discharge takes (admission, bed) — transfer
+        // takes (admission, fromBed, toBed) — so a concurrent discharge +
+        // transfer serialize on the shared admission lock.
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${id})`);
         const [adm] = await tx.select().from(admissionsTable).where(eq(admissionsTable.id, id)).limit(1);
         if (!adm) throw new Error("ADMISSION_NOT_FOUND");
         if (adm.status !== "active") throw new Error("ADMISSION_NOT_ACTIVE");
@@ -564,46 +569,32 @@ router.post(
 
     const scheduledAt = new Date(body.scheduledAt);
     const administeredAt = body.status === "given" ? new Date() : null;
+    const administeredBy = body.status === "given" ? req.user?.name ?? null : null;
 
-    // Idempotency: if a dose for the same (admission, prescription, scheduledAt)
-    // already exists, update it instead of inserting a duplicate.
-    const [existing] = await db
-      .select()
-      .from(marEntriesTable)
-      .where(
-        and(
-          eq(marEntriesTable.admissionId, id),
-          eq(marEntriesTable.prescriptionId, body.prescriptionId),
-          eq(marEntriesTable.scheduledAt, scheduledAt),
-        ),
-      )
-      .limit(1);
-    let row;
-    if (existing) {
-      [row] = await db
-        .update(marEntriesTable)
-        .set({
+    // Atomic upsert relies on the `mar_entries_dose_uniq` unique index on
+    // (admission_id, prescription_id, scheduled_at) — concurrent identical
+    // posts collapse to a single row.
+    const [row] = await db
+      .insert(marEntriesTable)
+      .values({
+        admissionId: id,
+        prescriptionId: body.prescriptionId,
+        scheduledAt,
+        status: body.status,
+        administeredBy,
+        administeredAt,
+        notes: body.notes,
+      })
+      .onConflictDoUpdate({
+        target: [marEntriesTable.admissionId, marEntriesTable.prescriptionId, marEntriesTable.scheduledAt],
+        set: {
           status: body.status,
-          administeredBy: body.status === "given" ? req.user?.name ?? null : existing.administeredBy,
-          administeredAt: administeredAt ?? existing.administeredAt,
-          notes: body.notes ?? existing.notes,
-        })
-        .where(eq(marEntriesTable.id, existing.id))
-        .returning();
-    } else {
-      [row] = await db
-        .insert(marEntriesTable)
-        .values({
-          admissionId: id,
-          prescriptionId: body.prescriptionId,
-          scheduledAt,
-          status: body.status,
-          administeredBy: body.status === "given" ? req.user?.name ?? null : null,
-          administeredAt,
-          notes: body.notes,
-        })
-        .returning();
-    }
+          administeredBy: sql`COALESCE(${administeredBy ?? null}, ${marEntriesTable.administeredBy})`,
+          administeredAt: sql`COALESCE(${administeredAt ?? null}, ${marEntriesTable.administeredAt})`,
+          notes: sql`COALESCE(${body.notes ?? null}, ${marEntriesTable.notes})`,
+        },
+      })
+      .returning();
     res.status(201).json({
       id: row.id,
       prescriptionId: row.prescriptionId,

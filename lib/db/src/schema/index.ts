@@ -8,6 +8,7 @@ import {
   boolean,
   jsonb,
   date,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -143,17 +144,25 @@ export const nursingNotesTable = pgTable("nursing_notes", {
 // Medication administration record — one row per scheduled dose. Doses are
 // generated up-front when the prescription is added to MAR (or on-the-fly via
 // GET expansion) and then updated to given / held / refused as nurses act.
-export const marEntriesTable = pgTable("mar_entries", {
-  id: serial("id").primaryKey(),
-  admissionId: integer("admission_id").notNull().references(() => admissionsTable.id, { onDelete: "cascade" }),
-  prescriptionId: integer("prescription_id").notNull().references(() => prescriptionsTable.id, { onDelete: "cascade" }),
-  scheduledAt: timestamp("scheduled_at").notNull(),
-  status: text("status").notNull().default("pending"),
-  administeredBy: text("administered_by"),
-  administeredAt: timestamp("administered_at"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const marEntriesTable = pgTable(
+  "mar_entries",
+  {
+    id: serial("id").primaryKey(),
+    admissionId: integer("admission_id").notNull().references(() => admissionsTable.id, { onDelete: "cascade" }),
+    prescriptionId: integer("prescription_id").notNull().references(() => prescriptionsTable.id, { onDelete: "cascade" }),
+    scheduledAt: timestamp("scheduled_at").notNull(),
+    status: text("status").notNull().default("pending"),
+    administeredBy: text("administered_by"),
+    administeredAt: timestamp("administered_at"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    // Atomic dedupe: ON CONFLICT in MAR POST relies on this constraint so
+    // double-clicks/parallel writes cannot create duplicate dose rows.
+    uniqDose: uniqueIndex("mar_entries_dose_uniq").on(t.admissionId, t.prescriptionId, t.scheduledAt),
+  }),
+);
 
 export const labOrdersTable = pgTable("lab_orders", {
   id: serial("id").primaryKey(),
