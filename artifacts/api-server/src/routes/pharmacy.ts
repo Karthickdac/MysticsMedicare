@@ -799,7 +799,19 @@ router.post("/pharmacy/sales/:id/return", requireRole("admin", "pharmacist"), as
       ).then((r) => r.rows);
       if (!sale) throw new HttpError(404, "Sale not found");
 
-      const saleItemIds = items.map((i) => i.saleItemId);
+      // Aggregate request lines by saleItemId so duplicate entries can't be
+      // used to over-refund or double-decrement qtyReturned against a stale
+      // in-memory snapshot. `restock` for a sale item is true unless every
+      // duplicate entry for that sale item explicitly opted out.
+      const aggregated = new Map<number, { qty: number; restock: boolean }>();
+      for (const ret of items) {
+        const cur = aggregated.get(ret.saleItemId) ?? { qty: 0, restock: false };
+        cur.qty += ret.qty;
+        if (ret.restock !== false) cur.restock = true;
+        aggregated.set(ret.saleItemId, cur);
+      }
+
+      const saleItemIds = [...aggregated.keys()];
       const saleItems = await tx
         .select()
         .from(pharmacySaleItemsTable)
@@ -808,31 +820,25 @@ router.post("/pharmacy/sales/:id/return", requireRole("admin", "pharmacist"), as
       const itemMap = new Map(saleItems.map((s) => [s.id, s]));
 
       let refund = 0;
-      for (const ret of items) {
-        const si = itemMap.get(ret.saleItemId);
-        if (!si || si.saleId !== saleId) throw new HttpError(400, `Sale item ${ret.saleItemId} not in this sale`);
+      const perItemRefund = new Map<number, number>();
+      for (const [saleItemId, agg] of aggregated) {
+        const si = itemMap.get(saleItemId);
+        if (!si || si.saleId !== saleId) throw new HttpError(400, `Sale item ${saleItemId} not in this sale`);
         const remaining = si.qty - si.qtyReturned;
-        if (ret.qty > remaining) throw new HttpError(400, `Cannot return ${ret.qty} of ${si.id}: only ${remaining} remaining`);
+        if (agg.qty > remaining) throw new HttpError(400, `Cannot return ${agg.qty} of ${si.id}: only ${remaining} remaining`);
         const linePerUnit = num(si.amount) / si.qty;
-        const refundLine = r2(linePerUnit * ret.qty);
+        const refundLine = r2(linePerUnit * agg.qty);
+        perItemRefund.set(saleItemId, refundLine);
         refund = r2(refund + refundLine);
 
         await tx.update(pharmacySaleItemsTable)
-          .set({ qtyReturned: si.qtyReturned + ret.qty })
+          .set({ qtyReturned: sql`${pharmacySaleItemsTable.qtyReturned} + ${agg.qty}` })
           .where(eq(pharmacySaleItemsTable.id, si.id));
 
-        if (ret.restock !== false) {
-          // FOR UPDATE the batch before bumping qty.
-          const [b] = await tx
-            .select()
-            .from(pharmacyBatchesTable)
-            .where(eq(pharmacyBatchesTable.id, si.batchId))
-            .for("update");
-          if (b) {
-            await tx.update(pharmacyBatchesTable)
-              .set({ qtyOnHand: b.qtyOnHand + ret.qty })
-              .where(eq(pharmacyBatchesTable.id, si.batchId));
-          }
+        if (agg.restock) {
+          await tx.update(pharmacyBatchesTable)
+            .set({ qtyOnHand: sql`${pharmacyBatchesTable.qtyOnHand} + ${agg.qty}` })
+            .where(eq(pharmacyBatchesTable.id, si.batchId));
         }
       }
 
@@ -846,15 +852,11 @@ router.post("/pharmacy/sales/:id/return", requireRole("admin", "pharmacist"), as
         refundAmount: refund.toFixed(2), approvedBy: req.user?.name ?? null,
       }).returning();
       await tx.insert(pharmacyReturnItemsTable).values(
-        items.map((it) => {
-          const si = itemMap.get(it.saleItemId)!;
-          const linePerUnit = num(si.amount) / si.qty;
-          return {
-            returnId: ret.id, saleItemId: it.saleItemId,
-            qty: it.qty, restock: it.restock !== false,
-            refundLine: r2(linePerUnit * it.qty).toFixed(2),
-          };
-        }),
+        [...aggregated.entries()].map(([saleItemId, agg]) => ({
+          returnId: ret.id, saleItemId,
+          qty: agg.qty, restock: agg.restock,
+          refundLine: (perItemRefund.get(saleItemId) ?? 0).toFixed(2),
+        })),
       );
 
       // Recompute sale status.
