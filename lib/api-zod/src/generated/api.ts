@@ -2340,6 +2340,28 @@ export const DeleteRoleParams = zod.object({
 })
 
 
+/**
+ * @summary Branding & working-hours subset that any authenticated user may read.
+ */
+export const GetPublicHospitalSettingsResponse = zod.object({
+  "name": zod.string(),
+  "logoUrl": zod.string().nullish(),
+  "primaryColor": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "gstin": zod.string().nullish(),
+  "workingHours": zod.record(zod.string(), zod.unknown()).optional(),
+  "holidays": zod.array(zod.object({
+  "date": zod.string(),
+  "label": zod.string()
+})).optional()
+})
+
+
 export const GetHospitalSettingsResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),

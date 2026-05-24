@@ -6,6 +6,7 @@ import { requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
 import { hasSlotConflict } from "../lib/slot-conflict";
+import { validateAppointmentSlot } from "../lib/hospital-settings";
 
 // Roles allowed to mark a visit as completed / no_show. Reschedule and cancel
 // are still open to receptionist/admin. UI hides these actions, but the
@@ -66,6 +67,8 @@ router.post("/appointments", requireRole("admin", "doctor", "receptionist"), asy
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const when = new Date(parsed.data.scheduledAt);
+  const slotError = await validateAppointmentSlot(when);
+  if (slotError) return res.status(400).json({ error: slotError });
   // Serialize concurrent bookings for the same doctor via a transaction-scoped
   // advisory lock so the conflict-check + insert is atomic. Without this two
   // requests can both pass the check and both insert into the same 15-min slot.
@@ -151,6 +154,8 @@ router.patch("/appointments/:id", requireRole("admin", "doctor", "receptionist")
     row = await db.transaction(async (tx) => {
       if (parsed.data.scheduledAt) {
         const when = new Date(parsed.data.scheduledAt);
+        const err = await validateAppointmentSlot(when);
+        if (err) throw new Error(`__SLOT_INVALID__${err}`);
         await tx.execute(sql`SELECT pg_advisory_xact_lock(${existing.doctorId})`);
         if (await hasSlotConflict(tx, existing.doctorId, when, id)) {
           throw new Error("__SLOT_CONFLICT__");
@@ -163,6 +168,9 @@ router.patch("/appointments/:id", requireRole("admin", "doctor", "receptionist")
   } catch (e: unknown) {
     if (e instanceof Error && e.message === "__SLOT_CONFLICT__") {
       return res.status(409).json({ error: "Doctor already has an appointment within 15 minutes of this slot" });
+    }
+    if (e instanceof Error && e.message.startsWith("__SLOT_INVALID__")) {
+      return res.status(400).json({ error: e.message.slice("__SLOT_INVALID__".length) });
     }
     throw e;
   }

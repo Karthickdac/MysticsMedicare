@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, inArray, sql, gte, lte } from "drizzle-orm";
 import { hasSlotConflict } from "../lib/slot-conflict";
+import { nextReceiptNumber, validateAppointmentSlot, generateSlotsForDate } from "../lib/hospital-settings";
 import { z } from "zod";
 import {
   renderLabReportPdf,
@@ -371,6 +372,14 @@ router.get("/portal/doctors/:id/slots", requirePatient, async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return res.status(400).json({ error: "date=YYYY-MM-DD required" });
   }
+  // Settings-aware availability: generate candidate slots from hospital
+  // working hours (skipping holidays/closed days) and subtract anything
+  // already booked. Returns `closed` + `reason` when the hospital isn't
+  // open, so the UI can show a friendly message instead of an empty list.
+  const gen = await generateSlotsForDate(dateStr);
+  if (gen.closed) {
+    return res.json({ taken: [], slots: [], closed: true, reason: gen.reason ?? "Closed" });
+  }
   const dayStart = new Date(`${dateStr}T00:00:00`);
   const dayEnd = new Date(`${dateStr}T23:59:59.999`);
   const taken = await db
@@ -384,7 +393,16 @@ router.get("/portal/doctors/:id/slots", requirePatient, async (req, res) => {
         inArray(appointmentsTable.status, ["scheduled", "confirmed", "completed"]),
       ),
     );
-  res.json({ taken: taken.map((t) => requiredIso(t.at)) });
+  const takenIso = taken.map((t) => requiredIso(t.at));
+  const takenHHMM = new Set(
+    taken.map((t) => {
+      const d = new Date(t.at);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }),
+  );
+  const slots = gen.slots.map((time) => ({ time, taken: takenHHMM.has(time) }));
+  res.json({ taken: takenIso, slots, closed: false });
 });
 
 const BookAppointmentBody = z.object({
@@ -403,6 +421,8 @@ router.post("/portal/appointments", requirePatient, async (req, res) => {
   if (when.getTime() < Date.now() - 60 * 1000) {
     return res.status(400).json({ error: "Cannot book in the past" });
   }
+  const slotError = await validateAppointmentSlot(when);
+  if (slotError) return res.status(400).json({ error: slotError });
   // Same advisory-lock + conflict-check pattern as the staff route so portal
   // and staff bookings can't both win the same 15-min slot.
   try {
@@ -475,6 +495,8 @@ router.post("/portal/appointments/:id/reschedule", requirePatient, async (req, r
   if (isNaN(when.getTime()) || when.getTime() < Date.now() - 60 * 1000) {
     return res.status(400).json({ error: "Invalid new slot" });
   }
+  const slotError = await validateAppointmentSlot(when);
+  if (slotError) return res.status(400).json({ error: slotError });
   const [existing] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id));
   if (!existing || existing.patientId !== pid) return res.status(404).json({ error: "Not found" });
   if (existing.status !== "scheduled" && existing.status !== "confirmed") {
@@ -750,11 +772,7 @@ router.post("/portal/bills/:id/pay", requirePatient, async (req, res) => {
       if (balance <= 0.005) throw new Error("__ALREADY_PAID__");
       const amount = parsed.data.amount ? r2(Number(parsed.data.amount)) : balance;
       if (amount > balance + 0.005) throw new Error("__OVERPAY__");
-      const [{ next }] = (
-        await tx.execute<{ next: string }>(
-          sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
-        )
-      ).rows;
+      const next = await nextReceiptNumber(tx);
       const [payment] = await tx
         .insert(billPaymentsTable)
         .values({

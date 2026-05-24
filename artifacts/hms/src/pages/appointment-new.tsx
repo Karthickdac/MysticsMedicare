@@ -7,6 +7,7 @@ import {
   useCreateAppointment,
   useListPatients,
   useListStaff,
+  useGetPublicHospitalSettings,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -42,6 +43,27 @@ export default function AppointmentNew() {
   const createMutation = useCreateAppointment();
   const { data: patients } = useListPatients({});
   const { data: staff } = useListStaff();
+  const { data: settings } = useGetPublicHospitalSettings();
+
+  const workingHoursHint = useMemo(() => {
+    const wh = settings?.workingHours as Record<string, { open?: string; close?: string; closed?: boolean }> | undefined;
+    if (!wh) return null;
+    const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days
+      .map((d, i) => {
+        const v = wh[d];
+        if (!v || v.closed) return `${labels[i]}: Closed`;
+        return `${labels[i]}: ${v.open ?? "—"}–${v.close ?? "—"}`;
+      })
+      .join("  •  ");
+  }, [settings]);
+
+  const holidayHint = useMemo(() => {
+    const hs = settings?.holidays ?? [];
+    if (hs.length === 0) return null;
+    return hs.slice(0, 5).map((h) => `${h.date}${h.label ? ` (${h.label})` : ""}`).join(", ");
+  }, [settings]);
 
   const doctors = useMemo(
     () => (staff ?? []).filter((s) => s.role === "doctor" && s.status !== "inactive"),
@@ -239,6 +261,16 @@ export default function AppointmentNew() {
                     <FormItem>
                       <FormLabel>Date & time *</FormLabel>
                       <FormControl><Input type="datetime-local" {...field} /></FormControl>
+                      {workingHoursHint && (
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Hours: {workingHoursHint}
+                        </p>
+                      )}
+                      {holidayHint && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Upcoming holidays: {holidayHint}
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

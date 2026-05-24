@@ -18,16 +18,24 @@ import {
 import { and, desc, eq, gte } from "drizzle-orm";
 import { num } from "../lib/format";
 import { requireRole } from "../lib/auth";
+import { getHospitalSettings } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
 
-function startPdf(res: Response, filename: string) {
+async function startPdf(res: Response, filename: string) {
+  const settings = await getHospitalSettings();
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   doc.pipe(res);
-  doc.fontSize(20).text("MediCare HMS Plus", { align: "center" });
-  doc.fontSize(10).fillColor("#666").text("Hospital Management System", { align: "center" });
+  doc.fontSize(20).text(settings.name, { align: "center" });
+  const addrParts = [settings.address, settings.city, settings.state, settings.pincode].filter(Boolean);
+  const subtitle = addrParts.length > 0 ? addrParts.join(", ") : "Hospital Management System";
+  doc.fontSize(10).fillColor("#666").text(subtitle, { align: "center" });
+  if (settings.gstin || settings.phone) {
+    const meta = [settings.gstin ? `GSTIN: ${settings.gstin}` : null, settings.phone ? `Ph: ${settings.phone}` : null].filter(Boolean).join("  •  ");
+    doc.fontSize(9).text(meta, { align: "center" });
+  }
   doc.moveDown().fillColor("#000");
   return doc;
 }
@@ -41,11 +49,9 @@ export async function renderInvoicePdf(res: Response, id: number): Promise<void>
   if (!b) { res.status(404).json({ error: "Bill not found" }); return; }
   const [p] = b.patientId ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
   const payments = await db.select().from(billPaymentsTable).where(eq(billPaymentsTable.billId, id));
-  const doc = startPdf(res, `invoice-${b.billNumber}.pdf`);
+  const doc = await startPdf(res, `invoice-${b.billNumber}.pdf`);
   doc.fontSize(16).text("TAX INVOICE", { align: "center" });
-  doc.fontSize(9).fillColor("#666")
-    .text("123 Health Avenue, New Delhi 110001 — GSTIN: 07AABCU9603R1ZX", { align: "center" });
-  doc.fillColor("#000").moveDown();
+  doc.moveDown();
 
   const headerY = doc.y;
   doc.fontSize(10);
@@ -138,7 +144,7 @@ export async function renderReceiptPdf(res: Response, id: number): Promise<void>
   if (!pay) { res.status(404).json({ error: "Receipt not found" }); return; }
   const [b] = await db.select().from(billsTable).where(eq(billsTable.id, pay.billId));
   const [p] = b ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
-  const doc = startPdf(res, `receipt-${pay.receiptNumber}.pdf`);
+  const doc = await startPdf(res, `receipt-${pay.receiptNumber}.pdf`);
   doc.fontSize(16).text("PAYMENT RECEIPT", { align: "center" }).moveDown();
   doc.fontSize(11);
   doc.text(`Receipt #: ${pay.receiptNumber}`);
@@ -208,7 +214,7 @@ export async function renderDischargeSummaryPdf(res: Response, id: number): Prom
         .where(and(eq(marEntriesTable.admissionId, adm.id), eq(marEntriesTable.status, "given")))
     : [];
 
-  const doc = startPdf(res, `discharge-${id}.pdf`);
+  const doc = await startPdf(res, `discharge-${id}.pdf`);
   doc.fontSize(16).text("DISCHARGE SUMMARY", { align: "center" }).moveDown();
   if (p) {
     doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
@@ -290,7 +296,7 @@ export async function renderLabReportPdf(res: Response, id: number): Promise<voi
   const [o] = await db.select().from(labOrdersTable).where(eq(labOrdersTable.id, id));
   if (!o) { res.status(404).json({ error: "Lab order not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
-  const doc = startPdf(res, `lab-${id}.pdf`);
+  const doc = await startPdf(res, `lab-${id}.pdf`);
   doc.fontSize(16).text("LABORATORY REPORT", { align: "center" });
   doc.fontSize(9).fillColor("#666").text("NABL-accredited diagnostic services", { align: "center" });
   doc.fillColor("#000").moveDown();
@@ -378,7 +384,7 @@ export async function renderRadiologyReportPdf(res: Response, id: number): Promi
   const [o] = await db.select().from(radiologyTable).where(eq(radiologyTable.id, id));
   if (!o) { res.status(404).json({ error: "Radiology order not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
-  const doc = startPdf(res, `radiology-${id}.pdf`);
+  const doc = await startPdf(res, `radiology-${id}.pdf`);
   doc.fontSize(16).text("RADIOLOGY REPORT", { align: "center" });
   doc.fontSize(9).fillColor("#666").text("Imaging & Diagnostics", { align: "center" });
   doc.fillColor("#000").moveDown();
@@ -433,7 +439,7 @@ export async function renderPrescriptionPdf(res: Response, id: number): Promise<
   const [rx] = await db.select().from(prescriptionsTable).where(eq(prescriptionsTable.id, id));
   if (!rx) { res.status(404).json({ error: "Prescription not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, rx.patientId));
-  const doc = startPdf(res, `prescription-${id}.pdf`);
+  const doc = await startPdf(res, `prescription-${id}.pdf`);
   doc.fontSize(16).text("PRESCRIPTION (Rx)", { align: "center" }).moveDown();
   if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   if (rx.prescribedBy) doc.text(`Prescribing Doctor: ${rx.prescribedBy}`);
@@ -461,7 +467,7 @@ export async function renderVaccinationPdf(res: Response, id: number): Promise<v
   const [v] = await db.select().from(vaccinationsTable).where(eq(vaccinationsTable.id, id));
   if (!v) { res.status(404).json({ error: "Vaccination record not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, v.patientId));
-  const doc = startPdf(res, `vaccination-${id}.pdf`);
+  const doc = await startPdf(res, `vaccination-${id}.pdf`);
   doc.fontSize(16).text("VACCINATION CERTIFICATE", { align: "center" }).moveDown();
   if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   doc.text(`Date Administered: ${new Date(v.administeredAt).toLocaleString("en-IN")}`);
@@ -483,7 +489,7 @@ export async function renderVitalPdf(res: Response, id: number): Promise<void> {
   const [v] = await db.select().from(vitalsTable).where(eq(vitalsTable.id, id));
   if (!v) { res.status(404).json({ error: "Vitals record not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, v.patientId));
-  const doc = startPdf(res, `vitals-${id}.pdf`);
+  const doc = await startPdf(res, `vitals-${id}.pdf`);
   doc.fontSize(16).text("VITALS RECORD", { align: "center" }).moveDown();
   if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   doc.text(`Recorded At: ${new Date(v.recordedAt).toLocaleString("en-IN")}`);
@@ -611,7 +617,7 @@ export async function renderPatientHistoryPdf(res: Response, patientId: number):
     rads.map((r) => (r.imageUrl ? fetchImageBuffer(r.imageUrl) : Promise.resolve(null))),
   );
 
-  const doc = startPdf(res, `patient-history-${p.uhid}.pdf`);
+  const doc = await startPdf(res, `patient-history-${p.uhid}.pdf`);
 
   const section = (title: string) => {
     if (doc.y > 720) doc.addPage();

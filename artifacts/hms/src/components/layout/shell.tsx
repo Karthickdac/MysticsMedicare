@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useMe, useLogout, useGetDashboardSummary, useListBills, useListNotificationLog } from "@workspace/api-client-react";
+import { useBranding } from "@/lib/use-branding";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -192,6 +193,7 @@ function NotificationsBell({ criticalAlerts }: { criticalAlerts?: number }) {
 export function Shell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   useCommandPaletteHotkey(() => setPaletteOpen(true));
+  useBranding();
 
   return (
     <SidebarProvider>
@@ -212,6 +214,7 @@ function AppSidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { data: session } = useMe();
   const role = (session?.role as string | undefined) ?? "";
   const [filter, setFilter] = useState("");
+  const branding = useBranding();
 
   const navGroups = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -245,12 +248,20 @@ function AppSidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border bg-sidebar-gradient">
       <SidebarHeader className="h-16 flex items-center px-4 border-b border-sidebar-border gap-2 bg-transparent">
-        <div className="w-9 h-9 rounded-xl bg-brand-gradient text-white flex items-center justify-center shadow-md ring-1 ring-white/20">
-          <Sparkles className="w-5 h-5" />
-        </div>
+        {branding?.logoUrl ? (
+          <img
+            src={branding.logoUrl}
+            alt={branding.name ?? "Logo"}
+            className="w-9 h-9 rounded-xl object-cover shadow-md ring-1 ring-white/20 bg-white"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-xl bg-brand-gradient text-white flex items-center justify-center shadow-md ring-1 ring-white/20">
+            <Sparkles className="w-5 h-5" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="font-bold text-[15px] tracking-tight truncate text-sidebar-foreground leading-tight">
-            Mystics MediCare
+            {branding?.name ?? "MediCare HMS"}
           </div>
           <div className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/50 font-semibold">
             Pro · Clinical OS

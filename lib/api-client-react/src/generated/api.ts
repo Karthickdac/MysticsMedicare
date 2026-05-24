@@ -129,6 +129,7 @@ import type {
   PharmacySupplierInput,
   Prescription,
   PrescriptionInput,
+  PublicHospitalSettings,
   PurchaseOrder,
   PurchaseOrderInput,
   QueueStats,
@@ -7378,6 +7379,83 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getDeleteRoleMutationOptions(options));
     }
+
+export const getGetPublicHospitalSettingsUrl = () => {
+
+
+
+
+  return `/api/hospital-settings/public`
+}
+
+/**
+ * @summary Branding & working-hours subset that any authenticated user may read.
+ */
+export const getPublicHospitalSettings = async ( options?: RequestInit): Promise<PublicHospitalSettings> => {
+
+  return customFetch<PublicHospitalSettings>(getGetPublicHospitalSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicHospitalSettingsQueryKey = () => {
+    return [
+    `/api/hospital-settings/public`
+    ] as const;
+    }
+
+
+export const getGetPublicHospitalSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPublicHospitalSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicHospitalSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicHospitalSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicHospitalSettings>>> = ({ signal }) => getPublicHospitalSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicHospitalSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicHospitalSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicHospitalSettings>>>
+export type GetPublicHospitalSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Branding & working-hours subset that any authenticated user may read.
+ */
+
+export function useGetPublicHospitalSettings<TData = Awaited<ReturnType<typeof getPublicHospitalSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicHospitalSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicHospitalSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetHospitalSettingsUrl = () => {
 

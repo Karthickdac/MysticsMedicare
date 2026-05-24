@@ -1345,6 +1345,18 @@ paths:
           description: Built-in or in use
           content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } }
 
+  /hospital-settings/public:
+    get:
+      operationId: getPublicHospitalSettings
+      tags: [admin]
+      summary: Branding & working-hours subset that any authenticated user may read.
+      responses:
+        "200":
+          description: Public settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicHospitalSettings" }
+
   /admin/hospital-settings:
     get:
       operationId: getHospitalSettings
@@ -3328,6 +3340,29 @@ components:
               date: { type: string }
               label: { type: string }
         updatedAt: { type: string }
+    PublicHospitalSettings:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        primaryColor: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        pincode: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        gstin: { type: ["string", "null"] }
+        workingHours: { type: object, additionalProperties: true }
+        holidays:
+          type: array
+          items:
+            type: object
+            required: [date, label]
+            properties:
+              date: { type: string }
+              label: { type: string }
     HospitalSettingsInput:
       type: object
       properties:

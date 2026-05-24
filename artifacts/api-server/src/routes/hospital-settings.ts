@@ -4,36 +4,16 @@ import { eq } from "drizzle-orm";
 import { UpdateHospitalSettingsBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { requirePermission } from "../lib/auth";
+import {
+  getHospitalSettings,
+  invalidateHospitalSettingsCache,
+  shapePublic,
+  type HospitalSettingsRow,
+} from "../lib/hospital-settings";
 
 const router: IRouter = Router();
 
-type Row = typeof hospitalSettingsTable.$inferSelect;
-
-async function loadOrSeed(): Promise<Row> {
-  const [existing] = await db.select().from(hospitalSettingsTable).where(eq(hospitalSettingsTable.id, 1));
-  if (existing) return existing;
-  const [created] = await db.insert(hospitalSettingsTable).values({
-    id: 1,
-    name: "MediCare Pro",
-    legalName: "Mystics MediCare Pvt Ltd",
-    invoicePrefix: "INV",
-    receiptPrefix: "RCT",
-    primaryColor: "#0ea5e9",
-    workingHours: {
-      mon: { open: "08:00", close: "20:00" },
-      tue: { open: "08:00", close: "20:00" },
-      wed: { open: "08:00", close: "20:00" },
-      thu: { open: "08:00", close: "20:00" },
-      fri: { open: "08:00", close: "20:00" },
-      sat: { open: "09:00", close: "14:00" },
-      sun: { closed: true },
-    },
-    holidays: [],
-  }).returning();
-  return created;
-}
-
-function shape(r: Row) {
+function shape(r: HospitalSettingsRow) {
   return {
     id: r.id,
     name: r.name,
@@ -57,17 +37,25 @@ function shape(r: Row) {
   };
 }
 
+// Public subset — branding + working hours. Every authenticated user (any role
+// the auth middleware permits) needs this for the app shell + booking UI.
+router.get("/hospital-settings/public", async (_req, res) => {
+  const row = await getHospitalSettings();
+  res.json(shapePublic(row));
+});
+
 router.get("/admin/hospital-settings", requirePermission("admin.settings"), async (_req, res) => {
-  const row = await loadOrSeed();
+  const row = await getHospitalSettings();
   res.json(shape(row));
 });
 
 router.put("/admin/hospital-settings", requirePermission("admin.settings"), async (req, res) => {
   const parsed = UpdateHospitalSettingsBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  await loadOrSeed();
+  await getHospitalSettings(); // ensure row exists
   const patch = { ...parsed.data, updatedAt: new Date() } as Partial<typeof hospitalSettingsTable.$inferInsert>;
   const [row] = await db.update(hospitalSettingsTable).set(patch).where(eq(hospitalSettingsTable.id, 1)).returning();
+  invalidateHospitalSettingsCache();
   res.json(shape(row));
 });
 

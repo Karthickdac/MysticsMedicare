@@ -27,6 +27,7 @@ import {
 import { dateOnly, isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
+import { nextBillNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
 
@@ -682,11 +683,7 @@ router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, r
         const cgst = r2(billItems.reduce((s, it) => s + r2(it.amount * (it.gstRate / 100) / 2), 0));
         const sgst = cgst;
         const billTotal = r2(subtotal + cgst + sgst);
-        const [{ next: billNo }] = (
-          await tx.execute<{ next: string }>(
-            sql`SELECT 'INV' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bills`,
-          )
-        ).rows;
+        const billNo = await nextBillNumber(tx);
         const [bill] = await tx.insert(billsTable).values({
           patientId,
           department: "Pharmacy",

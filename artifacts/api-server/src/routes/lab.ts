@@ -20,6 +20,7 @@ import {
 import { isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
+import { nextBillNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
 
@@ -210,11 +211,7 @@ router.post("/lab/orders", requireRole("admin", "doctor", "labtech"), async (req
       const cgst = Math.round(taxable * (gstRate / 2 / 100) * 100) / 100;
       const sgst = cgst;
       const total = Math.round((taxable + cgst + sgst) * 100) / 100;
-      const [{ next: billNo }] = (
-        await db.execute<{ next: string }>(
-          sql`SELECT 'INV' || to_char(now(), 'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bills`,
-        )
-      ).rows;
+      const billNo = await nextBillNumber(db);
       const [bill] = await db
         .insert(billsTable)
         .values({

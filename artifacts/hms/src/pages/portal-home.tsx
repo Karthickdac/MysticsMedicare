@@ -428,7 +428,8 @@ export function PortalBook() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [reason, setReason] = useState("");
-  const [taken, setTaken] = useState<string[]>([]);
+  const [slots, setSlots] = useState<Array<{ time: string; taken: boolean }>>([]);
+  const [closedReason, setClosedReason] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -436,19 +437,17 @@ export function PortalBook() {
   const department = chosenDoctor?.department ?? "";
 
   useEffect(() => {
-    if (!doctorId || !date) { setTaken([]); return; }
-    portalApi<{ taken: string[] }>(`/portal/doctors/${doctorId}/slots?date=${date}`)
-      .then((r) => setTaken(r.taken))
-      .catch(() => setTaken([]));
+    if (!doctorId || !date) { setSlots([]); setClosedReason(null); return; }
+    portalApi<{ slots?: Array<{ time: string; taken: boolean }>; closed?: boolean; reason?: string }>(
+      `/portal/doctors/${doctorId}/slots?date=${date}`,
+    )
+      .then((r) => {
+        if (r.closed) { setSlots([]); setClosedReason(r.reason ?? "Closed"); }
+        else { setSlots(r.slots ?? []); setClosedReason(null); }
+        setTime("");
+      })
+      .catch(() => { setSlots([]); setClosedReason(null); });
   }, [doctorId, date]);
-
-  const takenSet = new Set(
-    taken.map((iso) => {
-      const d = new Date(iso);
-      const pad = (n: number) => String(n).padStart(2, "0");
-      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }),
-  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -467,15 +466,6 @@ export function PortalBook() {
       setLocation("/portal/appointments");
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
-  }
-
-  // Helper: render quick 15-min slot suggestions (9am–5pm) flagged with availability.
-  const slotOptions: string[] = [];
-  for (let h = 9; h < 17; h++) {
-    for (const m of [0, 15, 30, 45]) {
-      const pad = (n: number) => String(n).padStart(2, "0");
-      slotOptions.push(`${pad(h)}:${pad(m)}`);
-    }
   }
 
   return (
@@ -508,19 +498,19 @@ export function PortalBook() {
                 </div>
                 <div>
                   <Label>Time</Label>
-                  <Select value={time} onValueChange={setTime} disabled={!doctorId || !date}>
-                    <SelectTrigger><SelectValue placeholder="Pick a slot" /></SelectTrigger>
+                  <Select value={time} onValueChange={setTime} disabled={!doctorId || !date || !!closedReason || slots.length === 0}>
+                    <SelectTrigger><SelectValue placeholder={closedReason ?? "Pick a slot"} /></SelectTrigger>
                     <SelectContent>
-                      {slotOptions.map((t) => {
-                        const isTaken = takenSet.has(t);
-                        return (
-                          <SelectItem key={t} value={t} disabled={isTaken}>
-                            {t}{isTaken ? " · booked" : ""}
-                          </SelectItem>
-                        );
-                      })}
+                      {slots.map((s) => (
+                        <SelectItem key={s.time} value={s.time} disabled={s.taken}>
+                          {s.time}{s.taken ? " · booked" : ""}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {closedReason && (
+                    <p className="text-[11px] text-muted-foreground mt-1">{closedReason}</p>
+                  )}
                 </div>
               </div>
 

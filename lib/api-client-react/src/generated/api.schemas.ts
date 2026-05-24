@@ -1306,6 +1306,37 @@ export interface HospitalSettings {
   updatedAt: string;
 }
 
+export type PublicHospitalSettingsWorkingHours = { [key: string]: unknown };
+
+export type PublicHospitalSettingsHolidaysItem = {
+  date: string;
+  label: string;
+};
+
+export interface PublicHospitalSettings {
+  name: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  primaryColor?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  pincode?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  gstin?: string | null;
+  workingHours?: PublicHospitalSettingsWorkingHours;
+  holidays?: PublicHospitalSettingsHolidaysItem[];
+}
+
 export type HospitalSettingsInputWorkingHours = { [key: string]: unknown };
 
 export type HospitalSettingsInputHolidaysItem = {

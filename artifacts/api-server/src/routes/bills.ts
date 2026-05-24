@@ -19,6 +19,7 @@ import {
 import { isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
+import { nextBillNumber, nextReceiptNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
 
@@ -200,11 +201,7 @@ router.post("/bills", requireRole("admin", "accountant", "receptionist", "cashie
   const billDiscount = Number(parsed.data.discount ?? 0);
   const totals = computeTotals(parsed.data.items as BillItem[], billDiscount, gstMode);
 
-  const [{ next }] = (
-    await db.execute<{ next: string }>(
-      sql`SELECT 'INV' || to_char(now(), 'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bills`,
-    )
-  ).rows;
+  const next = await nextBillNumber(db);
   const [row] = await db
     .insert(billsTable)
     .values({
@@ -337,11 +334,7 @@ router.post("/bills/:id/payments", requireRole("admin", "accountant", "reception
       if (amount > balance + 0.005) {
         throw new HttpError(400, `Amount exceeds outstanding balance ₹${balance.toFixed(2)}`);
       }
-      const [{ next }] = (
-        await tx.execute<{ next: string }>(
-          sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
-        )
-      ).rows;
+      const next = await nextReceiptNumber(tx);
       const change = tendered != null ? r2(tendered - amount) : null;
       const [payment] = await tx
         .insert(billPaymentsTable)
@@ -538,11 +531,7 @@ router.post("/bills/:id/pay", requireRole("admin", "accountant", "receptionist",
       const refunded = num(bill.refundedAmount);
       const balance = r2(total - paid + refunded);
       if (balance > 0) {
-        const [{ next }] = (
-          await tx.execute<{ next: string }>(
-            sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
-          )
-        ).rows;
+        const next = await nextReceiptNumber(tx);
         await tx.insert(billPaymentsTable).values({
           billId: id,
           receiptNumber: next,
