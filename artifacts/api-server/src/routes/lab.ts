@@ -47,7 +47,7 @@ router.post("/lab/orders", requireRole("admin", "doctor"), async (req, res) => {
   res.status(201).json(shape(row, p!));
 });
 
-router.post("/lab/orders/:id/result", requireRole("admin", "lab_technician"), async (req, res) => {
+router.post("/lab/orders/:id/result", requireRole("admin", "labtech"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordLabResultBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

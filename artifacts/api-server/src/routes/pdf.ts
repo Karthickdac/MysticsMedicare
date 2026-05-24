@@ -27,7 +27,7 @@ router.get("/pdf/invoice/:billId", async (req, res) => {
   doc.text(`Invoice #: ${b.billNumber}`);
   doc.text(`Date: ${new Date(b.createdAt).toLocaleString("en-IN")}`);
   if (p) {
-    doc.text(`Patient: ${p.name}  (MRN: ${p.mrn})`);
+    doc.text(`Patient: ${p.name}  (MRN: ${p.uhid})`);
     doc.text(`Phone: ${p.phone}`);
   }
   doc.moveDown();
@@ -48,7 +48,7 @@ router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
   const doc = startPdf(res, `discharge-${id}.pdf`);
   doc.fontSize(16).text("DISCHARGE SUMMARY", { align: "center" }).moveDown();
   if (p) {
-    doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.mrn})`);
+    doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
     doc.text(`Age/Gender: ${p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : "-"} / ${p.gender}`);
   }
   doc.text(`Encounter ID: ${e.id}`);
@@ -74,7 +74,7 @@ router.get("/pdf/lab-report/:orderId", async (req, res) => {
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
   const doc = startPdf(res, `lab-${id}.pdf`);
   doc.fontSize(16).text("LABORATORY REPORT", { align: "center" }).moveDown();
-  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.mrn})`);
+  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   doc.text(`Order ID: ${o.id}`);
   doc.text(`Test: ${o.testName}`);
   doc.text(`Status: ${o.status}`);
@@ -99,7 +99,7 @@ router.get("/pdf/prescription/:prescriptionId", async (req, res) => {
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, rx.patientId));
   const doc = startPdf(res, `prescription-${id}.pdf`);
   doc.fontSize(16).text("PRESCRIPTION (Rx)", { align: "center" }).moveDown();
-  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.mrn})`);
+  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   if (rx.prescribedBy) doc.text(`Prescribing Doctor: ${rx.prescribedBy}`);
   doc.text(`Date: ${new Date(rx.createdAt).toLocaleString("en-IN")}`);
   doc.text(`Status: ${rx.status}`);

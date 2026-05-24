@@ -52,6 +52,7 @@ export function issueSessionCookie(res: Response, userId: number): void {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env["NODE_ENV"] === "production",
     maxAge: MAX_AGE_MS,
     path: "/",
   });
@@ -95,6 +96,7 @@ const PUBLIC_PATHS = new Set<string>([
   "/auth/logout",
   "/auth/me",
   "/health",
+  "/healthz",
 ]);
 const PUBLIC_PREFIXES = ["/storage/public-objects/"];
 
@@ -109,8 +111,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
 export function requireRole(...roles: string[]): RequestHandler {
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    if (!roles.includes(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
     next();
   };
 }

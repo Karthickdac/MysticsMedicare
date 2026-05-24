@@ -79,6 +79,7 @@ async function main() {
   const hashedUsers = await Promise.all(
     userRows.map(async (u) => ({ email: u.email, passwordHash: await hashPassword(u.password), name: u.name, role: u.role, staffId: u.staffId })),
   );
+  void hashPassword;
   await db.insert(usersTable).values(hashedUsers);
   console.log(`✓ ${userRows.length} users`);
 

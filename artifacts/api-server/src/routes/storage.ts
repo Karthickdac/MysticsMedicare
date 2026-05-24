@@ -6,6 +6,7 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { setObjectAclPolicy } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -27,6 +28,10 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   try {
     const { name, size, contentType } = parsed.data;
 
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -40,6 +45,34 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   } catch (error) {
     req.log.error({ err: error }, "Error generating upload URL");
     res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
+
+/**
+ * POST /storage/uploads/finalize - set ACL after PUT upload.
+ */
+router.post("/storage/uploads/finalize", async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const objectPath = typeof req.body?.objectPath === "string" ? req.body.objectPath : null;
+    const visibility = req.body?.visibility === "public" ? "public" : "private";
+    if (!objectPath) {
+      res.status(400).json({ error: "objectPath required" });
+      return;
+    }
+    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+    await setObjectAclPolicy(objectFile, { owner: String(req.user.id), visibility });
+    res.json({ ok: true, objectPath, visibility });
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Object not found" });
+      return;
+    }
+    req.log.error({ err: error }, "Error finalizing upload");
+    res.status(500).json({ error: "Failed to finalize upload" });
   }
 });
 

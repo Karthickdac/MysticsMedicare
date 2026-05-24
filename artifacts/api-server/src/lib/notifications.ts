@@ -47,13 +47,15 @@ export async function sendNotification(opts: {
   recipientPhone?: string;
   variables: Record<string, string | number | null | undefined>;
 }) {
+  const { inArray } = await import("drizzle-orm");
+  const channelMatches = [opts.channel, "both"];
   const [template] = await db
     .select()
     .from(notificationTemplatesTable)
     .where(
       and(
         eq(notificationTemplatesTable.eventKey, opts.eventKey),
-        eq(notificationTemplatesTable.channel, opts.channel),
+        inArray(notificationTemplatesTable.channel, channelMatches),
         eq(notificationTemplatesTable.isActive, true),
       ),
     )
