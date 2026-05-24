@@ -3,7 +3,7 @@ import { db, consentFormsTable, patientsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { CreateConsentFormBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { sendNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
@@ -34,7 +34,7 @@ router.get("/consent", async (req, res) => {
   res.json(rows.map((r) => shape(r.c, r.p)));
 });
 
-router.post("/consent", requireRole("admin", "doctor", "nurse"), async (req, res) => {
+router.post("/consent", requirePermission("consent.write"), async (req, res) => {
   const parsed = CreateConsentFormBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db

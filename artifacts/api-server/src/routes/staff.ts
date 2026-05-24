@@ -10,10 +10,12 @@ import { asc, eq, sql, count } from "drizzle-orm";
 import { CreateStaffBody, UpdateStaffBody } from "@workspace/api-zod";
 import { dateOnly, requiredIso } from "../lib/format";
 import { requirePermission } from "../lib/auth";
+import { getPermissionsForRole } from "../lib/permissions";
 
 const router: IRouter = Router();
 
-function shape(s: typeof staffTable.$inferSelect) {
+async function shape(s: typeof staffTable.$inferSelect) {
+  const perms = await getPermissionsForRole(s.role);
   return {
     id: s.id,
     staffId: s.staffId,
@@ -26,13 +28,14 @@ function shape(s: typeof staffTable.$inferSelect) {
     avatarUrl: s.avatarUrl,
     status: s.status,
     joiningDate: dateOnly(s.joiningDate),
+    permissions: Array.from(perms).sort(),
     createdAt: requiredIso(s.createdAt),
   };
 }
 
 router.get("/staff", async (_req, res) => {
   const rows = await db.select().from(staffTable).orderBy(asc(staffTable.name));
-  res.json(rows.map(shape));
+  res.json(await Promise.all(rows.map(shape)));
 });
 
 router.post("/staff", requirePermission("staff.write"), async (req, res) => {
@@ -46,16 +49,24 @@ router.post("/staff", requirePermission("staff.write"), async (req, res) => {
     .insert(staffTable)
     .values({ ...parsed.data, staffId: next })
     .returning();
-  res.status(201).json(shape(row));
+  res.status(201).json(await shape(row));
 });
 
 router.patch("/staff/:id", requirePermission("staff.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateStaffBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [row] = await db.update(staffTable).set(parsed.data).where(eq(staffTable.id, id)).returning();
-  if (!row) return res.status(404).json({ error: "Not found" });
-  res.json(shape(row));
+  try {
+    const [row] = await db.update(staffTable).set(parsed.data).where(eq(staffTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "Not found" });
+    res.json(await shape(row));
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/foreign key|violates|fk/i.test(msg) && parsed.data.role) {
+      return res.status(400).json({ error: `Unknown role "${parsed.data.role}" — define it under Roles & Permissions first.` });
+    }
+    throw e;
+  }
 });
 
 router.delete("/staff/:id", requirePermission("staff.write"), async (req, res) => {

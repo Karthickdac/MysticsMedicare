@@ -1,29 +1,19 @@
 import { Router, type IRouter } from "express";
-import { db, rolesTable, staffTable } from "@workspace/db";
+import { db, rolesTable, staffTable, usersTable } from "@workspace/db";
 import { asc, eq, count } from "drizzle-orm";
 import { CreateRoleBody, UpdateRoleBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { requirePermission } from "../lib/auth";
 import {
   KNOWN_PERMISSIONS,
-  BUILTIN_ROLE_DEFS,
   invalidateRolePermissionsCache,
+  seedBuiltinRoles,
 } from "../lib/permissions";
 
 const router: IRouter = Router();
 
 // Re-export so other modules that consume this list keep working.
 export { KNOWN_PERMISSIONS };
-
-async function seedBuiltinRolesIfNeeded(): Promise<void> {
-  const existing = await db.select({ name: rolesTable.name }).from(rolesTable);
-  const have = new Set(existing.map((r) => r.name));
-  const missing = BUILTIN_ROLE_DEFS.filter((r) => !have.has(r.name));
-  if (missing.length === 0) return;
-  await db.insert(rolesTable).values(missing.map((r) => ({
-    name: r.name, description: r.description, permissions: r.permissions, isBuiltin: true,
-  })));
-}
 
 function shape(r: typeof rolesTable.$inferSelect) {
   return {
@@ -37,7 +27,10 @@ function shape(r: typeof rolesTable.$inferSelect) {
 }
 
 router.get("/admin/roles", requirePermission("admin.roles"), async (_req, res) => {
-  await seedBuiltinRolesIfNeeded();
+  // Boot-time seeding handles the initial population; this is a defensive
+  // top-up for fresh DB clones where the admin opens the matrix before the
+  // first server-startup seed finishes.
+  await seedBuiltinRoles();
   const rows = await db.select().from(rolesTable).orderBy(asc(rolesTable.name));
   res.json(rows.map(shape));
 });
@@ -85,12 +78,19 @@ router.delete("/admin/roles/:id", requirePermission("admin.roles"), async (req, 
   if (existing.isBuiltin) {
     return res.status(409).json({ error: "Cannot delete a built-in role" });
   }
-  const [{ value: inUse }] = await db
+  const [{ value: staffInUse }] = await db
     .select({ value: count() })
     .from(staffTable)
     .where(eq(staffTable.role, existing.name));
-  if (Number(inUse) > 0) {
-    return res.status(409).json({ error: `Role is assigned to ${inUse} staff member(s)` });
+  const [{ value: usersInUse }] = await db
+    .select({ value: count() })
+    .from(usersTable)
+    .where(eq(usersTable.role, existing.name));
+  const total = Number(staffInUse) + Number(usersInUse);
+  if (total > 0) {
+    return res.status(409).json({
+      error: `Role is in use by ${staffInUse} staff member(s) and ${usersInUse} login user(s)`,
+    });
   }
   await db.delete(rolesTable).where(eq(rolesTable.id, id));
   invalidateRolePermissionsCache(existing.name);

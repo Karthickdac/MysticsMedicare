@@ -3,7 +3,7 @@ import { db, queueTokensTable, patientsTable } from "@workspace/db";
 import { asc, eq, and, gte } from "drizzle-orm";
 import { isoDate, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -21,7 +21,7 @@ function shape(q: typeof queueTokensTable.$inferSelect, p: typeof patientsTable.
   };
 }
 
-router.post("/queue/opd/check-in", requireRole("admin", "receptionist", "nurse"), async (req, res) => {
+router.post("/queue/opd/check-in", requirePermission("appointment.write", "ipd.nursing"), async (req, res) => {
   const patientId = Number(req.body?.patientId);
   const department = String(req.body?.department ?? "OPD");
   const doctorName = req.body?.doctorName ? String(req.body.doctorName) : null;
@@ -101,7 +101,7 @@ router.get("/queue/opd/stats", async (_req, res) => {
   });
 });
 
-router.post("/queue/opd/next", requireRole("admin", "doctor"), async (_req, res) => {
+router.post("/queue/opd/next", requirePermission("encounter.write"), async (_req, res) => {
   const [next] = await db
     .select()
     .from(queueTokensTable)
@@ -134,7 +134,7 @@ router.post("/queue/opd/next", requireRole("admin", "doctor"), async (_req, res)
 // Per Task #6 role policy: token actions (call/recall/skip/complete) drive the
 // consultation flow, so they are restricted to admin + doctor. Receptionists
 // remain limited to /queue/opd/check-in; nurses are read-only.
-router.post("/queue/opd/:id/:action", requireRole("admin", "doctor"), async (req, res) => {
+router.post("/queue/opd/:id/:action", requirePermission("encounter.write"), async (req, res) => {
   const id = Number(req.params.id);
   const action = String(req.params.action);
   if (!["call", "recall", "skip", "complete"].includes(action)) {

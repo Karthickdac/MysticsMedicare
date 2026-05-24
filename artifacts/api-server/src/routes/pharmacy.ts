@@ -26,7 +26,7 @@ import {
 } from "@workspace/api-zod";
 import { dateOnly, isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { nextBillNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
@@ -120,7 +120,7 @@ function shapeSale(
 // ---------------------------------------------------------------------------
 // Legacy: dispense queue (kept for backward compat with existing UI hooks)
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/queue", requireRole("admin", "pharmacist", "doctor", "nurse"), async (_req, res) => {
+router.get("/pharmacy/queue", requirePermission("pharmacy.read"), async (_req, res) => {
   const rows = await db
     .select({ p: prescriptionsTable, pt: patientsTable })
     .from(prescriptionsTable)
@@ -151,7 +151,7 @@ router.get("/pharmacy/queue", requireRole("admin", "pharmacist", "doctor", "nurs
 // without decrementing stock or posting a bill, which would silently bypass
 // inventory + accounting if any client still hit it. It now refuses and
 // directs callers to POST /pharmacy/sales (transactional flow).
-router.post("/prescriptions/:id/dispense", requireRole("admin", "pharmacist"), async (_req, res) => {
+router.post("/prescriptions/:id/dispense", requirePermission("pharmacy.sell", "prescription.dispense"), async (_req, res) => {
   res.status(410).json({
     error: "This endpoint is deprecated. POST /pharmacy/sales with kind=\"rx\" and prescriptionId to dispense (it decrements stock and posts the bill atomically).",
   });
@@ -160,12 +160,12 @@ router.post("/prescriptions/:id/dispense", requireRole("admin", "pharmacist"), a
 // ---------------------------------------------------------------------------
 // Suppliers
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/suppliers", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
+router.get("/pharmacy/suppliers", requirePermission("pharmacy.read"), async (_req, res) => {
   const rows = await db.select().from(pharmacySuppliersTable).orderBy(asc(pharmacySuppliersTable.name));
   res.json(rows.map(shapeSupplier));
 });
 
-router.post("/pharmacy/suppliers", requireRole("admin", "pharmacist"), async (req, res) => {
+router.post("/pharmacy/suppliers", requirePermission("pharmacy.purchase"), async (req, res) => {
   const parsed = CreateSupplierBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(pharmacySuppliersTable).values(parsed.data).returning();
@@ -175,7 +175,7 @@ router.post("/pharmacy/suppliers", requireRole("admin", "pharmacist"), async (re
 // ---------------------------------------------------------------------------
 // Batches & alerts
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/drugs/:id/batches", requireRole("admin", "pharmacist", "doctor", "nurse"), async (req, res) => {
+router.get("/pharmacy/drugs/:id/batches", requirePermission("pharmacy.read"), async (req, res) => {
   const drugId = Number(req.params.id);
   const rows = await db
     .select({ b: pharmacyBatchesTable, drugName: drugsTable.name })
@@ -186,7 +186,7 @@ router.get("/pharmacy/drugs/:id/batches", requireRole("admin", "pharmacist", "do
   res.json(rows.map((r) => shapeBatch(r.b, r.drugName)));
 });
 
-router.get("/pharmacy/batches", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
+router.get("/pharmacy/batches", requirePermission("pharmacy.read"), async (req, res) => {
   const nearDays = req.query.nearExpiryDays ? Number(req.query.nearExpiryDays) : null;
   let query = db
     .select({ b: pharmacyBatchesTable, drugName: drugsTable.name })
@@ -202,7 +202,7 @@ router.get("/pharmacy/batches", requireRole("admin", "pharmacist", "accountant")
   res.json(rows.map((r) => shapeBatch(r.b, r.drugName)));
 });
 
-router.get("/pharmacy/alerts", requireRole("admin", "pharmacist"), async (_req, res) => {
+router.get("/pharmacy/alerts", requirePermission("pharmacy.read"), async (_req, res) => {
   // Low stock: aggregate qtyOnHand by drug, compare to reorderLevel.
   const stockRows = await db
     .select({
@@ -255,7 +255,7 @@ async function loadPoItems(poIds: number[], executor: typeof db = db) {
   return map;
 }
 
-router.get("/pharmacy/purchase-orders", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
+router.get("/pharmacy/purchase-orders", requirePermission("pharmacy.read"), async (_req, res) => {
   const rows = await db
     .select({ po: pharmacyPurchaseOrdersTable, supplierName: pharmacySuppliersTable.name })
     .from(pharmacyPurchaseOrdersTable)
@@ -266,7 +266,7 @@ router.get("/pharmacy/purchase-orders", requireRole("admin", "pharmacist", "acco
   res.json(rows.map((r) => shapePo(r.po, r.supplierName, items.get(r.po.id) ?? [])));
 });
 
-router.get("/pharmacy/purchase-orders/:id", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
+router.get("/pharmacy/purchase-orders/:id", requirePermission("pharmacy.read"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({ po: pharmacyPurchaseOrdersTable, supplierName: pharmacySuppliersTable.name })
@@ -279,7 +279,7 @@ router.get("/pharmacy/purchase-orders/:id", requireRole("admin", "pharmacist", "
   res.json(shapePo(r.po, r.supplierName, items.get(id) ?? []));
 });
 
-router.post("/pharmacy/purchase-orders", requireRole("admin", "pharmacist"), async (req, res) => {
+router.post("/pharmacy/purchase-orders", requirePermission("pharmacy.purchase"), async (req, res) => {
   const parsed = CreatePurchaseOrderBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const items = parsed.data.items;
@@ -356,7 +356,7 @@ async function loadGrnItems(grnIds: number[], executor: typeof db = db) {
   return map;
 }
 
-router.get("/pharmacy/grns", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
+router.get("/pharmacy/grns", requirePermission("pharmacy.read"), async (_req, res) => {
   const rows = await db
     .select({ g: pharmacyGrnsTable, supplierName: pharmacySuppliersTable.name })
     .from(pharmacyGrnsTable)
@@ -367,7 +367,7 @@ router.get("/pharmacy/grns", requireRole("admin", "pharmacist", "accountant"), a
   res.json(rows.map((r) => shapeGrn(r.g, r.supplierName, items.get(r.g.id) ?? [])));
 });
 
-router.post("/pharmacy/grns", requireRole("admin", "pharmacist"), async (req, res) => {
+router.post("/pharmacy/grns", requirePermission("pharmacy.grn"), async (req, res) => {
   const parsed = CreateGrnBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const items = parsed.data.items;
@@ -502,7 +502,7 @@ async function loadSaleItems(saleIds: number[], executor: typeof db = db): Promi
   return map;
 }
 
-router.get("/pharmacy/sales", requireRole("admin", "pharmacist", "accountant", "cashier"), async (req, res) => {
+router.get("/pharmacy/sales", requirePermission("pharmacy.read"), async (req, res) => {
   const conds: ReturnType<typeof eq>[] = [];
   if (req.query.kind) conds.push(eq(pharmacySalesTable.kind, String(req.query.kind)));
   if (req.query.from) conds.push(gte(pharmacySalesTable.dispensedAt, new Date(String(req.query.from))));
@@ -523,7 +523,7 @@ router.get("/pharmacy/sales", requireRole("admin", "pharmacist", "accountant", "
   res.json(rows.map((r) => shapeSale(r.s, r.patientName, r.billNumber, items.get(r.s.id) ?? [])));
 });
 
-router.get("/pharmacy/sales/:id", requireRole("admin", "pharmacist", "accountant", "cashier"), async (req, res) => {
+router.get("/pharmacy/sales/:id", requirePermission("pharmacy.read"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({
@@ -541,7 +541,7 @@ router.get("/pharmacy/sales/:id", requireRole("admin", "pharmacist", "accountant
   res.json(shapeSale(r.s, r.patientName, r.billNumber, map.get(id) ?? []));
 });
 
-router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, res) => {
+router.post("/pharmacy/sales", requirePermission("pharmacy.sell"), async (req, res) => {
   const parsed = CreatePharmacySaleBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const { kind, patientId, prescriptionId, walkInName, walkInPhone, items } = parsed.data;
@@ -779,7 +779,7 @@ router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, r
 });
 
 // Returns: restock batches if requested and refund proportional amount.
-router.post("/pharmacy/sales/:id/return", requireRole("admin", "pharmacist"), async (req, res) => {
+router.post("/pharmacy/sales/:id/return", requirePermission("pharmacy.sell"), async (req, res) => {
   const saleId = Number(req.params.id);
   const parsed = ReturnPharmacySaleBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -879,7 +879,7 @@ router.post("/pharmacy/sales/:id/return", requireRole("admin", "pharmacist"), as
 // ---------------------------------------------------------------------------
 // Reports
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/reports/stock-value", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
+router.get("/pharmacy/reports/stock-value", requirePermission("pharmacy.read", "reports.read"), async (_req, res) => {
   const rows = await db
     .select({
       drugId: drugsTable.id, drugName: drugsTable.name,
@@ -899,7 +899,7 @@ router.get("/pharmacy/reports/stock-value", requireRole("admin", "pharmacist", "
   })));
 });
 
-router.get("/pharmacy/reports/movers", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
+router.get("/pharmacy/reports/movers", requirePermission("pharmacy.read", "reports.read"), async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 20), 200);
   const order = String(req.query.order ?? "desc").toLowerCase() === "asc" ? "asc" : "desc";
   const conds: ReturnType<typeof eq>[] = [];
@@ -929,7 +929,7 @@ router.get("/pharmacy/reports/movers", requireRole("admin", "pharmacist", "accou
   })));
 });
 
-router.get("/pharmacy/reports/near-expiry", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
+router.get("/pharmacy/reports/near-expiry", requirePermission("pharmacy.read", "reports.read"), async (req, res) => {
   const days = Number(req.query.days ?? 90);
   const cutoff = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
   const rows = await db
@@ -942,7 +942,7 @@ router.get("/pharmacy/reports/near-expiry", requireRole("admin", "pharmacist", "
   res.json(rows.map((r) => shapeBatch(r.b, r.drugName)));
 });
 
-router.get("/pharmacy/reports/supplier-purchases", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
+router.get("/pharmacy/reports/supplier-purchases", requirePermission("pharmacy.read", "reports.read"), async (req, res) => {
   const conds: ReturnType<typeof eq>[] = [];
   if (req.query.from) conds.push(gte(pharmacyGrnsTable.receivedAt, new Date(String(req.query.from))));
   if (req.query.to) conds.push(lte(pharmacyGrnsTable.receivedAt, new Date(String(req.query.to))));

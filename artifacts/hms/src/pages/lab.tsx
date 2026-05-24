@@ -83,7 +83,7 @@ function OrdersTab({ role }: { role: string }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>All Orders</CardTitle>
-        {["admin", "doctor", "labtech"].includes(role) && <NewOrderDialog />}
+        {["admin", "doctor", "lab_tech"].includes(role) && <NewOrderDialog />}
       </CardHeader>
       <CardContent>
         {isLoading ? "Loading…" : (
@@ -200,7 +200,7 @@ function CollectionTab({ role }: { role: string }) {
   const qc = useQueryClient();
   const collect = useCollectLabSample({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListLabOrdersQueryKey() }) } });
   const reject = useRejectLabSample({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListLabOrdersQueryKey() }) } });
-  const canAct = ["admin", "labtech", "nurse"].includes(role);
+  const canAct = ["admin", "lab_tech", "nurse"].includes(role);
   return (
     <Card>
       <CardHeader><CardTitle>Pending Collection ({(orders ?? []).length})</CardTitle></CardHeader>
@@ -239,7 +239,7 @@ function CollectionTab({ role }: { role: string }) {
 // ---------------------------------------------------------------------------
 function ResultsTab({ role }: { role: string }) {
   const { data: orders } = useListLabOrders({ status: "collected" });
-  const canAct = ["admin", "labtech", "doctor"].includes(role);
+  const canAct = ["admin", "lab_tech", "doctor"].includes(role);
   return (
     <div className="space-y-4">
       {(orders ?? []).map(o => canAct ? <ResultEntry key={o.id} order={o} /> : <Card key={o.id}><CardContent className="p-3">{o.patientName} — {o.testName}</CardContent></Card>)}
@@ -357,7 +357,7 @@ function DispatchTab({ role }: { role: string }) {
   const { data: orders } = useListLabOrders({ status: "verified" });
   const qc = useQueryClient();
   const dispatch = useDispatchLabReport({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListLabOrdersQueryKey() }) } });
-  const canAct = ["admin", "labtech", "receptionist", "doctor"].includes(role);
+  const canAct = ["admin", "lab_tech", "receptionist", "doctor"].includes(role);
   return (
     <Card>
       <CardHeader><CardTitle>Verified — Ready to Dispatch ({(orders ?? []).length})</CardTitle></CardHeader>
@@ -394,7 +394,7 @@ function DispatchTab({ role }: { role: string }) {
 // ---------------------------------------------------------------------------
 function CatalogTab({ role }: { role: string }) {
   const { data: items, isLoading } = useListLabCatalog();
-  const canEdit = ["admin", "labtech"].includes(role);
+  const canEdit = ["admin", "lab_tech"].includes(role);
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">

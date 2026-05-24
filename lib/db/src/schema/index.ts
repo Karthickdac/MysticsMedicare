@@ -18,7 +18,7 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
-  role: text("role").notNull(),
+  role: text("role").notNull().references(() => rolesTable.name, { onUpdate: "cascade" }),
   staffId: integer("staff_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -45,7 +45,7 @@ export const staffTable = pgTable("staff", {
   id: serial("id").primaryKey(),
   staffId: varchar("staff_id", { length: 20 }).notNull().unique(),
   name: text("name").notNull(),
-  role: text("role").notNull(),
+  role: text("role").notNull().references(() => rolesTable.name, { onUpdate: "cascade" }),
   department: text("department").notNull(),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
@@ -58,12 +58,13 @@ export const staffTable = pgTable("staff", {
 
 // Custom roles defined by admin. Built-in roles (admin, doctor, nurse,
 // receptionist, accountant, cashier, pharmacist, lab_tech, radiologist) are
-// seeded with isBuiltin=true and cannot be deleted; their `permissions` jsonb
-// is the source of truth for the front-end permission matrix view. Server
-// route enforcement still keys off the staff member's `role` string via
-// `requireRole(...)`, so granting a permission to a custom role does NOT
-// retroactively open new routes — admins must align the role's name with an
-// existing requireRole list. The matrix here is the documented contract.
+// seeded with isBuiltin=true and cannot be deleted. Their `permissions` jsonb
+// is the source of truth for both the front-end matrix AND server-side
+// enforcement: routes call `requirePermission("<perm>")` which resolves the
+// caller's perms from this table (cached 60s, builtin fallback). Toggling a
+// permission here grants or revokes access at the API within ~60s — no
+// restart needed. `staff.role` is FK to `roles.name` so a role cannot be
+// renamed or deleted while staff are assigned to it.
 export const rolesTable = pgTable("roles", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),

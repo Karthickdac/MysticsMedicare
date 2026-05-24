@@ -3,7 +3,7 @@ import { db, serviceCatalogTable } from "@workspace/db";
 import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 import { CreateServiceCatalogItemBody, UpdateServiceCatalogItemBody } from "@workspace/api-zod";
 import { num } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -79,7 +79,7 @@ router.get("/service-catalog", async (req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/service-catalog", requireRole("admin", "accountant"), async (req, res) => {
+router.post("/service-catalog", requirePermission("admin.settings"), async (req, res) => {
   const parsed = CreateServiceCatalogItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const d = parsed.data;
@@ -100,7 +100,7 @@ router.post("/service-catalog", requireRole("admin", "accountant"), async (req, 
   res.status(201).json(shape(row));
 });
 
-router.patch("/service-catalog/:id", requireRole("admin", "accountant"), async (req, res) => {
+router.patch("/service-catalog/:id", requirePermission("admin.settings"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateServiceCatalogItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

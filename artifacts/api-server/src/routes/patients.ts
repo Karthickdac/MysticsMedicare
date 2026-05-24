@@ -3,7 +3,7 @@ import { db, patientsTable } from "@workspace/db";
 import { desc, eq, ilike, or, sql } from "drizzle-orm";
 import { CreatePatientBody, UpdatePatientBody } from "@workspace/api-zod";
 import { ageFromDob, dateOnly, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -11,7 +11,7 @@ const router: IRouter = Router();
 // billing staff — billing roles need patient lookup to attach bills to a
 // patient. Anonymous/portal users and roles not listed here are denied.
 const PATIENT_LOOKUP_ROLES = [
-  "admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist",
+  "admin", "doctor", "nurse", "receptionist", "lab_tech", "pharmacist",
   "cashier", "accountant",
 ] as const;
 
@@ -36,7 +36,7 @@ function shape(p: typeof patientsTable.$inferSelect) {
   };
 }
 
-router.get("/patients", requireRole(...PATIENT_LOOKUP_ROLES), async (req, res) => {
+router.get("/patients", requirePermission("patient.read"), async (req, res) => {
   const search = typeof req.query.search === "string" ? req.query.search : null;
   const rows = await db
     .select()
@@ -55,7 +55,7 @@ router.get("/patients", requireRole(...PATIENT_LOOKUP_ROLES), async (req, res) =
   res.json(rows.map(shape));
 });
 
-router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (req, res) => {
+router.post("/patients", requirePermission("patient.write"), async (req, res) => {
   const parsed = CreatePatientBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [{ next }] = await db.execute<{ next: string }>(
@@ -83,14 +83,14 @@ router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (
   res.status(201).json(shape(row));
 });
 
-router.get("/patients/:id", requireRole(...PATIENT_LOOKUP_ROLES), async (req, res) => {
+router.get("/patients/:id", requirePermission("patient.read"), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.select().from(patientsTable).where(eq(patientsTable.id, id)).limit(1);
   if (!row) return res.status(404).json({ error: "Patient not found" });
   res.json(shape(row));
 });
 
-router.patch("/patients/:id", requireRole("admin", "receptionist", "doctor"), async (req, res) => {
+router.patch("/patients/:id", requirePermission("patient.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdatePatientBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -99,7 +99,7 @@ router.patch("/patients/:id", requireRole("admin", "receptionist", "doctor"), as
   res.json(shape(row));
 });
 
-router.delete("/patients/:id", requireRole("admin"), async (req, res) => {
+router.delete("/patients/:id", requirePermission("patient.delete"), async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(patientsTable).where(eq(patientsTable.id, id));
   res.status(204).send();

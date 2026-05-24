@@ -47,7 +47,7 @@ const ALL_GROUPS: Group[] = [
     label: "Clinical",
     items: [
       { icon: Activity, label: "Dashboard", href: "/dashboard" },
-      { icon: Users, label: "Patients", href: "/patients", roles: ["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"] },
+      { icon: Users, label: "Patients", href: "/patients", roles: ["admin", "doctor", "nurse", "receptionist", "lab_tech", "pharmacist"] },
       { icon: Calendar, label: "Appointments", href: "/appointments", roles: ["admin", "doctor", "nurse", "receptionist"] },
       { icon: Clock, label: "OPD Queue", href: "/opd", roles: ["admin", "doctor", "nurse", "receptionist"] },
     ],
@@ -63,7 +63,7 @@ const ALL_GROUPS: Group[] = [
   {
     label: "Diagnostics",
     items: [
-      { icon: TestTube, label: "Laboratory", href: "/lab", roles: ["admin", "doctor", "labtech", "nurse"] },
+      { icon: TestTube, label: "Laboratory", href: "/lab", roles: ["admin", "doctor", "lab_tech", "nurse"] },
       { icon: Cross, label: "Radiology", href: "/radiology", roles: ["admin", "doctor", "nurse"] },
       { icon: Video, label: "Video Library", href: "/videos", roles: ["admin", "doctor", "nurse"] },
     ],

@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { CreateOtBookingBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -34,7 +34,7 @@ router.get("/ot/bookings", async (_req, res) => {
   res.json(rows.map((r) => shape(r.o, r.p)));
 });
 
-router.post("/ot/bookings", requireRole("admin", "doctor", "nurse"), async (req, res) => {
+router.post("/ot/bookings", requirePermission("ot.book"), async (req, res) => {
   const parsed = CreateOtBookingBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db

@@ -21,5 +21,7 @@ export interface Staff {
   status: string;
   /** @nullable */
   joiningDate?: string | null;
+  /** Permissions inherited from the staff member's role (server-resolved from rolesTable). */
+  permissions: string[];
   createdAt: string;
 }

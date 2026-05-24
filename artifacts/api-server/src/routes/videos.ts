@@ -3,7 +3,7 @@ import { db, videoRecordingsTable, patientsTable } from "@workspace/db";
 import { desc, eq, and } from "drizzle-orm";
 import { CreateVideoBody } from "@workspace/api-zod";
 import { num, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { setObjectAclPolicy } from "../lib/objectAcl";
 
@@ -44,7 +44,7 @@ router.get("/videos", async (req, res) => {
   res.json(rows.map((r) => shape(r.v, r.p)));
 });
 
-router.post("/videos", requireRole("admin", "doctor", "nurse"), async (req, res) => {
+router.post("/videos", requirePermission("videos.upload"), async (req, res) => {
   const parsed = CreateVideoBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -67,7 +67,7 @@ router.get("/videos/:id", async (req, res) => {
   res.json(shape(r.v, r.p));
 });
 
-router.delete("/videos/:id", requireRole("admin", "doctor"), async (req, res) => {
+router.delete("/videos/:id", requirePermission("videos.upload"), async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(videoRecordingsTable).where(eq(videoRecordingsTable.id, id));
   res.status(204).send();
@@ -75,7 +75,7 @@ router.delete("/videos/:id", requireRole("admin", "doctor"), async (req, res) =>
 
 router.post(
   "/videos/upload-url",
-  requireRole("admin", "doctor", "nurse"),
+  requirePermission("videos.upload"),
   async (req, res) => {
     const contentType = typeof req.body?.contentType === "string" ? req.body.contentType : "video/webm";
     if (!contentType.startsWith("video/")) {
@@ -89,7 +89,7 @@ router.post(
 
 router.post(
   "/videos/upload-finalize",
-  requireRole("admin", "doctor", "nurse"),
+  requirePermission("videos.upload"),
   async (req, res) => {
     try {
       if (!req.user) return res.status(401).json({ error: "Unauthorized" });

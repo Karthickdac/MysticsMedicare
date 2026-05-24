@@ -3,7 +3,7 @@ import { db, checkupPackagesTable } from "@workspace/db";
 import { asc } from "drizzle-orm";
 import { CreateCheckupPackageBody } from "@workspace/api-zod";
 import { num, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -23,7 +23,7 @@ router.get("/checkups/packages", async (_req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/checkups/packages", requireRole("admin"), async (req, res) => {
+router.post("/checkups/packages", requirePermission("admin.settings"), async (req, res) => {
   const parsed = CreateCheckupPackageBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db

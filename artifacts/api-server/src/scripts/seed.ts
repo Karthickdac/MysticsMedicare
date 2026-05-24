@@ -24,6 +24,7 @@ import {
 } from "@workspace/db";
 import { NOTIFICATION_EVENTS } from "../lib/notifications";
 import { hashPassword } from "../lib/auth";
+import { seedBuiltinRoles } from "../lib/permissions";
 
 async function main() {
   console.log("Seeding database...");
@@ -50,6 +51,9 @@ async function main() {
   await db.delete(inventoryTable);
   await db.delete(drugsTable);
 
+  // Ensure built-in roles exist before inserting staff/users (FK staff.role → roles.name).
+  await seedBuiltinRoles();
+
   // ============= STAFF (9 roles) =============
   const staffData = [
     { staffId: "STF0001", name: "Dr. Arjun Mehta", role: "doctor", department: "Cardiology", email: "arjun.mehta@medicare.in", phone: "+919876543210", specialization: "Interventional Cardiology" },
@@ -60,7 +64,7 @@ async function main() {
     { staffId: "STF0006", name: "Sister Anita Joseph", role: "nurse", department: "ICU", email: "anita.joseph@medicare.in", phone: "+919876543215" },
     { staffId: "STF0007", name: "Sister Kavita Singh", role: "nurse", department: "General Ward", email: "kavita.singh@medicare.in", phone: "+919876543216" },
     { staffId: "STF0008", name: "Ramesh Kumar", role: "receptionist", department: "Front Office", email: "ramesh.kumar@medicare.in", phone: "+919876543217" },
-    { staffId: "STF0009", name: "Suresh Patil", role: "labtech", department: "Pathology", email: "suresh.patil@medicare.in", phone: "+919876543218" },
+    { staffId: "STF0009", name: "Suresh Patil", role: "lab_tech", department: "Pathology", email: "suresh.patil@medicare.in", phone: "+919876543218" },
     { staffId: "STF0010", name: "Deepika Verma", role: "pharmacist", department: "Pharmacy", email: "deepika.verma@medicare.in", phone: "+919876543219" },
     { staffId: "STF0011", name: "Dr. Vikram Joshi", role: "radiologist", department: "Radiology", email: "vikram.joshi@medicare.in", phone: "+919876543220", specialization: "Diagnostic Imaging" },
     { staffId: "STF0012", name: "Amit Khanna", role: "accountant", department: "Billing", email: "amit.khanna@medicare.in", phone: "+919876543221" },
@@ -75,7 +79,7 @@ async function main() {
     { email: "doctor@medicare.in", password: "doctor123", name: "Dr. Arjun Mehta", role: "doctor", staffId: staff[0].id },
     { email: "nurse@medicare.in", password: "nurse123", name: "Sister Anita Joseph", role: "nurse", staffId: staff[5].id },
     { email: "reception@medicare.in", password: "reception123", name: "Ramesh Kumar", role: "receptionist", staffId: staff[7].id },
-    { email: "lab@medicare.in", password: "lab123", name: "Suresh Patil", role: "labtech", staffId: staff[8].id },
+    { email: "lab@medicare.in", password: "lab123", name: "Suresh Patil", role: "lab_tech", staffId: staff[8].id },
     { email: "pharmacy@medicare.in", password: "pharmacy123", name: "Deepika Verma", role: "pharmacist", staffId: staff[9].id },
     { email: "radiology@medicare.in", password: "radiology123", name: "Dr. Vikram Joshi", role: "radiologist", staffId: staff[10].id },
     { email: "billing@medicare.in", password: "billing123", name: "Amit Khanna", role: "accountant", staffId: staff[11].id },

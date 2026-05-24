@@ -28,12 +28,12 @@ type NavCmd = {
 
 const NAV: NavCmd[] = [
   { label: "Dashboard", href: "/dashboard", icon: Activity, section: "Navigate" },
-  { label: "Patients", href: "/patients", icon: Users, section: "Navigate", keywords: "patient mrn uhid", roles: ["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"] },
+  { label: "Patients", href: "/patients", icon: Users, section: "Navigate", keywords: "patient mrn uhid", roles: ["admin", "doctor", "nurse", "receptionist", "lab_tech", "pharmacist"] },
   { label: "Appointments", href: "/appointments", icon: Calendar, section: "Navigate", roles: ["admin", "doctor", "nurse", "receptionist"] },
   { label: "OPD Queue", href: "/opd", icon: Clock, section: "Navigate", keywords: "queue token", roles: ["admin", "doctor", "nurse", "receptionist"] },
   { label: "IPD Wards", href: "/ipd", icon: BedDouble, section: "Navigate", keywords: "inpatient", roles: ["admin", "doctor", "nurse"] },
   { label: "Bed Manager", href: "/beds", icon: BedDouble, section: "Navigate", roles: ["admin", "nurse", "doctor", "receptionist"] },
-  { label: "Laboratory", href: "/lab", icon: TestTube, section: "Navigate", roles: ["admin", "doctor", "labtech", "nurse"] },
+  { label: "Laboratory", href: "/lab", icon: TestTube, section: "Navigate", roles: ["admin", "doctor", "lab_tech", "nurse"] },
   { label: "Radiology", href: "/radiology", icon: Cross, section: "Navigate", roles: ["admin", "doctor", "nurse"] },
   { label: "Pharmacy", href: "/pharmacy", icon: ShieldPlus, section: "Navigate", roles: ["admin", "pharmacist", "doctor"] },
   { label: "Prescriptions", href: "/prescriptions", icon: ClipboardCheck, section: "Navigate", roles: ["admin", "doctor", "pharmacist", "nurse"] },
@@ -64,7 +64,7 @@ const ACTIONS: NavCmd[] = [
 ];
 
 // Roles allowed to look up patients via the palette (avoid PHI leak to billing-only roles).
-const PATIENT_LOOKUP_ROLES = new Set(["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"]);
+const PATIENT_LOOKUP_ROLES = new Set(["admin", "doctor", "nurse", "receptionist", "lab_tech", "pharmacist"]);
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [, setLocation] = useLocation();

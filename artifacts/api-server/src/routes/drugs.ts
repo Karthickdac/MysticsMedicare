@@ -3,7 +3,7 @@ import { db, drugsTable } from "@workspace/db";
 import { asc, eq } from "drizzle-orm";
 import { CreateDrugBody, UpdateDrugBody } from "@workspace/api-zod";
 import { num, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -39,14 +39,14 @@ router.get("/drugs", async (_req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/drugs", requireRole("admin", "pharmacist"), async (req, res) => {
+router.post("/drugs", requirePermission("inventory.write"), async (req, res) => {
   const parsed = CreateDrugBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(drugsTable).values(toRow(parsed.data) as typeof drugsTable.$inferInsert).returning();
   res.status(201).json(shape(row));
 });
 
-router.patch("/drugs/:id", requireRole("admin", "pharmacist"), async (req, res) => {
+router.patch("/drugs/:id", requirePermission("inventory.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateDrugBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -59,7 +59,7 @@ router.patch("/drugs/:id", requireRole("admin", "pharmacist"), async (req, res) 
   res.json(shape(row));
 });
 
-router.delete("/drugs/:id", requireRole("admin", "pharmacist"), async (req, res) => {
+router.delete("/drugs/:id", requirePermission("inventory.write"), async (req, res) => {
   const id = Number(req.params.id);
   try {
     const [row] = await db.delete(drugsTable).where(eq(drugsTable.id, id)).returning();

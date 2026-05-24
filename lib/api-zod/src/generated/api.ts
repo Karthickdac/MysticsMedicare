@@ -2246,6 +2246,7 @@ export const ListStaffResponseItem = zod.object({
   "avatarUrl": zod.string().nullish(),
   "status": zod.string(),
   "joiningDate": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).describe('Permissions inherited from the staff member\'s role (server-resolved from rolesTable).'),
   "createdAt": zod.string()
 })
 export const ListStaffResponse = zod.array(ListStaffResponseItem)
@@ -2289,6 +2290,7 @@ export const UpdateStaffResponse = zod.object({
   "avatarUrl": zod.string().nullish(),
   "status": zod.string(),
   "joiningDate": zod.string().nullish(),
+  "permissions": zod.array(zod.string()).describe('Permissions inherited from the staff member\'s role (server-resolved from rolesTable).'),
   "createdAt": zod.string()
 })
 

@@ -4,7 +4,7 @@ import { desc, eq, and, gte, lt, sql } from "drizzle-orm";
 import { CreateAppointmentBody, UpdateAppointmentBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { hasSlotConflict } from "../lib/slot-conflict";
 import { validateAppointmentSlot } from "../lib/hospital-settings";
 
@@ -63,7 +63,7 @@ router.get("/appointments", async (req, res) => {
   res.json(await shapeJoin(rows));
 });
 
-router.post("/appointments", requireRole("admin", "doctor", "receptionist"), async (req, res) => {
+router.post("/appointments", requirePermission("appointment.write"), async (req, res) => {
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const when = new Date(parsed.data.scheduledAt);
@@ -129,7 +129,7 @@ router.post("/appointments/:id/remind", async (req, res) => {
   res.json({ ok: true });
 });
 
-router.patch("/appointments/:id", requireRole("admin", "doctor", "receptionist"), async (req, res) => {
+router.patch("/appointments/:id", requirePermission("appointment.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -209,7 +209,7 @@ router.patch("/appointments/:id", requireRole("admin", "doctor", "receptionist")
   res.json(shaped);
 });
 
-router.delete("/appointments/:id", requireRole("admin", "doctor", "receptionist"), async (req, res) => {
+router.delete("/appointments/:id", requirePermission("appointment.cancel"), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.update(appointmentsTable).set({ status: "cancelled" }).where(eq(appointmentsTable.id, id)).returning();
   if (row) {

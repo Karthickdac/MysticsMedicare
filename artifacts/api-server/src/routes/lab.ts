@@ -19,7 +19,7 @@ import {
 } from "@workspace/api-zod";
 import { isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { nextBillNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
@@ -102,7 +102,7 @@ async function loadShaped(id: number) {
 // ---------------------------------------------------------------------------
 // Catalog CRUD (test master)
 // ---------------------------------------------------------------------------
-router.get("/lab/catalog", requireRole("admin", "doctor", "labtech", "receptionist"), async (_req, res) => {
+router.get("/lab/catalog", requirePermission("lab.read"), async (_req, res) => {
   const rows = await db.select().from(labTestCatalogTable).orderBy(asc(labTestCatalogTable.name));
   res.json(rows.map(shapeCatalog));
 });
@@ -114,7 +114,7 @@ function catalogToRow(input: Record<string, unknown>) {
   return out;
 }
 
-router.post("/lab/catalog", requireRole("admin", "labtech"), async (req, res) => {
+router.post("/lab/catalog", requirePermission("lab.verify", "admin.settings"), async (req, res) => {
   const parsed = CreateLabCatalogItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   try {
@@ -132,7 +132,7 @@ router.post("/lab/catalog", requireRole("admin", "labtech"), async (req, res) =>
   }
 });
 
-router.patch("/lab/catalog/:id", requireRole("admin", "labtech"), async (req, res) => {
+router.patch("/lab/catalog/:id", requirePermission("lab.verify", "admin.settings"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateLabCatalogItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -148,7 +148,7 @@ router.patch("/lab/catalog/:id", requireRole("admin", "labtech"), async (req, re
 // ---------------------------------------------------------------------------
 // Orders + workflow
 // ---------------------------------------------------------------------------
-router.get("/lab/orders", requireRole("admin", "doctor", "labtech", "receptionist", "nurse"), async (req, res) => {
+router.get("/lab/orders", requirePermission("lab.read"), async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
   if (req.query.patientId) conds.push(eq(labOrdersTable.patientId, Number(req.query.patientId)));
   if (req.query.status) conds.push(eq(labOrdersTable.status, String(req.query.status)));
@@ -166,7 +166,7 @@ router.get("/lab/orders", requireRole("admin", "doctor", "labtech", "receptionis
 // + barcode, and (if autoBill) appends a line to (or creates) a draft bill
 // for the patient. Bill creation is best-effort: failures fall back to
 // creating just the order so the lab workflow is never blocked.
-router.post("/lab/orders", requireRole("admin", "doctor", "labtech"), async (req, res) => {
+router.post("/lab/orders", requirePermission("lab.order"), async (req, res) => {
   const parsed = CreateLabOrderBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const { patientId, catalogId, autoBill, ...rest } = parsed.data;
@@ -254,7 +254,7 @@ router.post("/lab/orders", requireRole("admin", "doctor", "labtech"), async (req
 });
 
 // Mark sample collected → status 'collected'.
-router.post("/lab/orders/:id/collect", requireRole("admin", "labtech", "nurse"), async (req, res) => {
+router.post("/lab/orders/:id/collect", requirePermission("lab.result", "ipd.nursing"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = CollectLabSampleBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -275,7 +275,7 @@ router.post("/lab/orders/:id/collect", requireRole("admin", "labtech", "nurse"),
 });
 
 // Reject sample (e.g. hemolysed, insufficient volume) — terminal status.
-router.post("/lab/orders/:id/reject", requireRole("admin", "labtech"), async (req, res) => {
+router.post("/lab/orders/:id/reject", requirePermission("lab.result"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RejectLabSampleBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -332,7 +332,7 @@ function pickRange(param: LabParam, age: number | null, sex: string | null) {
 
 // Record results (parameter grid) — moves status to 'resulted'. Lab tech
 // enters values; pathologist will sign off via /verify.
-router.post("/lab/orders/:id/result", requireRole("admin", "labtech", "doctor"), async (req, res) => {
+router.post("/lab/orders/:id/result", requirePermission("lab.result"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordLabResultBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -384,7 +384,7 @@ router.post("/lab/orders/:id/result", requireRole("admin", "labtech", "doctor"),
 });
 
 // Pathologist sign-off: moves status to 'verified' and stamps reportPdfUrl.
-router.post("/lab/orders/:id/verify", requireRole("admin", "doctor"), async (req, res) => {
+router.post("/lab/orders/:id/verify", requirePermission("lab.verify"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = VerifyLabResultBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -406,7 +406,7 @@ router.post("/lab/orders/:id/verify", requireRole("admin", "doctor"), async (req
 // Dispatch the (verified) report to the patient — sends notification and
 // flips status to 'dispatched'. Verified-only gate ensures we never send
 // un-signed reports.
-router.post("/lab/orders/:id/dispatch", requireRole("admin", "labtech", "receptionist", "doctor"), async (req, res) => {
+router.post("/lab/orders/:id/dispatch", requirePermission("lab.read"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = DispatchLabReportBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

@@ -66,7 +66,7 @@ export default function Roles() {
       <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Shield className="w-6 h-6 text-primary" />Roles & permissions</h1>
-          <p className="text-muted-foreground">Built-in roles match the server's hardcoded route guards. Custom roles document additional permission grants for the front-end.</p>
+          <p className="text-muted-foreground">The matrix below is the source of truth — every API route checks the caller's permissions against this table (cached ~60s). Toggle a permission to grant or revoke server access in real time.</p>
         </div>
         <Button onClick={() => setCreating(true)} data-testid="button-add-role"><Plus className="w-4 h-4 mr-2" />Add custom role</Button>
       </div>
@@ -148,11 +148,9 @@ export default function Roles() {
                     </div>
                   ))}
                 </div>
-                {selected.isBuiltin && (
-                  <p className="text-xs text-muted-foreground border-l-2 border-amber-500/50 pl-3 bg-amber-50/40 dark:bg-amber-500/5 py-2 rounded-r">
-                    <strong>How this is enforced:</strong> the server resolves each request's permissions from this matrix (cached for 60s) via <code>requirePermission</code> on the admin module routes. Toggling a permission here grants or revokes access on the server within a minute — no app restart required.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground border-l-2 border-primary/50 pl-3 bg-primary/5 py-2 rounded-r">
+                  <strong>How this is enforced:</strong> every API route declares the permission it needs via <code>requirePermission(…)</code>. The server resolves the caller's role from this matrix (cached for 60 s with a built-in fallback), so toggles here propagate to the API within a minute — no app restart required. Staff records FK-reference this role list, so a role in use cannot be deleted.
+                </p>
               </CardContent>
             </>
           )}

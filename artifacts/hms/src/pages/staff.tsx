@@ -19,7 +19,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Plus, Pencil, Trash2, UserCog, UserCheck, UserX } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, Plus, Pencil, Trash2, UserCog, UserCheck, UserX, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const DEPARTMENTS = ["Emergency","ICU","General Medicine","Pediatrics","Cardiology","Orthopedics","Obstetrics","Surgery","Radiology","Pathology","Pharmacy","Administration"];
@@ -143,7 +144,35 @@ export default function Staff() {
                   <TableRow key={p.id} data-testid={`row-staff-${p.id}`}>
                     <TableCell className="font-mono text-xs">{p.staffId}</TableCell>
                     <TableCell className="font-medium">{p.name}{p.specialization && <div className="text-xs text-muted-foreground">{p.specialization}</div>}</TableCell>
-                    <TableCell className="capitalize">{p.role}</TableCell>
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1.5 capitalize hover:text-primary" data-testid={`perms-${p.id}`}>
+                            {p.role}
+                            <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground tabular-nums">({p.permissions.length})</span>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 max-h-[400px] overflow-y-auto" align="start">
+                          <div className="space-y-2">
+                            <div className="font-medium text-sm flex items-center gap-2 capitalize">
+                              <Shield className="w-4 h-4 text-primary" />
+                              {p.role} — {p.permissions.length} permission{p.permissions.length === 1 ? "" : "s"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Inherited from the role definition. Edit under Roles & Permissions.</div>
+                            {p.permissions.length === 0 ? (
+                              <div className="text-xs text-destructive py-2">This role has no permissions — the user cannot access any protected route.</div>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {p.permissions.map((perm) => (
+                                  <span key={perm} className="text-[10px] px-1.5 py-0.5 rounded border bg-muted/40 text-muted-foreground font-mono">{perm}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
                     <TableCell>{p.department}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{p.joiningDate ? new Date(p.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</TableCell>
                     <TableCell><div className="text-sm">{p.phone}</div><div className="text-xs text-muted-foreground">{p.email}</div></TableCell>

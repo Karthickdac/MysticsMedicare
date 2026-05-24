@@ -29,8 +29,8 @@ router.get("/beds", async (_req, res) => {
   res.json(rows.map((r) => shape(r.b, r.p)));
 });
 
-import { requireRole } from "../lib/auth";
-router.post("/beds", requireRole("admin"), async (req, res) => {
+import { requirePermission } from "../lib/auth";
+router.post("/beds", requirePermission("admin.settings"), async (req, res) => {
   const parsed = CreateBedBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   // Drop nulls so Drizzle uses column defaults (e.g. dailyRate NOT NULL default).
@@ -41,7 +41,7 @@ router.post("/beds", requireRole("admin"), async (req, res) => {
   res.status(201).json(shape(row));
 });
 
-router.post("/beds/:id/assign", requireRole("admin", "nurse", "doctor", "receptionist"), async (req, res) => {
+router.post("/beds/:id/assign", requirePermission("ipd.admit", "ipd.nursing"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = AssignBedBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -66,7 +66,7 @@ router.post("/beds/:id/assign", requireRole("admin", "nurse", "doctor", "recepti
 // releases the bed → cleaning, and fires the discharge-summary notification.
 // This path is retained only to release beds that have no active admission
 // (e.g. seed data, manual housekeeping) and rejects when an admission exists.
-router.post("/beds/:id/discharge", requireRole("admin", "nurse", "doctor"), async (req, res) => {
+router.post("/beds/:id/discharge", requirePermission("ipd.discharge"), async (req, res) => {
   const id = Number(req.params.id);
   const [existing] = await db.select().from(bedsTable).where(eq(bedsTable.id, id));
   if (!existing) return res.status(404).json({ error: "Not found" });

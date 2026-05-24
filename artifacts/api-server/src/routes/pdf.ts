@@ -17,7 +17,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { num } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { getHospitalSettings } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
@@ -135,7 +135,7 @@ export async function renderInvoicePdf(res: Response, id: number): Promise<void>
   doc.end();
 }
 
-router.get("/pdf/invoice/:billId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+router.get("/pdf/invoice/:billId", requirePermission("billing.read"), async (req, res) => {
   await renderInvoicePdf(res, Number(req.params.billId));
 });
 
@@ -170,7 +170,7 @@ export async function renderReceiptPdf(res: Response, id: number): Promise<void>
   doc.end();
 }
 
-router.get("/pdf/receipt/:paymentId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+router.get("/pdf/receipt/:paymentId", requirePermission("billing.read"), async (req, res) => {
   await renderReceiptPdf(res, Number(req.params.paymentId));
 });
 

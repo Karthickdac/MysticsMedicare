@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, billsTable, billPaymentsTable, patientsTable, staffTable } from "@workspace/db";
 import { and, eq, gte, lte, sql, ne, desc, type SQL } from "drizzle-orm";
 import { num, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -14,7 +14,7 @@ function parseDateRange(req: { query: Record<string, unknown> }) {
   return { from, to };
 }
 
-router.get("/reports/collections", requireRole("admin", "accountant", "receptionist"), async (req, res) => {
+router.get("/reports/collections", requirePermission("reports.read"), async (req, res) => {
   const { from, to } = parseDateRange(req);
   // ?groupBy=date,mode,doctor,department  (default: date,mode)
   const wanted = String(req.query["groupBy"] ?? "date,mode").split(",").map((s) => s.trim()).filter(Boolean);
@@ -66,7 +66,7 @@ router.get("/reports/collections", requireRole("admin", "accountant", "reception
   );
 });
 
-router.get("/reports/gstr1", requireRole("admin", "accountant"), async (req, res) => {
+router.get("/reports/gstr1", requirePermission("reports.read"), async (req, res) => {
   const { from, to } = parseDateRange(req);
   const rows = await db
     .select({ b: billsTable, pt: patientsTable })
@@ -89,7 +89,7 @@ router.get("/reports/gstr1", requireRole("admin", "accountant"), async (req, res
   })));
 });
 
-router.get("/reports/outstanding", requireRole("admin", "accountant", "receptionist"), async (_req, res) => {
+router.get("/reports/outstanding", requirePermission("reports.read"), async (_req, res) => {
   const rows = await db
     .select({ b: billsTable, pt: patientsTable })
     .from(billsTable)

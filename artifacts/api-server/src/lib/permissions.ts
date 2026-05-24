@@ -1,5 +1,6 @@
 import { db, rolesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { logger } from "./logger";
 
 export const KNOWN_PERMISSIONS = [
   "patient.read", "patient.write", "patient.delete",
@@ -95,4 +96,35 @@ export async function getPermissionsForRole(roleName: string): Promise<Set<strin
 export function invalidateRolePermissionsCache(name?: string): void {
   if (name) cache.delete(name);
   else cache.clear();
+}
+
+// Seed built-in roles at server boot so the rolesTable is never empty —
+// staff.role has a FK constraint on roles.name, so missing rows would break
+// every staff insert. Also keeps each builtin role's permissions in sync
+// with BUILTIN_ROLE_DEFS (which is the single source of truth for what
+// each role can do out-of-the-box); custom roles and admin-edited builtin
+// permission sets are left untouched.
+export async function seedBuiltinRoles(): Promise<void> {
+  try {
+    const existing = await db.select().from(rolesTable);
+    const byName = new Map(existing.map((r) => [r.name, r]));
+    for (const def of BUILTIN_ROLE_DEFS) {
+      const row = byName.get(def.name);
+      if (!row) {
+        await db.insert(rolesTable).values({
+          name: def.name,
+          description: def.description,
+          permissions: def.permissions,
+          isBuiltin: true,
+        });
+        logger.info({ role: def.name }, "Seeded built-in role");
+      } else if (!row.isBuiltin) {
+        // Mark builtin if a prior install seeded it as custom.
+        await db.update(rolesTable).set({ isBuiltin: true }).where(eq(rolesTable.id, row.id));
+      }
+    }
+    invalidateRolePermissionsCache();
+  } catch (err) {
+    logger.error({ err }, "Failed to seed built-in roles");
+  }
 }

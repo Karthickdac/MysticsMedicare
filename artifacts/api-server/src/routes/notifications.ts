@@ -9,10 +9,10 @@ import {
 } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { NOTIFICATION_EVENTS, renderTemplate, sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
-const adminOnly = requireRole("admin");
+const adminOnly = requirePermission("admin.notifications");
 
 function shapeTemplate(t: typeof notificationTemplatesTable.$inferSelect) {
   return {

@@ -23,7 +23,7 @@ import {
   RecordMarDoseBody,
   UpdateBedStatusBody,
 } from "@workspace/api-zod";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { sendNotification } from "../lib/notifications";
 import { isoDate, requiredIso } from "../lib/format";
 
@@ -116,7 +116,7 @@ router.get("/admissions/:id", async (req, res) => {
 // Admit a patient — atomic: claim bed, create encounter, create admission.
 router.post(
   "/admissions",
-  requireRole("admin", "doctor", "receptionist"),
+  requirePermission("ipd.admit"),
   async (req, res) => {
     const parsed = CreateAdmissionBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -194,7 +194,7 @@ router.post(
 // Transfer admission to another bed — atomic swap with lock on both beds.
 router.post(
   "/admissions/:id/transfer",
-  requireRole("admin", "doctor", "nurse"),
+  requirePermission("ipd.nursing", "vitals.write"),
   async (req, res) => {
     const id = Number(req.params.id);
     const parsed = TransferAdmissionBody.safeParse(req.body);
@@ -282,7 +282,7 @@ router.post(
 // Discharge: close encounter, release bed, persist summary, fire WhatsApp.
 router.post(
   "/admissions/:id/discharge",
-  requireRole("admin", "doctor"),
+  requirePermission("encounter.write"),
   async (req, res) => {
     const id = Number(req.params.id);
     const parsed = DischargeAdmissionBody.safeParse(req.body);
@@ -426,7 +426,7 @@ router.get("/admissions/:id/rounds", async (req, res) => {
 
 router.post(
   "/admissions/:id/rounds",
-  requireRole("admin", "doctor"),
+  requirePermission("encounter.write"),
   async (req, res) => {
     const id = Number(req.params.id);
     const parsed = CreateWardRoundBody.safeParse(req.body);
@@ -477,7 +477,7 @@ router.get("/admissions/:id/nursing-notes", async (req, res) => {
 
 router.post(
   "/admissions/:id/nursing-notes",
-  requireRole("admin", "doctor", "nurse"),
+  requirePermission("ipd.nursing", "ipd.rounds"),
   async (req, res) => {
     const id = Number(req.params.id);
     const parsed = CreateNursingNoteBody.safeParse(req.body);
@@ -614,7 +614,7 @@ router.get("/admissions/:id/mar", async (req, res) => {
 
 router.post(
   "/admissions/:id/mar",
-  requireRole("admin", "doctor", "nurse"),
+  requirePermission("ipd.nursing", "ipd.rounds"),
   async (req, res) => {
     const id = Number(req.params.id);
     const parsed = RecordMarDoseBody.safeParse(req.body);
@@ -677,7 +677,7 @@ router.post(
 
 router.post(
   "/beds/:id/status",
-  requireRole("admin", "nurse"),
+  requirePermission("ipd.nursing"),
   async (req, res) => {
     const id = Number(req.params.id);
     const parsed = UpdateBedStatusBody.safeParse(req.body);

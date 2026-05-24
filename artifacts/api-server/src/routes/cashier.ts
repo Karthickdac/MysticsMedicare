@@ -3,7 +3,7 @@ import { db, cashierSessionsTable, billPaymentsTable, billRefundsTable } from "@
 import { and, desc, eq, gte, lte, sql, inArray } from "drizzle-orm";
 import { OpenCashierSessionBody, CloseCashierSessionBody } from "@workspace/api-zod";
 import { isoDate, num, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -61,7 +61,7 @@ async function shape(s: typeof cashierSessionsTable.$inferSelect) {
   };
 }
 
-router.get("/cashier/sessions", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.get("/cashier/sessions", requirePermission("billing.collect", "billing.read"), async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
   if (req.query.status) conds.push(eq(cashierSessionsTable.status, String(req.query.status)));
   const rows = await db
@@ -74,14 +74,14 @@ router.get("/cashier/sessions", requireRole("admin", "accountant", "receptionist
   res.json(out);
 });
 
-router.get("/cashier/sessions/:id", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.get("/cashier/sessions/:id", requirePermission("billing.collect", "billing.read"), async (req, res) => {
   const id = Number(req.params.id);
   const [s] = await db.select().from(cashierSessionsTable).where(eq(cashierSessionsTable.id, id));
   if (!s) return res.status(404).json({ error: "Not found" });
   res.json(await shape(s));
 });
 
-router.post("/cashier/sessions", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.post("/cashier/sessions", requirePermission("billing.collect"), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Login required" });
   const parsed = OpenCashierSessionBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -112,7 +112,7 @@ router.post("/cashier/sessions", requireRole("admin", "accountant", "receptionis
   }
 });
 
-router.post("/cashier/sessions/:id/close", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.post("/cashier/sessions/:id/close", requirePermission("billing.collect"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = CloseCashierSessionBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

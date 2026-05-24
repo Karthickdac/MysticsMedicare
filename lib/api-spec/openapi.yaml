@@ -3244,7 +3244,7 @@ components:
 
     Staff:
       type: object
-      required: [id, staffId, name, role, department, email, phone, status, createdAt]
+      required: [id, staffId, name, role, department, email, phone, status, permissions, createdAt]
       properties:
         id: { type: integer }
         staffId: { type: string }
@@ -3257,6 +3257,10 @@ components:
         avatarUrl: { type: ["string", "null"] }
         status: { type: string }
         joiningDate: { type: ["string", "null"] }
+        permissions:
+          type: array
+          description: Permissions inherited from the staff member's role (server-resolved from rolesTable).
+          items: { type: string }
         createdAt: { type: string }
     StaffInput:
       type: object

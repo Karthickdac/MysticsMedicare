@@ -19,7 +19,7 @@ import {
 } from "@workspace/api-zod";
 import { isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { nextBillNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
@@ -82,7 +82,7 @@ async function loadShaped(id: number) {
 // ---------------------------------------------------------------------------
 // Catalog
 // ---------------------------------------------------------------------------
-router.get("/radiology/catalog", requireRole("admin", "doctor", "radiologist", "technologist", "receptionist"), async (_req, res) => {
+router.get("/radiology/catalog", requirePermission("radiology.read"), async (_req, res) => {
   const rows = await db.select().from(radiologyCatalogTable).orderBy(asc(radiologyCatalogTable.name));
   res.json(rows.map(shapeCatalog));
 });
@@ -94,7 +94,7 @@ function catalogToRow(input: Record<string, unknown>) {
   return out;
 }
 
-router.post("/radiology/catalog", requireRole("admin", "radiologist"), async (req, res) => {
+router.post("/radiology/catalog", requirePermission("radiology.verify", "admin.settings"), async (req, res) => {
   const parsed = CreateRadiologyCatalogItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   try {
@@ -112,7 +112,7 @@ router.post("/radiology/catalog", requireRole("admin", "radiologist"), async (re
   }
 });
 
-router.patch("/radiology/catalog/:id", requireRole("admin", "radiologist"), async (req, res) => {
+router.patch("/radiology/catalog/:id", requirePermission("radiology.verify", "admin.settings"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateRadiologyCatalogItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -128,7 +128,7 @@ router.patch("/radiology/catalog/:id", requireRole("admin", "radiologist"), asyn
 // ---------------------------------------------------------------------------
 // Orders + workflow
 // ---------------------------------------------------------------------------
-router.get("/radiology", requireRole("admin", "doctor", "radiologist", "technologist", "receptionist", "nurse"), async (req, res) => {
+router.get("/radiology", requirePermission("radiology.read"), async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
   if (req.query.patientId) conds.push(eq(radiologyTable.patientId, Number(req.query.patientId)));
   const rows = await db
@@ -143,7 +143,7 @@ router.get("/radiology", requireRole("admin", "doctor", "radiologist", "technolo
 
 // Create order: resolves catalog → modality/body part, optional schedule
 // and auto-bill (best-effort, single-line bill).
-router.post("/radiology", requireRole("admin", "doctor", "radiologist", "receptionist"), async (req, res) => {
+router.post("/radiology", requirePermission("radiology.order"), async (req, res) => {
   const parsed = CreateRadiologyOrderBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const { patientId, catalogId, autoBill, scheduledAt, ...rest } = parsed.data;
@@ -220,7 +220,7 @@ router.post("/radiology", requireRole("admin", "doctor", "radiologist", "recepti
   res.status(201).json(shape(row, p!));
 });
 
-router.post("/radiology/:id/schedule", requireRole("admin", "radiologist", "technologist", "receptionist"), async (req, res) => {
+router.post("/radiology/:id/schedule", requirePermission("radiology.read", "appointment.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = ScheduleRadiologyBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -239,7 +239,7 @@ router.post("/radiology/:id/schedule", requireRole("admin", "radiologist", "tech
   res.json(shaped);
 });
 
-router.post("/radiology/:id/capture", requireRole("admin", "radiologist", "technologist"), async (req, res) => {
+router.post("/radiology/:id/capture", requirePermission("radiology.report", "radiology.verify"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = CaptureRadiologyImagesBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -259,7 +259,7 @@ router.post("/radiology/:id/capture", requireRole("admin", "radiologist", "techn
   res.json(shaped);
 });
 
-router.post("/radiology/:id/report", requireRole("admin", "radiologist", "doctor"), async (req, res) => {
+router.post("/radiology/:id/report", requirePermission("radiology.report"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordRadiologyReportBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -281,7 +281,7 @@ router.post("/radiology/:id/report", requireRole("admin", "radiologist", "doctor
   res.json(shape(row, p!));
 });
 
-router.post("/radiology/:id/verify", requireRole("admin", "radiologist"), async (req, res) => {
+router.post("/radiology/:id/verify", requirePermission("radiology.verify"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = VerifyRadiologyReportBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -300,7 +300,7 @@ router.post("/radiology/:id/verify", requireRole("admin", "radiologist"), async 
   res.json(shaped);
 });
 
-router.post("/radiology/:id/dispatch", requireRole("admin", "radiologist", "technologist", "receptionist"), async (req, res) => {
+router.post("/radiology/:id/dispatch", requirePermission("radiology.read", "appointment.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = DispatchRadiologyReportBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

@@ -18,7 +18,7 @@ import {
 } from "@workspace/api-zod";
 import { isoDate, num, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 import { nextBillNumber, nextReceiptNumber } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
@@ -179,7 +179,7 @@ function recomputeStatus(total: number, paid: number, refunded: number, currentS
 // ---------------------------------------------------------------------------
 // Bills CRUD
 // ---------------------------------------------------------------------------
-router.get("/bills", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+router.get("/bills", requirePermission("billing.read"), async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
   if (req.query.patientId) conds.push(eq(billsTable.patientId, Number(req.query.patientId)));
   if (req.query.status) conds.push(eq(billsTable.status, String(req.query.status)));
@@ -194,7 +194,7 @@ router.get("/bills", requireRole("admin", "accountant", "receptionist", "cashier
   res.json(rows.map((r) => shape(r.b, r.pt, r.doctorName)));
 });
 
-router.post("/bills", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.post("/bills", requirePermission("billing.create"), async (req, res) => {
   const parsed = CreateBillBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const gstMode = parsed.data.gstMode ?? "intra";
@@ -234,7 +234,7 @@ router.post("/bills", requireRole("admin", "accountant", "receptionist", "cashie
   res.status(201).json(shape(row, pt!));
 });
 
-router.get("/bills/:id", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+router.get("/bills/:id", requirePermission("billing.read"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({ b: billsTable, pt: patientsTable, doctorName: staffTable.name })
@@ -247,7 +247,7 @@ router.get("/bills/:id", requireRole("admin", "accountant", "receptionist", "cas
   res.json(shape(r.b, r.pt, r.doctorName));
 });
 
-router.get("/bills/:id/full", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+router.get("/bills/:id/full", requirePermission("billing.read"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({ b: billsTable, pt: patientsTable, doctorName: staffTable.name })
@@ -277,7 +277,7 @@ router.get("/bills/:id/full", requireRole("admin", "accountant", "receptionist",
 // ---------------------------------------------------------------------------
 // Payments
 // ---------------------------------------------------------------------------
-router.get("/bills/:id/payments", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+router.get("/bills/:id/payments", requirePermission("billing.read"), async (req, res) => {
   const id = Number(req.params.id);
   const rows = await db
     .select()
@@ -287,7 +287,7 @@ router.get("/bills/:id/payments", requireRole("admin", "accountant", "receptioni
   res.json(rows.map(shapePayment));
 });
 
-router.post("/bills/:id/payments", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.post("/bills/:id/payments", requirePermission("billing.collect"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordPaymentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -382,7 +382,7 @@ router.post("/bills/:id/payments", requireRole("admin", "accountant", "reception
 // ---------------------------------------------------------------------------
 // Refunds
 // ---------------------------------------------------------------------------
-router.post("/bills/:id/refunds", requireRole("admin", "accountant", "cashier"), async (req, res) => {
+router.post("/bills/:id/refunds", requirePermission("billing.refund"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordRefundBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -442,7 +442,7 @@ router.post("/bills/:id/refunds", requireRole("admin", "accountant", "cashier"),
 // ---------------------------------------------------------------------------
 // Void (admin only)
 // ---------------------------------------------------------------------------
-router.post("/bills/:id/void", requireRole("admin"), async (req, res) => {
+router.post("/bills/:id/void", requirePermission("billing.void"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = VoidBillBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -481,7 +481,7 @@ router.post("/bills/:id/void", requireRole("admin"), async (req, res) => {
 // ---------------------------------------------------------------------------
 // Insurance claim update
 // ---------------------------------------------------------------------------
-router.post("/bills/:id/claim", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.post("/bills/:id/claim", requirePermission("billing.claim"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateBillClaimBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -502,7 +502,7 @@ router.post("/bills/:id/claim", requireRole("admin", "accountant", "receptionist
 // Back-compat: /pay marks the entire outstanding balance paid in cash.
 // New code should use POST /bills/:id/payments instead.
 // ---------------------------------------------------------------------------
-router.post("/bills/:id/pay", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
+router.post("/bills/:id/pay", requirePermission("billing.collect"), async (req, res) => {
   const id = Number(req.params.id);
   const mode = (req.body?.paymentMethod as string | undefined) ?? "cash";
   try {
