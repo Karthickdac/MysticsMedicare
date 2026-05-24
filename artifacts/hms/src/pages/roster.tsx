@@ -6,9 +6,11 @@ import {
   useBulkCreateRosterShifts,
   useCopyRosterWeek,
   useListStaff,
+  useGetPublicHospitalSettings,
   getListRosterShiftsQueryKey,
   type RosterShift,
 } from "@workspace/api-client-react";
+import { closedReasonFor, type PublicHospitalSettings } from "./portal-shell";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +31,60 @@ type Shift = RosterShift;
 
 const SHIFTS = ["Morning", "Evening", "Night", "OnCall", "Leave"] as const;
 const SHIFT_HOURS: Record<string, number> = { Morning: 8, Evening: 8, Night: 8, OnCall: 12, Leave: 0 };
+// Clock windows the shift band implies. OnCall/Leave are full-day and not
+// constrained by the hospital's working hours.
+const SHIFT_WINDOWS: Record<string, { start: string; end: string } | null> = {
+  Morning: { start: "08:00", end: "16:00" },
+  Evening: { start: "16:00", end: "24:00" },
+  Night: { start: "00:00", end: "08:00" },
+  OnCall: null,
+  Leave: null,
+};
+function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return NaN;
+  return h * 60 + m;
+}
+const DAY_KEYS_ROSTER = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+// Returns null if the shift band fits within the day's open window, or a reason
+// string if any part of it falls outside. OnCall/Leave bypass the check.
+//
+// Midnight / overnight semantics:
+// - Hospital close of "00:00" is interpreted as end-of-day (24:00 = 1440 min);
+//   <input type="time"> can't emit "24:00".
+// - When close <= open after that normalization (e.g. open 18:00, close 02:00)
+//   the window is treated as overnight and the close edge is rolled forward by
+//   24h, then the shift window is tested against both the original-day slot
+//   and the rolled slot so e.g. an Evening 16–24 band still fits an
+//   overnight-open hospital, and a Night 00–08 band fits the post-midnight tail.
+function bandOutOfHoursReason(
+  settings: PublicHospitalSettings | null | undefined,
+  dateStr: string,
+  band: string,
+): string | null {
+  const win = SHIFT_WINDOWS[band];
+  if (!win || !settings?.workingHours || !dateStr) return null;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const dow = new Date(y, m - 1, d).getDay();
+  const cfg = settings.workingHours[DAY_KEYS_ROSTER[dow]];
+  if (!cfg || cfg.closed || !cfg.open || !cfg.close) return null;
+  const openMin = toMin(cfg.open);
+  let closeMin = toMin(cfg.close);
+  const bandStart = toMin(win.start);
+  const bandEnd = toMin(win.end);
+  if (![openMin, closeMin, bandStart, bandEnd].every(Number.isFinite)) return null;
+  // Normalize "00:00" close to 24:00, and roll an overnight close forward.
+  if (closeMin === 0) closeMin = 1440;
+  if (closeMin <= openMin) closeMin += 1440;
+  const fitsSameDay = bandStart >= openMin && bandEnd <= closeMin;
+  // For overnight schedules, also accept a band that lives in the post-midnight
+  // tail (e.g. Night 00–08 against open 18:00–close 02:00 → tail 24–26h).
+  const fitsOvernightTail =
+    closeMin > 1440 && bandStart + 1440 >= openMin && bandEnd + 1440 <= closeMin;
+  if (fitsSameDay || fitsOvernightTail) return null;
+  return `${band} shift (${win.start}–${win.end}) falls outside hospital hours (${cfg.open}–${cfg.close})`;
+}
 const SHIFT_TONES: Record<string, string> = {
   Morning: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-200 dark:border-amber-700/40",
   Evening: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/15 dark:text-blue-200 dark:border-blue-700/40",
@@ -444,9 +500,25 @@ function AddShiftDialog({ staff, defaultStaffId, defaultDate, onClose, onSaved }
   const [notes, setNotes] = useState("");
   const create = useCreateRosterShift();
   const { toast } = useToast();
+  const { data: settings } = useGetPublicHospitalSettings();
+  const hospitalSettings = settings as PublicHospitalSettings | undefined;
+
+  const closedReason = useMemo(
+    () => closedReasonFor(hospitalSettings, date),
+    [hospitalSettings, date],
+  );
+  const outOfHoursReason = useMemo(
+    () => bandOutOfHoursReason(hospitalSettings, date, shift),
+    [hospitalSettings, date, shift],
+  );
+  const blockReason = closedReason ?? outOfHoursReason;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (blockReason) {
+      toast({ title: "Cannot schedule", description: blockReason, variant: "destructive" });
+      return;
+    }
     create.mutate({ data: { staffId, department, shift, date, notes: notes || undefined } }, {
       onSuccess: () => { toast({ title: "Shift scheduled" }); onSaved(); },
       onError: (e) => toast({ title: "Cannot schedule", description: (e as Error).message, variant: "destructive" }),
@@ -491,13 +563,22 @@ function AddShiftDialog({ staff, defaultStaffId, defaultDate, onClose, onSaved }
             <Label className="text-xs uppercase tracking-wider">Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </div>
+          {blockReason && (
+            <div
+              className="flex items-start gap-2 rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              data-testid="text-shift-block-reason"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{blockReason}</span>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wider">Notes (optional)</Label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. doubling Dr. Sharma's evening cover" />
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending} data-testid="button-save-shift">{create.isPending ? "Saving…" : "Save shift"}</Button>
+            <Button type="submit" disabled={create.isPending || !!blockReason} data-testid="button-save-shift">{create.isPending ? "Saving…" : "Save shift"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
