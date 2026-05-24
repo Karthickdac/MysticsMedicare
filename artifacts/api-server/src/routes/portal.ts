@@ -17,6 +17,7 @@ import {
 import { and, desc, eq, inArray, sql, gte, lte } from "drizzle-orm";
 import { hasSlotConflict } from "../lib/slot-conflict";
 import { nextReceiptNumber, validateAppointmentSlot, generateSlotsForDate } from "../lib/hospital-settings";
+import { getDoctorAvailability, minuteOfDayInInterval, describeIntervals } from "../lib/doctor-availability";
 import { z } from "zod";
 import {
   renderLabReportPdf,
@@ -380,6 +381,13 @@ router.get("/portal/doctors/:id/slots", requirePatient, async (req, res) => {
   if (gen.closed) {
     return res.json({ taken: [], slots: [], closed: true, reason: gen.reason ?? "Closed" });
   }
+  // Intersect hospital working hours with the chosen doctor's roster so a
+  // patient can't pick a slot inside the hospital window but outside the
+  // doctor's shift (or while they're on leave / off duty).
+  const avail = await getDoctorAvailability(doctorId, dateStr);
+  if (avail.closed) {
+    return res.json({ taken: [], slots: [], closed: true, reason: avail.reason ?? "Doctor is unavailable that day" });
+  }
   const dayStart = new Date(`${dateStr}T00:00:00`);
   const dayEnd = new Date(`${dateStr}T23:59:59.999`);
   const taken = await db
@@ -401,8 +409,20 @@ router.get("/portal/doctors/:id/slots", requirePatient, async (req, res) => {
       return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }),
   );
-  const slots = gen.slots.map((time) => ({ time, taken: takenHHMM.has(time) }));
-  res.json({ taken: takenIso, slots, closed: false });
+  const filtered = gen.slots.filter((time) => {
+    const [hh, mm] = time.split(":").map(Number);
+    return minuteOfDayInInterval(avail.intervals, hh! * 60 + mm!);
+  });
+  const slots = filtered.map((time) => ({ time, taken: takenHHMM.has(time) }));
+  if (slots.length === 0) {
+    return res.json({
+      taken: takenIso,
+      slots: [],
+      closed: true,
+      reason: `Doctor's on-duty hours don't overlap the hospital window on this day.`,
+    });
+  }
+  res.json({ taken: takenIso, slots, closed: false, dutyWindows: describeIntervals(avail.intervals) });
 });
 
 const BookAppointmentBody = z.object({
@@ -423,6 +443,18 @@ router.post("/portal/appointments", requirePatient, async (req, res) => {
   }
   const slotError = await validateAppointmentSlot(when);
   if (slotError) return res.status(400).json({ error: slotError });
+  // Server-side roster check (defense in depth — the UI already hides
+  // off-duty slots, but a crafted POST must still be rejected).
+  const dateStr = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+  const avail = await getDoctorAvailability(parsed.data.doctorId, dateStr);
+  if (avail.closed) {
+    return res.status(400).json({ error: avail.reason ?? "Doctor is unavailable that day" });
+  }
+  if (!minuteOfDayInInterval(avail.intervals, when.getHours() * 60 + when.getMinutes())) {
+    return res.status(400).json({
+      error: `That time is outside the doctor's on-duty hours (${describeIntervals(avail.intervals)}).`,
+    });
+  }
   // Same advisory-lock + conflict-check pattern as the staff route so portal
   // and staff bookings can't both win the same 15-min slot.
   try {
@@ -499,6 +531,14 @@ router.post("/portal/appointments/:id/reschedule", requirePatient, async (req, r
   if (slotError) return res.status(400).json({ error: slotError });
   const [existing] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id));
   if (!existing || existing.patientId !== pid) return res.status(404).json({ error: "Not found" });
+  const dateStr = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+  const avail = await getDoctorAvailability(existing.doctorId, dateStr);
+  if (avail.closed) return res.status(400).json({ error: avail.reason ?? "Doctor is unavailable that day" });
+  if (!minuteOfDayInInterval(avail.intervals, when.getHours() * 60 + when.getMinutes())) {
+    return res.status(400).json({
+      error: `That time is outside the doctor's on-duty hours (${describeIntervals(avail.intervals)}).`,
+    });
+  }
   if (existing.status !== "scheduled" && existing.status !== "confirmed") {
     return res.status(409).json({ error: `Cannot reschedule appointment with status ${existing.status}` });
   }

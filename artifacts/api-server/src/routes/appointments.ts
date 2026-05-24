@@ -7,6 +7,7 @@ import { sendNotification } from "../lib/notifications";
 import { requirePermission } from "../lib/auth";
 import { hasSlotConflict } from "../lib/slot-conflict";
 import { validateAppointmentSlot } from "../lib/hospital-settings";
+import { getDoctorAvailability, minuteOfDayInInterval, describeIntervals } from "../lib/doctor-availability";
 
 // Roles allowed to mark a visit as completed / no_show. Reschedule and cancel
 // are still open to receptionist/admin. UI hides these actions, but the
@@ -37,6 +38,26 @@ async function shapeJoin(rows: Array<{ a: typeof appointmentsTable.$inferSelect;
     createdAt: requiredIso(r.a.createdAt),
   }));
 }
+
+// Doctor availability for a given date — used by the staff appointment-new
+// page to warn before submitting a slot that falls outside the chosen
+// doctor's roster. Read-only; mirrors the portal slot rules.
+router.get("/doctors/:id/availability", async (req, res) => {
+  const doctorId = Number(req.params.id);
+  if (!Number.isFinite(doctorId)) return res.status(400).json({ error: "Invalid doctor id" });
+  const dateStr = String(req.query["date"] ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return res.status(400).json({ error: "date=YYYY-MM-DD required" });
+  }
+  const avail = await getDoctorAvailability(doctorId, dateStr);
+  res.json({
+    closed: avail.closed,
+    reason: avail.reason,
+    intervals: avail.intervals.map(([s, e]) => ({ startMin: s, endMin: e })),
+    dutyWindows: describeIntervals(avail.intervals),
+    unrostered: avail.unrostered,
+  });
+});
 
 router.get("/appointments", async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
@@ -69,6 +90,18 @@ router.post("/appointments", requirePermission("appointment.write"), async (req,
   const when = new Date(parsed.data.scheduledAt);
   const slotError = await validateAppointmentSlot(when);
   if (slotError) return res.status(400).json({ error: slotError });
+  // Reject slots outside the chosen doctor's roster (leave / off-duty / wrong
+  // shift band) so staff can't bypass the warning the UI shows.
+  const dateStr = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+  const avail = await getDoctorAvailability(parsed.data.doctorId, dateStr);
+  if (avail.closed) {
+    return res.status(400).json({ error: avail.reason ?? "Doctor is unavailable that day" });
+  }
+  if (!minuteOfDayInInterval(avail.intervals, when.getHours() * 60 + when.getMinutes())) {
+    return res.status(400).json({
+      error: `That time is outside the doctor's on-duty hours (${describeIntervals(avail.intervals)}).`,
+    });
+  }
   // Serialize concurrent bookings for the same doctor via a transaction-scoped
   // advisory lock so the conflict-check + insert is atomic. Without this two
   // requests can both pass the check and both insert into the same 15-min slot.

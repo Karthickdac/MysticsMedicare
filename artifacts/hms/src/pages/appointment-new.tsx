@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -112,10 +112,48 @@ export default function AppointmentNew() {
 
   const selectedDepartment = form.watch("department");
   const selectedDoctorId = form.watch("doctorId");
+  const selectedScheduledAt = form.watch("scheduledAt");
   const doctorsInDepartment = useMemo(
     () => (selectedDepartment ? doctors.filter((d) => d.department === selectedDepartment) : []),
     [doctors, selectedDepartment],
   );
+
+  // Look up the chosen doctor's roster windows for the chosen date so we can
+  // warn the user before they POST a slot the API would reject. Mirrors the
+  // /portal/doctors/:id/slots roster check.
+  type Availability = {
+    closed: boolean;
+    reason: string | null;
+    intervals: Array<{ startMin: number; endMin: number }>;
+    dutyWindows: string;
+    unrostered: boolean;
+  };
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const datePart = (selectedScheduledAt ?? "").split("T")[0] ?? "";
+  const timePart = (selectedScheduledAt ?? "").split("T")[1] ?? "";
+
+  useEffect(() => {
+    if (!selectedDoctorId || !datePart) { setAvailability(null); return; }
+    let cancelled = false;
+    fetch(`/api/doctors/${selectedDoctorId}/availability?date=${datePart}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled) setAvailability(j); })
+      .catch(() => { if (!cancelled) setAvailability(null); });
+    return () => { cancelled = true; };
+  }, [selectedDoctorId, datePart]);
+
+  const rosterWarning = useMemo(() => {
+    if (!availability) return null;
+    if (availability.unrostered) return null;
+    if (availability.closed) return availability.reason ?? "Doctor is unavailable that day.";
+    if (!timePart) return null;
+    const [h, m] = timePart.split(":").map((s) => Number(s));
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    const minOfDay = h * 60 + m;
+    const inside = availability.intervals.some((iv) => minOfDay >= iv.startMin && minOfDay < iv.endMin);
+    if (inside) return null;
+    return `That time is outside the doctor's on-duty hours (${availability.dutyWindows}).`;
+  }, [availability, timePart]);
 
   function onDepartmentChange(dept: string) {
     form.setValue("department", dept);
@@ -298,6 +336,16 @@ export default function AppointmentNew() {
                             Upcoming holidays: {holidayHint}
                           </p>
                         )}
+                        {availability && !availability.closed && !availability.unrostered && availability.dutyWindows && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Doctor on duty: {availability.dutyWindows}
+                          </p>
+                        )}
+                        {rosterWarning && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 px-2 py-1.5 rounded mt-1" data-testid="text-roster-warning">
+                            {rosterWarning}
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     );
@@ -323,7 +371,7 @@ export default function AppointmentNew() {
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setLocation("/appointments")}>Cancel</Button>
-            <Button type="submit" disabled={createMutation.isPending} className="bg-brand-gradient text-white">
+            <Button type="submit" disabled={createMutation.isPending || !!rosterWarning} className="bg-brand-gradient text-white">
               {createMutation.isPending ? "Booking…" : "Book appointment"}
             </Button>
           </div>
