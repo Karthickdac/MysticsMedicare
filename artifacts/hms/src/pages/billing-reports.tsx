@@ -3,11 +3,13 @@ import {
   useGetCollectionsReport,
   useGetGstr1Report,
   useGetOutstandingReport,
+  useListStaff,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/primitives/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, BarChart3 } from "lucide-react";
@@ -68,24 +70,89 @@ export default function BillingReports() {
   );
 }
 
+const GROUP_DIMS = ["date", "mode", "doctor", "department"] as const;
+type GroupDim = typeof GROUP_DIMS[number];
+
 function CollectionsTab({ from, to }: { from: string; to: string }) {
-  const { data, isLoading } = useGetCollectionsReport({ from, to });
+  const [doctorId, setDoctorId] = useState<string>("all");
+  const [department, setDepartment] = useState<string>("");
+  const [groupDims, setGroupDims] = useState<GroupDim[]>(["date", "mode"]);
+  const { data: staff } = useListStaff();
+  const doctors = useMemo(() => (staff ?? []).filter((s) => s.role === "doctor"), [staff]);
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of doctors) if (s.department) set.add(s.department);
+    return Array.from(set).sort();
+  }, [doctors]);
+  const params = useMemo(() => ({
+    from, to,
+    ...(doctorId !== "all" ? { doctorId: Number(doctorId) } : {}),
+    ...(department ? { department } : {}),
+    groupBy: groupDims.join(","),
+  }), [from, to, doctorId, department, groupDims]);
+  const { data, isLoading } = useGetCollectionsReport(params);
   const rows = data ?? [];
   const total = useMemo(() => rows.reduce((s, r) => s + r.amount, 0), [rows]);
+  const showDate = groupDims.includes("date");
+  const showMode = groupDims.includes("mode");
+  const showDoctor = groupDims.includes("doctor");
+  const showDept = groupDims.includes("department");
+  const toggleDim = (d: GroupDim) => setGroupDims((cur) => cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]);
   return (
     <Card>
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-base">Daily Collections</CardTitle>
-          <p className="text-xs text-muted-foreground">Total: <strong>{inr(total)}</strong> across {rows.length} rows</p>
+      <CardHeader className="pb-2 space-y-3">
+        <div className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Daily Collections</CardTitle>
+            <p className="text-xs text-muted-foreground">Total: <strong>{inr(total)}</strong> across {rows.length} rows</p>
+          </div>
+          <Button variant="outline" size="sm" disabled={rows.length === 0} onClick={() => downloadCsv(
+            `collections-${from}-to-${to}.csv`,
+            [...(showDate ? ["Date"] : []), ...(showMode ? ["Mode"] : []), ...(showDoctor ? ["Doctor"] : []), ...(showDept ? ["Department"] : []), "Amount", "Count"],
+            rows.map((r) => [
+              ...(showDate ? [r.date ?? ""] : []),
+              ...(showMode ? [r.mode ?? ""] : []),
+              ...(showDoctor ? [r.doctorName ?? ""] : []),
+              ...(showDept ? [r.department ?? ""] : []),
+              r.amount.toFixed(2), r.count,
+            ]),
+          )}>
+            <Download className="w-4 h-4 mr-2" /> CSV
+          </Button>
         </div>
-        <Button variant="outline" size="sm" disabled={rows.length === 0} onClick={() => downloadCsv(
-          `collections-${from}-to-${to}.csv`,
-          ["Date", "Mode", "Amount", "Count"],
-          rows.map((r) => [r.date ?? "", r.mode ?? "", r.amount.toFixed(2), r.count]),
-        )}>
-          <Download className="w-4 h-4 mr-2" /> CSV
-        </Button>
+        <div className="flex flex-wrap items-end gap-3 text-xs">
+          <div className="space-y-1">
+            <Label className="text-xs">Doctor</Label>
+            <Select value={doctorId} onValueChange={setDoctorId}>
+              <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All doctors</SelectItem>
+                {doctors.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Department</Label>
+            <Select value={department || "_all"} onValueChange={(v) => setDepartment(v === "_all" ? "" : v)}>
+              <SelectTrigger className="h-8 w-44"><SelectValue placeholder="All departments" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All departments</SelectItem>
+                {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Group by</Label>
+            <div className="flex gap-1">
+              {GROUP_DIMS.map((d) => (
+                <Button key={d} type="button" size="sm"
+                  variant={groupDims.includes(d) ? "default" : "outline"}
+                  className="h-7 px-2 capitalize text-xs"
+                  onClick={() => toggleDim(d)}>{d}</Button>
+              ))}
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {isLoading ? <div className="p-6 text-sm">Loading…</div> : rows.length === 0 ? (
@@ -93,11 +160,25 @@ function CollectionsTab({ from, to }: { from: string; to: string }) {
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground border-y border-border">
-              <tr><th className="py-2 px-4 text-left">Date</th><th className="py-2 px-3 text-left">Mode</th><th className="py-2 px-3 text-right">Receipts</th><th className="py-2 px-4 text-right">Amount</th></tr>
+              <tr>
+                {showDate && <th className="py-2 px-4 text-left">Date</th>}
+                {showMode && <th className="py-2 px-3 text-left">Mode</th>}
+                {showDoctor && <th className="py-2 px-3 text-left">Doctor</th>}
+                {showDept && <th className="py-2 px-3 text-left">Department</th>}
+                <th className="py-2 px-3 text-right">Receipts</th>
+                <th className="py-2 px-4 text-right">Amount</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {rows.map((r, i) => (
-                <tr key={i}><td className="py-2 px-4">{r.date}</td><td className="py-2 px-3 uppercase">{r.mode}</td><td className="py-2 px-3 text-right tabular-nums">{r.count}</td><td className="py-2 px-4 text-right tabular-nums font-medium">{inr(r.amount)}</td></tr>
+                <tr key={i}>
+                  {showDate && <td className="py-2 px-4">{r.date ?? "—"}</td>}
+                  {showMode && <td className="py-2 px-3 uppercase">{r.mode ?? "—"}</td>}
+                  {showDoctor && <td className="py-2 px-3">{r.doctorName ?? "—"}</td>}
+                  {showDept && <td className="py-2 px-3">{r.department ?? "—"}</td>}
+                  <td className="py-2 px-3 text-right tabular-nums">{r.count}</td>
+                  <td className="py-2 px-4 text-right tabular-nums font-medium">{inr(r.amount)}</td>
+                </tr>
               ))}
             </tbody>
           </table>

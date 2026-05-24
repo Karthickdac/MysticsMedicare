@@ -2029,6 +2029,8 @@ components:
         id: { type: integer }
         patientId: { type: integer }
         patientName: { type: string }
+        patientPhone: { type: ["string", "null"] }
+        patientEmail: { type: ["string", "null"] }
         doctorId: { type: ["integer", "null"] }
         doctorName: { type: ["string", "null"] }
         department: { type: ["string", "null"] }

@@ -506,6 +506,10 @@ export interface Bill {
   patientId: number;
   patientName: string;
   /** @nullable */
+  patientPhone?: string | null;
+  /** @nullable */
+  patientEmail?: string | null;
+  /** @nullable */
   doctorId?: number | null;
   /** @nullable */
   doctorName?: string | null;

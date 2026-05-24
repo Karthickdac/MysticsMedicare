@@ -54,6 +54,8 @@ function shape(b: typeof billsTable.$inferSelect, pt: typeof patientsTable.$infe
     id: b.id,
     patientId: b.patientId,
     patientName: pt.name,
+    patientPhone: pt.phone ?? null,
+    patientEmail: pt.email ?? null,
     doctorId: b.doctorId,
     doctorName,
     department: b.department,
@@ -312,13 +314,21 @@ router.post("/bills/:id/payments", requireRole("admin", "accountant", "reception
       const bill = lockedRows.rows[0];
       if (!bill) throw new HttpError(404, "Bill not found");
       if (bill.status === "void") throw new HttpError(409, "Bill is voided");
-      // session lookup happens INSIDE the tx with FOR UPDATE so close-vs-payment race is closed
+      // Cash collections MUST be attached to an open cashier session so day-end
+      // reconciliation matches drawer count to system-recorded cash. Session is
+      // looked up + locked FOR UPDATE inside the tx so a concurrent close cannot
+      // cut the drawer between our check and our insert. Non-cash modes
+      // (card/upi/insurance) settle through other channels and skip this check.
       let openSession: number | null = null;
-      if (parsed.data.mode === "cash" && req.user) {
+      if (parsed.data.mode === "cash") {
+        if (!req.user) throw new HttpError(401, "Authentication required for cash payments");
         const sRows = await tx.execute<typeof cashierSessionsTable.$inferSelect>(
           sql`SELECT * FROM cashier_sessions WHERE cashier_user_id = ${req.user.id} AND status = 'open' LIMIT 1 FOR UPDATE`,
         );
-        if (sRows.rows[0]) openSession = sRows.rows[0].id;
+        if (!sRows.rows[0]) {
+          throw new HttpError(409, "Open a cashier session before recording cash payments");
+        }
+        openSession = sRows.rows[0].id;
       }
       const total = num(bill.total);
       const alreadyPaid = num(bill.paidAmount);
@@ -510,15 +520,18 @@ router.post("/bills/:id/pay", requireRole("admin", "accountant", "receptionist",
       const bill = lockedRows.rows[0];
       if (!bill) throw new HttpError(404, "Not found");
       if (bill.status === "void") throw new HttpError(409, "Bill is voided");
-      // Attach to the caller's open cashier session inside the tx so legacy /pay
-      // uses the same reconciliation path as /payments and cannot leak unattributed
-      // cash collections into a closed drawer.
+      // Same drawer-attribution rule as /payments — legacy /pay must reject cash
+      // when no session is open, or it becomes a hole in day-end reconciliation.
       let openSession: number | null = null;
-      if (mode === "cash" && req.user) {
+      if (mode === "cash") {
+        if (!req.user) throw new HttpError(401, "Authentication required for cash payments");
         const sRows = await tx.execute<typeof cashierSessionsTable.$inferSelect>(
           sql`SELECT * FROM cashier_sessions WHERE cashier_user_id = ${req.user.id} AND status = 'open' LIMIT 1 FOR UPDATE`,
         );
-        if (sRows.rows[0]) openSession = sRows.rows[0].id;
+        if (!sRows.rows[0]) {
+          throw new HttpError(409, "Open a cashier session before recording cash payments");
+        }
+        openSession = sRows.rows[0].id;
       }
       const total = num(bill.total);
       const paid = num(bill.paidAmount);

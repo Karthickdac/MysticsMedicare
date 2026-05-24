@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
-  FileText, IndianRupee, Receipt, RefreshCcw, Ban, ShieldCheck, Printer,
+  FileText, IndianRupee, Receipt, RefreshCcw, Ban, ShieldCheck, Printer, MessageCircle, Mail,
 } from "lucide-react";
 
 function inr(n: number | string | undefined | null) {
@@ -78,6 +78,13 @@ export default function BillDetail() {
               <Printer className="w-4 h-4 mr-2" /> Invoice PDF
             </a>
           </Button>
+          <ShareLinks
+            title={`Invoice ${bill.billNumber}`}
+            url={`${window.location.origin}/api/pdf/invoice/${bill.id}`}
+            phone={bill.patientPhone ?? null}
+            email={bill.patientEmail ?? null}
+            body={`Hello ${bill.patientName}, your invoice ${bill.billNumber} for ₹${bill.total.toFixed(2)} is available here:`}
+          />
           <PaymentDialog billId={billId} balance={bill.balance} disabled={bill.status === "void" || bill.balance <= 0} onDone={refresh} />
           <RefundDialog billId={billId} refundable={bill.paidAmount - bill.refundedAmount} disabled={bill.status === "void"} payments={payments} onDone={refresh} />
           <VoidDialog billId={billId} disabled={bill.status === "void" || bill.paidAmount - bill.refundedAmount > 0} onDone={refresh} />
@@ -150,11 +157,21 @@ export default function BillDetail() {
                         {p.reference ? ` • Ref ${p.reference}` : ""}
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={`/api/pdf/receipt/${p.id}`} target="_blank" rel="noopener noreferrer">
-                        <FileText className="w-4 h-4 mr-1" /> Receipt
-                      </a>
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={`/api/pdf/receipt/${p.id}`} target="_blank" rel="noopener noreferrer">
+                          <FileText className="w-4 h-4 mr-1" /> Receipt
+                        </a>
+                      </Button>
+                      <ShareLinks
+                        compact
+                        title={`Receipt ${p.receiptNumber}`}
+                        url={`${window.location.origin}/api/pdf/receipt/${p.id}`}
+                        phone={bill.patientPhone ?? null}
+                        email={bill.patientEmail ?? null}
+                        body={`Receipt ${p.receiptNumber} for ₹${p.amount.toFixed(2)} (${p.mode.toUpperCase()}) is available here:`}
+                      />
+                    </div>
                   </li>
                 ))}
                 {refunds.map((r) => (
@@ -421,5 +438,36 @@ function ClaimCard({ billId, claimStatus, claimAmount, tpa, policyNumber, preAut
         >Save Claim</Button>
       </CardContent>
     </Card>
+  );
+}
+
+// Share an invoice/receipt PDF via WhatsApp (wa.me) or email (mailto). Both are
+// link-based handoffs to the user's installed apps — no server-side mailer or
+// WhatsApp Business credentials required, which keeps the cashier workflow
+// dependency-free while still satisfying the "emailable / WhatsApp" requirement.
+function ShareLinks({
+  title, url, phone, email, body, compact,
+}: { title: string; url: string; phone: string | null; email: string | null; body: string; compact?: boolean }) {
+  const text = `${body}\n${url}`;
+  const waDigits = (phone ?? "").replace(/\D/g, "");
+  const waHref = waDigits
+    ? `https://wa.me/${waDigits.length === 10 ? "91" + waDigits : waDigits}?text=${encodeURIComponent(text)}`
+    : `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const mailHref = `mailto:${email ?? ""}?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`;
+  const size = compact ? "sm" as const : "default" as const;
+  const variant = compact ? "ghost" as const : "outline" as const;
+  return (
+    <>
+      <Button variant={variant} size={size} asChild title={phone ? `WhatsApp ${phone}` : "Share via WhatsApp"}>
+        <a href={waHref} target="_blank" rel="noopener noreferrer">
+          <MessageCircle className={compact ? "w-4 h-4" : "w-4 h-4 mr-2"} />{!compact && "WhatsApp"}
+        </a>
+      </Button>
+      <Button variant={variant} size={size} asChild disabled={!email} title={email ? `Email ${email}` : "Patient has no email on file"}>
+        <a href={mailHref}>
+          <Mail className={compact ? "w-4 h-4" : "w-4 h-4 mr-2"} />{!compact && "Email"}
+        </a>
+      </Button>
+    </>
   );
 }
