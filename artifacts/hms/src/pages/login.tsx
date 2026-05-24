@@ -55,7 +55,7 @@ export default function Login() {
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-sm mb-2">
             <Activity className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">MediCare Plus</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Mystics MediCare Pro</h1>
           <p className="text-muted-foreground text-sm">Clinical Command Center OS</p>
         </div>
 
