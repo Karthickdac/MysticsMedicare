@@ -31,6 +31,9 @@ import notificationsRouter from "./notifications";
 import auditRouter from "./audit";
 import pdfRouter from "./pdf";
 import portalRouter from "./portal";
+import rolesRouter from "./roles";
+import hospitalSettingsRouter from "./hospital-settings";
+import adminReportsRouter from "./admin-reports";
 
 const router: IRouter = Router();
 
@@ -66,5 +69,8 @@ router.use(notificationsRouter);
 router.use(auditRouter);
 router.use(pdfRouter);
 router.use(portalRouter);
+router.use(rolesRouter);
+router.use(hospitalSettingsRouter);
+router.use(adminReportsRouter);
 
 export default router;

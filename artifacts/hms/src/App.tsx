@@ -41,6 +41,8 @@ import NotificationLog from "@/pages/notification-log";
 import Audit from "@/pages/audit";
 import EncounterDetail from "@/pages/encounter-detail";
 import Settings from "@/pages/settings";
+import Roles from "@/pages/roles";
+import AdminReports from "@/pages/admin-reports";
 
 import { Shell } from "@/components/layout/shell";
 import { RequireAuth } from "@/components/require-auth";
@@ -110,6 +112,8 @@ function Router() {
             <Route path="/notifications/templates" component={NotificationTemplates} />
             <Route path="/notifications/log" component={NotificationLog} />
             <Route path="/audit" component={Audit} />
+            <Route path="/admin/roles" component={Roles} />
+            <Route path="/admin/reports" component={AdminReports} />
             <Route path="/encounters/:id" component={EncounterDetail} />
             <Route path="/settings" component={Settings} />
             <Route component={NotFound} />

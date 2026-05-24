@@ -1214,6 +1214,8 @@ export interface Staff {
   /** @nullable */
   avatarUrl?: string | null;
   status: string;
+  /** @nullable */
+  joiningDate?: string | null;
   createdAt: string;
 }
 
@@ -1224,6 +1226,7 @@ export interface StaffInput {
   email: string;
   phone: string;
   specialization?: string;
+  joiningDate?: string;
 }
 
 export interface StaffUpdate {
@@ -1234,6 +1237,150 @@ export interface StaffUpdate {
   phone?: string;
   specialization?: string;
   status?: string;
+  joiningDate?: string;
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  permissions: string[];
+  isBuiltin: boolean;
+  createdAt: string;
+}
+
+export interface RoleInput {
+  name: string;
+  description?: string;
+  permissions: string[];
+}
+
+export interface RoleUpdate {
+  description?: string;
+  permissions?: string[];
+}
+
+export type HospitalSettingsWorkingHours = { [key: string]: unknown };
+
+export type HospitalSettingsHolidaysItem = {
+  date: string;
+  label: string;
+};
+
+export interface HospitalSettings {
+  id: number;
+  name: string;
+  /** @nullable */
+  legalName?: string | null;
+  /** @nullable */
+  gstin?: string | null;
+  /** @nullable */
+  pan?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  pincode?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  website?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  primaryColor?: string | null;
+  /** @nullable */
+  invoicePrefix?: string | null;
+  /** @nullable */
+  receiptPrefix?: string | null;
+  workingHours?: HospitalSettingsWorkingHours;
+  holidays?: HospitalSettingsHolidaysItem[];
+  updatedAt: string;
+}
+
+export type HospitalSettingsInputWorkingHours = { [key: string]: unknown };
+
+export type HospitalSettingsInputHolidaysItem = {
+  date: string;
+  label: string;
+};
+
+export interface HospitalSettingsInput {
+  name?: string;
+  legalName?: string;
+  gstin?: string;
+  pan?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  invoicePrefix?: string;
+  receiptPrefix?: string;
+  workingHours?: HospitalSettingsInputWorkingHours;
+  holidays?: HospitalSettingsInputHolidaysItem[];
+}
+
+export type AdminReportsOverviewOpdVolumeItem = {
+  date: string;
+  count: number;
+};
+
+export type AdminReportsOverviewIpdCensusItem = {
+  date: string;
+  admitted: number;
+  discharged: number;
+  occupied: number;
+  avgLos: number;
+};
+
+export type AdminReportsOverviewRevenueByDayItem = {
+  date: string;
+  gross: number;
+  discount: number;
+  tax: number;
+  net: number;
+  collected: number;
+};
+
+export type AdminReportsOverviewTopDoctorsItem = {
+  doctorId: number;
+  name: string;
+  encounters: number;
+  revenue: number;
+};
+
+export type AdminReportsOverviewTopServicesItem = {
+  name: string;
+  count: number;
+  revenue: number;
+};
+
+export type AdminReportsOverviewGstSummary = {
+  taxableValue: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  totalTax: number;
+};
+
+export interface AdminReportsOverview {
+  opdVolume: AdminReportsOverviewOpdVolumeItem[];
+  ipdCensus: AdminReportsOverviewIpdCensusItem[];
+  revenueByDay: AdminReportsOverviewRevenueByDayItem[];
+  topDoctors: AdminReportsOverviewTopDoctorsItem[];
+  topServices: AdminReportsOverviewTopServicesItem[];
+  gstSummary: AdminReportsOverviewGstSummary;
 }
 
 export interface Vital {
@@ -1775,6 +1922,11 @@ from?: string;
 to?: string;
 };
 
+export type GetAdminReportsOverviewParams = {
+from?: string;
+to?: string;
+};
+
 export type ListVitalsParams = {
 patientId?: number;
 };
@@ -1816,5 +1968,11 @@ status?: string;
 export type ListAuditLogParams = {
 userId?: number;
 entity?: string;
+action?: string;
+fromDate?: string;
+toDate?: string;
+q?: string;
+limit?: number;
+offset?: number;
 };
 

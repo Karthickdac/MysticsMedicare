@@ -19,5 +19,7 @@ export interface Staff {
   /** @nullable */
   avatarUrl?: string | null;
   status: string;
+  /** @nullable */
+  joiningDate?: string | null;
   createdAt: string;
 }

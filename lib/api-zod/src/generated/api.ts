@@ -2243,6 +2243,7 @@ export const ListStaffResponseItem = zod.object({
   "specialization": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "status": zod.string(),
+  "joiningDate": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListStaffResponse = zod.array(ListStaffResponseItem)
@@ -2254,7 +2255,8 @@ export const CreateStaffBody = zod.object({
   "department": zod.string(),
   "email": zod.string(),
   "phone": zod.string(),
-  "specialization": zod.string().optional()
+  "specialization": zod.string().optional(),
+  "joiningDate": zod.string().optional()
 })
 
 
@@ -2269,7 +2271,8 @@ export const UpdateStaffBody = zod.object({
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
   "specialization": zod.string().optional(),
-  "status": zod.string().optional()
+  "status": zod.string().optional(),
+  "joiningDate": zod.string().optional()
 })
 
 export const UpdateStaffResponse = zod.object({
@@ -2283,7 +2286,176 @@ export const UpdateStaffResponse = zod.object({
   "specialization": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "status": zod.string(),
+  "joiningDate": zod.string().nullish(),
   "createdAt": zod.string()
+})
+
+
+export const DeleteStaffParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const ListRolesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()),
+  "isBuiltin": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListRolesResponse = zod.array(ListRolesResponseItem)
+
+
+export const CreateRoleBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string().optional(),
+  "permissions": zod.array(zod.string())
+})
+
+
+export const UpdateRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRoleBody = zod.object({
+  "description": zod.string().optional(),
+  "permissions": zod.array(zod.string()).optional()
+})
+
+export const UpdateRoleResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()),
+  "isBuiltin": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+export const DeleteRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const GetHospitalSettingsResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "legalName": zod.string().nullish(),
+  "gstin": zod.string().nullish(),
+  "pan": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "website": zod.string().nullish(),
+  "logoUrl": zod.string().nullish(),
+  "primaryColor": zod.string().nullish(),
+  "invoicePrefix": zod.string().nullish(),
+  "receiptPrefix": zod.string().nullish(),
+  "workingHours": zod.record(zod.string(), zod.unknown()).optional(),
+  "holidays": zod.array(zod.object({
+  "date": zod.string(),
+  "label": zod.string()
+})).optional(),
+  "updatedAt": zod.string()
+})
+
+
+export const UpdateHospitalSettingsBody = zod.object({
+  "name": zod.string().optional(),
+  "legalName": zod.string().optional(),
+  "gstin": zod.string().optional(),
+  "pan": zod.string().optional(),
+  "address": zod.string().optional(),
+  "city": zod.string().optional(),
+  "state": zod.string().optional(),
+  "pincode": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "website": zod.string().optional(),
+  "logoUrl": zod.string().optional(),
+  "primaryColor": zod.string().optional(),
+  "invoicePrefix": zod.string().optional(),
+  "receiptPrefix": zod.string().optional(),
+  "workingHours": zod.record(zod.string(), zod.unknown()).optional(),
+  "holidays": zod.array(zod.object({
+  "date": zod.string(),
+  "label": zod.string()
+})).optional()
+})
+
+export const UpdateHospitalSettingsResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "legalName": zod.string().nullish(),
+  "gstin": zod.string().nullish(),
+  "pan": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "website": zod.string().nullish(),
+  "logoUrl": zod.string().nullish(),
+  "primaryColor": zod.string().nullish(),
+  "invoicePrefix": zod.string().nullish(),
+  "receiptPrefix": zod.string().nullish(),
+  "workingHours": zod.record(zod.string(), zod.unknown()).optional(),
+  "holidays": zod.array(zod.object({
+  "date": zod.string(),
+  "label": zod.string()
+})).optional(),
+  "updatedAt": zod.string()
+})
+
+
+export const GetAdminReportsOverviewQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetAdminReportsOverviewResponse = zod.object({
+  "opdVolume": zod.array(zod.object({
+  "date": zod.string(),
+  "count": zod.number()
+})),
+  "ipdCensus": zod.array(zod.object({
+  "date": zod.string(),
+  "admitted": zod.number(),
+  "discharged": zod.number(),
+  "occupied": zod.number(),
+  "avgLos": zod.number()
+})),
+  "revenueByDay": zod.array(zod.object({
+  "date": zod.string(),
+  "gross": zod.number(),
+  "discount": zod.number(),
+  "tax": zod.number(),
+  "net": zod.number(),
+  "collected": zod.number()
+})),
+  "topDoctors": zod.array(zod.object({
+  "doctorId": zod.number(),
+  "name": zod.string(),
+  "encounters": zod.number(),
+  "revenue": zod.number()
+})),
+  "topServices": zod.array(zod.object({
+  "name": zod.string(),
+  "count": zod.number(),
+  "revenue": zod.number()
+})),
+  "gstSummary": zod.object({
+  "taxableValue": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "totalTax": zod.number()
+})
 })
 
 
@@ -2910,6 +3082,11 @@ export const CreateRosterShiftBody = zod.object({
 })
 
 
+export const DeleteRosterShiftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
 export const GetOpdQueueQueryParams = zod.object({
   "department": zod.coerce.string().optional()
 })
@@ -3177,7 +3354,13 @@ export const ListNotificationEventsResponse = zod.array(ListNotificationEventsRe
 
 export const ListAuditLogQueryParams = zod.object({
   "userId": zod.coerce.number().optional(),
-  "entity": zod.coerce.string().optional()
+  "entity": zod.coerce.string().optional(),
+  "action": zod.coerce.string().optional(),
+  "fromDate": zod.coerce.string().optional(),
+  "toDate": zod.coerce.string().optional(),
+  "q": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().optional(),
+  "offset": zod.coerce.number().optional()
 })
 
 export const ListAuditLogResponseItem = zod.object({

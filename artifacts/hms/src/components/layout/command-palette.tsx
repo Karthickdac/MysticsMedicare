@@ -14,7 +14,7 @@ import {
   Activity, Users, Calendar, Clock, BedDouble, TestTube, Cross,
   ShieldPlus, IndianRupee, Package, Scissors, Syringe, FileSignature,
   ClipboardCheck, Video, MessageSquare, ListTree, UserCog, Settings,
-  Bell, UserPlus, FilePlus2, Stethoscope, CalendarPlus, Wallet, BarChart3,
+  Bell, UserPlus, FilePlus2, Stethoscope, CalendarPlus, Wallet, BarChart3, Shield,
 } from "lucide-react";
 
 type NavCmd = {
@@ -52,6 +52,8 @@ const NAV: NavCmd[] = [
   { label: "Notification Templates", href: "/notifications/templates", icon: MessageSquare, section: "Navigate", roles: ["admin"] },
   { label: "Notification Log", href: "/notifications/log", icon: Bell, section: "Navigate", roles: ["admin"] },
   { label: "Audit Log", href: "/audit", icon: ListTree, section: "Navigate", roles: ["admin"] },
+  { label: "Roles & Permissions", href: "/admin/roles", icon: Shield, section: "Navigate", keywords: "rbac permission matrix", roles: ["admin"] },
+  { label: "Reports Hub", href: "/admin/reports", icon: BarChart3, section: "Navigate", keywords: "opd ipd revenue gst doctors services", roles: ["admin", "accountant"] },
   { label: "Settings", href: "/settings", icon: Settings, section: "Navigate" },
 ];
 

@@ -13,4 +13,5 @@ export interface StaffInput {
   email: string;
   phone: string;
   specialization?: string;
+  joiningDate?: string;
 }

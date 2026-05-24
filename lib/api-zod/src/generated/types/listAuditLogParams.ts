@@ -9,4 +9,10 @@
 export type ListAuditLogParams = {
 userId?: number;
 entity?: string;
+action?: string;
+fromDate?: string;
+toDate?: string;
+q?: string;
+limit?: number;
+offset?: number;
 };

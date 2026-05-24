@@ -1280,6 +1280,109 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Staff" }
+    delete:
+      operationId: deleteStaff
+      tags: [staff]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+        "409":
+          description: In use
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } }
+
+  /admin/roles:
+    get:
+      operationId: listRoles
+      tags: [admin]
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Role" }
+    post:
+      operationId: createRole
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+  /admin/roles/{id}:
+    patch:
+      operationId: updateRole
+      tags: [admin]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+    delete:
+      operationId: deleteRole
+      tags: [admin]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+        "409":
+          description: Built-in or in use
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } }
+
+  /admin/hospital-settings:
+    get:
+      operationId: getHospitalSettings
+      tags: [admin]
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HospitalSettings" }
+    put:
+      operationId: updateHospitalSettings
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HospitalSettingsInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HospitalSettings" }
+
+  /admin/reports/overview:
+    get:
+      operationId: getAdminReportsOverview
+      tags: [admin]
+      parameters:
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminReportsOverview" }
 
   /vitals:
     get:
@@ -1649,6 +1752,17 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RosterShift" }
+        "409":
+          description: Conflict (overlapping shift or on leave)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } }
+  /roster/{id}:
+    delete:
+      operationId: deleteRosterShift
+      tags: [roster]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
 
   /queue/opd:
     get:
@@ -1883,6 +1997,12 @@ paths:
       parameters:
         - { in: query, name: userId, schema: { type: integer } }
         - { in: query, name: entity, schema: { type: string } }
+        - { in: query, name: action, schema: { type: string } }
+        - { in: query, name: fromDate, schema: { type: string } }
+        - { in: query, name: toDate, schema: { type: string } }
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer } }
+        - { in: query, name: offset, schema: { type: integer } }
       responses:
         "200":
           description: Audit log
@@ -3092,6 +3212,7 @@ components:
         specialization: { type: ["string", "null"] }
         avatarUrl: { type: ["string", "null"] }
         status: { type: string }
+        joiningDate: { type: ["string", "null"] }
         createdAt: { type: string }
     StaffInput:
       type: object
@@ -3103,6 +3224,7 @@ components:
         email: { type: string }
         phone: { type: string }
         specialization: { type: string }
+        joiningDate: { type: string }
     StaffUpdate:
       type: object
       properties:
@@ -3113,6 +3235,158 @@ components:
         phone: { type: string }
         specialization: { type: string }
         status: { type: string }
+        joiningDate: { type: string }
+
+    Role:
+      type: object
+      required: [id, name, permissions, isBuiltin, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        permissions:
+          type: array
+          items: { type: string }
+        isBuiltin: { type: boolean }
+        createdAt: { type: string }
+    RoleInput:
+      type: object
+      required: [name, permissions]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+    RoleUpdate:
+      type: object
+      properties:
+        description: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+
+    HospitalSettings:
+      type: object
+      required: [id, name, updatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        legalName: { type: ["string", "null"] }
+        gstin: { type: ["string", "null"] }
+        pan: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        pincode: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        website: { type: ["string", "null"] }
+        logoUrl: { type: ["string", "null"] }
+        primaryColor: { type: ["string", "null"] }
+        invoicePrefix: { type: ["string", "null"] }
+        receiptPrefix: { type: ["string", "null"] }
+        workingHours: { type: object, additionalProperties: true }
+        holidays:
+          type: array
+          items:
+            type: object
+            required: [date, label]
+            properties:
+              date: { type: string }
+              label: { type: string }
+        updatedAt: { type: string }
+    HospitalSettingsInput:
+      type: object
+      properties:
+        name: { type: string }
+        legalName: { type: string }
+        gstin: { type: string }
+        pan: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        pincode: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        website: { type: string }
+        logoUrl: { type: string }
+        primaryColor: { type: string }
+        invoicePrefix: { type: string }
+        receiptPrefix: { type: string }
+        workingHours: { type: object, additionalProperties: true }
+        holidays:
+          type: array
+          items:
+            type: object
+            required: [date, label]
+            properties:
+              date: { type: string }
+              label: { type: string }
+
+    AdminReportsOverview:
+      type: object
+      required: [opdVolume, ipdCensus, revenueByDay, topDoctors, topServices, gstSummary]
+      properties:
+        opdVolume:
+          type: array
+          items:
+            type: object
+            required: [date, count]
+            properties:
+              date: { type: string }
+              count: { type: integer }
+        ipdCensus:
+          type: array
+          items:
+            type: object
+            required: [date, admitted, discharged, occupied, avgLos]
+            properties:
+              date: { type: string }
+              admitted: { type: integer }
+              discharged: { type: integer }
+              occupied: { type: integer }
+              avgLos: { type: number }
+        revenueByDay:
+          type: array
+          items:
+            type: object
+            required: [date, gross, discount, tax, net, collected]
+            properties:
+              date: { type: string }
+              gross: { type: number }
+              discount: { type: number }
+              tax: { type: number }
+              net: { type: number }
+              collected: { type: number }
+        topDoctors:
+          type: array
+          items:
+            type: object
+            required: [doctorId, name, encounters, revenue]
+            properties:
+              doctorId: { type: integer }
+              name: { type: string }
+              encounters: { type: integer }
+              revenue: { type: number }
+        topServices:
+          type: array
+          items:
+            type: object
+            required: [name, count, revenue]
+            properties:
+              name: { type: string }
+              count: { type: integer }
+              revenue: { type: number }
+        gstSummary:
+          type: object
+          required: [taxableValue, cgst, sgst, igst, totalTax]
+          properties:
+            taxableValue: { type: number }
+            cgst: { type: number }
+            sgst: { type: number }
+            igst: { type: number }
+            totalTax: { type: number }
 
     Vital:
       type: object

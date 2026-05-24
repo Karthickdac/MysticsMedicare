@@ -52,7 +52,48 @@ export const staffTable = pgTable("staff", {
   specialization: text("specialization"),
   avatarUrl: text("avatar_url"),
   status: text("status").notNull().default("active"),
+  joiningDate: date("joining_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Custom roles defined by admin. Built-in roles (admin, doctor, nurse,
+// receptionist, accountant, cashier, pharmacist, lab_tech, radiologist) are
+// seeded with isBuiltin=true and cannot be deleted; their `permissions` jsonb
+// is the source of truth for the front-end permission matrix view. Server
+// route enforcement still keys off the staff member's `role` string via
+// `requireRole(...)`, so granting a permission to a custom role does NOT
+// retroactively open new routes — admins must align the role's name with an
+// existing requireRole list. The matrix here is the documented contract.
+export const rolesTable = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  permissions: jsonb("permissions").notNull().default([]),
+  isBuiltin: boolean("is_builtin").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Singleton table — exactly one row (id=1) seeded at first boot.
+export const hospitalSettingsTable = pgTable("hospital_settings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().default("MediCare Pro"),
+  legalName: text("legal_name"),
+  gstin: text("gstin"),
+  pan: text("pan"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  logoUrl: text("logo_url"),
+  primaryColor: text("primary_color").default("#0ea5e9"),
+  invoicePrefix: text("invoice_prefix").default("INV"),
+  receiptPrefix: text("receipt_prefix").default("RCT"),
+  workingHours: jsonb("working_hours").notNull().default({}),
+  holidays: jsonb("holidays").notNull().default([]),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const appointmentsTable = pgTable("appointments", {
@@ -617,7 +658,12 @@ export const rosterShiftsTable = pgTable("roster_shifts", {
   date: date("date").notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => ({
+  // Hard backstop against duplicate (staff,date,band) shifts when two
+  // admins schedule concurrently — the JS conflict pre-check would
+  // otherwise race. Leave/OnCall conflicts are still enforced in code.
+  staffDateShiftUq: uniqueIndex("roster_shifts_staff_date_shift_uq").on(t.staffId, t.date, t.shift),
+}));
 
 export const queueTokensTable = pgTable("queue_tokens", {
   id: serial("id").primaryKey(),

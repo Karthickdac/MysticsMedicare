@@ -5,7 +5,7 @@ import {
   IndianRupee, Package, Scissors, Syringe, FileSignature, ClipboardCheck,
   Video, MessageSquare, ListTree, UserCog, Settings, Bell, Search, Menu,
   LogOut, Sun, Moon, Stethoscope, Sparkles, Command as CommandIcon, ChevronDown,
-  Wallet, BarChart3,
+  Wallet, BarChart3, Shield,
 } from "lucide-react";
 
 import { useMe, useLogout, useGetDashboardSummary, useListBills, useListNotificationLog } from "@workspace/api-client-react";
@@ -104,6 +104,8 @@ const ALL_GROUPS: Group[] = [
     items: [
       { icon: MessageSquare, label: "Templates", href: "/notifications/templates", roles: ["admin"] },
       { icon: Bell, label: "Notification Log", href: "/notifications/log", roles: ["admin"] },
+      { icon: Shield, label: "Roles & Permissions", href: "/admin/roles", roles: ["admin"] },
+      { icon: BarChart3, label: "Reports Hub", href: "/admin/reports", roles: ["admin", "accountant"] },
       { icon: ListTree, label: "Audit Log", href: "/audit", roles: ["admin"] },
       { icon: Settings, label: "Settings", href: "/settings" },
     ],
