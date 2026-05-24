@@ -11,6 +11,7 @@ import {
   useListGrns,
   useCreateGrn,
   useListPharmacySales,
+  useGetPharmacySale,
   useCreatePharmacySale,
   useReturnPharmacySale,
   useListDrugBatches,
@@ -110,6 +111,7 @@ function DispenseTab() {
 // ---------------------------------------------------------------------------
 function OtcTab() {
   const [open, setOpen] = useState(false);
+  const [returnFor, setReturnFor] = useState<number | null>(null);
   const { data: sales } = useListPharmacySales({ kind: "otc" });
   return (
     <div className="space-y-4">
@@ -127,11 +129,12 @@ function OtcTab() {
                 <TableHead>Items</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sales?.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No OTC sales yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No OTC sales yet</TableCell></TableRow>
               ) : sales?.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono text-xs">{s.saleNumber}</TableCell>
@@ -139,7 +142,12 @@ function OtcTab() {
                   <TableCell>{s.walkInName ?? s.patientName ?? "Walk-in"}</TableCell>
                   <TableCell>{s.items.length}</TableCell>
                   <TableCell className="text-right font-semibold">{inr(s.total)}</TableCell>
-                  <TableCell><Badge variant={s.status === "dispensed" ? "default" : "secondary"}>{s.status}</Badge></TableCell>
+                  <TableCell><Badge variant={s.status === "returned" ? "destructive" : s.status === "partial_return" ? "secondary" : "default"}>{s.status}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    {s.status !== "returned" && (
+                      <Button size="sm" variant="outline" onClick={() => setReturnFor(s.id)} data-testid={`button-return-${s.id}`}>Return</Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -147,7 +155,119 @@ function OtcTab() {
         </CardContent>
       </Card>
       {open && <SaleComposer kind="otc" onClose={() => setOpen(false)} />}
+      {returnFor !== null && <SaleReturnDialog saleId={returnFor} onClose={() => setReturnFor(null)} />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sale return — partial or full, with optional restock.
+// ---------------------------------------------------------------------------
+function SaleReturnDialog({ saleId, onClose }: { saleId: number; onClose: () => void }) {
+  const { data: sale } = useGetPharmacySale(saleId);
+  const ret = useReturnPharmacySale();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [qtys, setQtys] = useState<Record<number, number>>({});
+  const [restock, setRestock] = useState(true);
+  const [reason, setReason] = useState("");
+
+  const items = (sale?.items ?? []).flatMap((it) =>
+    it.id == null ? [] : [{
+      id: it.id as number,
+      drugName: it.drugName,
+      qty: it.qty,
+      unitPrice: it.unitPrice,
+      discount: it.discount ?? 0,
+      gstRate: it.gstRate,
+    }],
+  );
+  const lineRefund = (it: { qty: number; unitPrice: number; discount: number; gstRate: number }, q: number) => {
+    if (q <= 0) return 0;
+    const ratio = q / it.qty;
+    const taxable = Math.max(it.qty * it.unitPrice - it.discount, 0) * ratio;
+    return Math.round((taxable + (taxable * it.gstRate) / 100) * 100) / 100;
+  };
+  const totalRefund = items.reduce((sum, it) => sum + lineRefund(it, qtys[it.id] ?? 0), 0);
+
+  const submit = () => {
+    const payload = items
+      .map((it) => ({ saleItemId: it.id, qty: qtys[it.id] ?? 0, restock }))
+      .filter((x) => x.qty > 0);
+    if (payload.length === 0) {
+      toast({ title: "Enter at least one qty to return", variant: "destructive" });
+      return;
+    }
+    ret.mutate(
+      { id: saleId, data: { items: payload, reason: reason || undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Return recorded", description: `Refund ${inr(totalRefund)}` });
+          [getListPharmacySalesQueryKey(), getListAllBatchesQueryKey(), getGetPharmacyAlertsQueryKey()].forEach((k) =>
+            queryClient.invalidateQueries({ queryKey: k }),
+          );
+          onClose();
+        },
+        onError: (e: unknown) => toast({ title: "Return failed", description: (e as Error).message, variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Return — {sale?.saleNumber ?? "..."}</DialogTitle>
+        </DialogHeader>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Item</TableHead>
+              <TableHead className="text-right">Sold</TableHead>
+              <TableHead className="text-right">MRP</TableHead>
+              <TableHead className="w-32">Return qty</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((it) => (
+              <TableRow key={it.id}>
+                <TableCell>{it.drugName}</TableCell>
+                <TableCell className="text-right">{it.qty}</TableCell>
+                <TableCell className="text-right">{inr(it.unitPrice)}</TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={it.qty}
+                    value={qtys[it.id] ?? 0}
+                    onChange={(e) => setQtys((p) => ({ ...p, [it.id]: Math.max(0, Math.min(it.qty, Number(e.target.value) || 0)) }))}
+                    data-testid={`input-return-qty-${it.id}`}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div className="flex items-center gap-2">
+          <input id="restock" type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />
+          <Label htmlFor="restock" className="cursor-pointer">Restock returned units back to batch</Label>
+        </div>
+        <div>
+          <Label>Reason (optional)</Label>
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. wrong strength, customer changed mind" />
+        </div>
+        <div className="flex justify-between items-center pt-2 border-t">
+          <span className="text-sm text-muted-foreground">Refund</span>
+          <span className="font-semibold text-lg">{inr(totalRefund)}</span>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={ret.isPending || totalRefund <= 0} data-testid="button-confirm-return">
+            {ret.isPending ? "Processing..." : "Confirm Return"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

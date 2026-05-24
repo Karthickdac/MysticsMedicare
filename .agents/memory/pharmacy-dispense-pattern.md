@@ -17,4 +17,6 @@ When dispensing pharmacy stock (Rx or OTC), the sale handler must do everything 
 
 **How to apply:** any new pharmacy mutation (returns, GRN merges, transfers) must also use row-level locks on `pharmacy_batches` (and on the merge-target row for GRN). The schema enforces a unique index on `(drug_id, batch_no, expiry)` so GRN merge-or-insert cannot create duplicate batch rows under race; conflict-safe upsert is the preferred merge mechanic.
 
-**Input bounds:** OpenAPI numeric types alone don't reject negatives. Always re-check `qty > 0 && Number.isInteger(qty)`, `discount >= 0`, `costPerUnit >= 0`, `mrp >= 0` server-side before opening the tx — negative qty otherwise *increases* stock via `qtyOnHand - (-q)`.
+**Input bounds:** OpenAPI numeric types alone don't reject negatives. Always re-check `qty > 0 && Number.isInteger(qty)`, `discount >= 0`, `costPerUnit >= 0`, `mrp >= 0` server-side before opening the tx — negative qty otherwise *increases* stock via `qtyOnHand - (-q)`. Reject `discount > qty*mrp` rather than clamping silently; otherwise the line's taxable goes to zero but the caller thinks they applied a larger discount than they did.
+
+**FEFO server-side:** UI-only FEFO sorting is bypassable by any client. Inside the sale tx, after locking the chosen batches, separately fetch all `qtyOnHand > 0` batches for the drugs in the cart, compute earliest expiry per drug (tie-break by id), and reject the sale if the caller picked a non-earliest batch. Without this, near-expiry stock rots while clients dispense fresher batches.

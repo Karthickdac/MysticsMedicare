@@ -588,6 +588,30 @@ router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, r
         if (b.qtyOnHand < q) throw new HttpError(400, `Insufficient stock for batch ${b.batchNo}: have ${b.qtyOnHand}, need ${q}`);
       }
 
+      // FEFO enforcement: for each drug used, the chosen batch must be the
+      // earliest-expiry batch with stock on hand. Prevents clients from
+      // bypassing the UI's FEFO sort and leaving near-expiry stock to rot.
+      const drugIdsUsed = [...new Set(items.map((it) => it.drugId))];
+      const allBatchesForDrugs = await tx
+        .select()
+        .from(pharmacyBatchesTable)
+        .where(and(inArray(pharmacyBatchesTable.drugId, drugIdsUsed), gt(pharmacyBatchesTable.qtyOnHand, 0)));
+      const fefoByDrug = new Map<number, { id: number; batchNo: string; expiry: string }>();
+      for (const b of allBatchesForDrugs) {
+        const cur = fefoByDrug.get(b.drugId);
+        // Earliest expiry; tie-break by id ascending to be deterministic.
+        if (!cur || b.expiry < cur.expiry || (b.expiry === cur.expiry && b.id < cur.id)) {
+          fefoByDrug.set(b.drugId, { id: b.id, batchNo: b.batchNo, expiry: b.expiry });
+        }
+      }
+      for (const it of items) {
+        const expected = fefoByDrug.get(it.drugId);
+        if (expected && expected.id !== it.batchId) {
+          const drugName = drugMap.get(it.drugId)?.name ?? `drug ${it.drugId}`;
+          throw new HttpError(409, `FEFO violation: for ${drugName}, dispense batch ${expected.batchNo} (expires ${expected.expiry}) first.`);
+        }
+      }
+
       // Build sale line items with per-line GST and total.
       const billItems: Array<{ description: string; quantity: number; unitPrice: number; discount: number; gstRate: number; amount: number; serviceCode: string | null }> = [];
       const saleLines: Array<{ drugId: number; batchId: number; qty: number; unitPrice: number; discount: number; gstRate: number; amount: number }> = [];
@@ -598,9 +622,14 @@ router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, r
         if (!drug) throw new HttpError(400, `Drug ${it.drugId} not found`);
         if (batch.drugId !== it.drugId) throw new HttpError(400, `Batch ${batch.batchNo} does not belong to drug ${drug.name}`);
         const unit = num(batch.mrp);
-        const disc = Number(it.discount ?? 0);
+        const lineGross = r2(it.qty * unit);
+        let disc = Number(it.discount ?? 0);
+        if (disc > lineGross) {
+          // Refuse rather than silently absorbing — accounting must not invert.
+          throw new HttpError(400, `Discount ${disc} exceeds line value ${lineGross} for ${drug.name}`);
+        }
         const gst = num(drug.gstRate);
-        const taxable = r2(it.qty * unit - disc);
+        const taxable = r2(Math.max(lineGross - disc, 0));
         const gstAmt = r2(taxable * gst / 100);
         const amount = r2(taxable + gstAmt);
         total = r2(total + amount);
