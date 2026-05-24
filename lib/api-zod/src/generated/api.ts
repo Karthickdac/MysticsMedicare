@@ -728,24 +728,16 @@ export const CreatePrescriptionBody = zod.object({
 })
 
 
+/**
+ * Deprecated. Use POST /pharmacy/sales which creates a sale, decrements batch stock (FEFO), posts a bill, and marks the prescription dispensed atomically.
+ * @deprecated
+ */
 export const DispensePrescriptionParams = zod.object({
   "id": zod.coerce.number()
 })
 
 export const DispensePrescriptionResponse = zod.object({
-  "id": zod.number(),
-  "patientId": zod.number(),
-  "patientName": zod.string(),
-  "encounterId": zod.number().nullish(),
-  "drug": zod.string(),
-  "dosage": zod.string(),
-  "frequency": zod.string().nullish(),
-  "duration": zod.string().nullish(),
-  "instructions": zod.string().nullish(),
-  "status": zod.string(),
-  "prescribedBy": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "dispensedAt": zod.string().nullish()
+  "ok": zod.boolean()
 })
 
 
@@ -774,6 +766,13 @@ export const ListDrugsResponseItem = zod.object({
   "category": zod.string(),
   "unit": zod.string(),
   "manufacturer": zod.string().nullish(),
+  "strength": zod.string().nullish(),
+  "form": zod.string().nullish(),
+  "schedule": zod.string().nullish(),
+  "hsn": zod.string().nullish(),
+  "gstRate": zod.number(),
+  "mrp": zod.number().nullish(),
+  "reorderLevel": zod.number(),
   "createdAt": zod.string()
 })
 export const ListDrugsResponse = zod.array(ListDrugsResponseItem)
@@ -784,8 +783,402 @@ export const CreateDrugBody = zod.object({
   "genericName": zod.string().optional(),
   "category": zod.string(),
   "unit": zod.string(),
-  "manufacturer": zod.string().optional()
+  "manufacturer": zod.string().optional(),
+  "strength": zod.string().optional(),
+  "form": zod.string().optional(),
+  "schedule": zod.string().optional(),
+  "hsn": zod.string().optional(),
+  "gstRate": zod.number().optional(),
+  "mrp": zod.number().optional(),
+  "reorderLevel": zod.number().optional()
 })
+
+
+export const UpdateDrugParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateDrugBody = zod.object({
+  "name": zod.string(),
+  "genericName": zod.string().optional(),
+  "category": zod.string(),
+  "unit": zod.string(),
+  "manufacturer": zod.string().optional(),
+  "strength": zod.string().optional(),
+  "form": zod.string().optional(),
+  "schedule": zod.string().optional(),
+  "hsn": zod.string().optional(),
+  "gstRate": zod.number().optional(),
+  "mrp": zod.number().optional(),
+  "reorderLevel": zod.number().optional()
+})
+
+export const UpdateDrugResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "genericName": zod.string().nullish(),
+  "category": zod.string(),
+  "unit": zod.string(),
+  "manufacturer": zod.string().nullish(),
+  "strength": zod.string().nullish(),
+  "form": zod.string().nullish(),
+  "schedule": zod.string().nullish(),
+  "hsn": zod.string().nullish(),
+  "gstRate": zod.number(),
+  "mrp": zod.number().nullish(),
+  "reorderLevel": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+export const ListDrugBatchesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListDrugBatchesResponseItem = zod.object({
+  "id": zod.number(),
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "batchNo": zod.string(),
+  "expiry": zod.string(),
+  "qtyOnHand": zod.number(),
+  "costPerUnit": zod.number(),
+  "mrp": zod.number(),
+  "location": zod.string().nullish(),
+  "daysToExpiry": zod.number().optional(),
+  "receivedAt": zod.string().optional()
+})
+export const ListDrugBatchesResponse = zod.array(ListDrugBatchesResponseItem)
+
+
+export const ListAllBatchesQueryParams = zod.object({
+  "nearExpiryDays": zod.coerce.number().optional()
+})
+
+export const ListAllBatchesResponseItem = zod.object({
+  "id": zod.number(),
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "batchNo": zod.string(),
+  "expiry": zod.string(),
+  "qtyOnHand": zod.number(),
+  "costPerUnit": zod.number(),
+  "mrp": zod.number(),
+  "location": zod.string().nullish(),
+  "daysToExpiry": zod.number().optional(),
+  "receivedAt": zod.string().optional()
+})
+export const ListAllBatchesResponse = zod.array(ListAllBatchesResponseItem)
+
+
+export const GetPharmacyAlertsResponse = zod.object({
+  "lowStock": zod.array(zod.object({
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "totalQty": zod.number(),
+  "reorderLevel": zod.number()
+})),
+  "nearExpiry": zod.array(zod.object({
+  "id": zod.number(),
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "batchNo": zod.string(),
+  "expiry": zod.string(),
+  "qtyOnHand": zod.number(),
+  "costPerUnit": zod.number(),
+  "mrp": zod.number(),
+  "location": zod.string().nullish(),
+  "daysToExpiry": zod.number().optional(),
+  "receivedAt": zod.string().optional()
+}))
+})
+
+
+export const ListSuppliersResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "gstin": zod.string().nullish(),
+  "contactPerson": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSuppliersResponse = zod.array(ListSuppliersResponseItem)
+
+
+export const CreateSupplierBody = zod.object({
+  "name": zod.string(),
+  "gstin": zod.string().optional(),
+  "contactPerson": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "address": zod.string().optional()
+})
+
+
+export const ListPurchaseOrdersResponseItem = zod.object({
+  "id": zod.number(),
+  "poNumber": zod.string(),
+  "supplierId": zod.number(),
+  "supplierName": zod.string(),
+  "status": zod.string(),
+  "notes": zod.string().nullish(),
+  "expectedAmount": zod.number(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "placedAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "drugId": zod.number(),
+  "drugName": zod.string().optional(),
+  "qty": zod.number(),
+  "costPerUnit": zod.number()
+}))
+})
+export const ListPurchaseOrdersResponse = zod.array(ListPurchaseOrdersResponseItem)
+
+
+export const CreatePurchaseOrderBody = zod.object({
+  "supplierId": zod.number(),
+  "notes": zod.string().optional(),
+  "items": zod.array(zod.object({
+  "drugId": zod.number(),
+  "qty": zod.number(),
+  "costPerUnit": zod.number()
+}))
+})
+
+
+export const GetPurchaseOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPurchaseOrderResponse = zod.object({
+  "id": zod.number(),
+  "poNumber": zod.string(),
+  "supplierId": zod.number(),
+  "supplierName": zod.string(),
+  "status": zod.string(),
+  "notes": zod.string().nullish(),
+  "expectedAmount": zod.number(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "placedAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "drugId": zod.number(),
+  "drugName": zod.string().optional(),
+  "qty": zod.number(),
+  "costPerUnit": zod.number()
+}))
+})
+
+
+export const ListGrnsResponseItem = zod.object({
+  "id": zod.number(),
+  "grnNumber": zod.string(),
+  "supplierId": zod.number(),
+  "supplierName": zod.string(),
+  "poId": zod.number().nullish(),
+  "invoiceNumber": zod.string().nullish(),
+  "invoiceDate": zod.string().nullish(),
+  "landedCost": zod.number(),
+  "notes": zod.string().nullish(),
+  "receivedBy": zod.string().nullish(),
+  "receivedAt": zod.string(),
+  "items": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "drugId": zod.number(),
+  "drugName": zod.string().optional(),
+  "batchId": zod.number().nullish(),
+  "batchNo": zod.string(),
+  "expiry": zod.string(),
+  "qty": zod.number(),
+  "costPerUnit": zod.number(),
+  "mrp": zod.number()
+}))
+})
+export const ListGrnsResponse = zod.array(ListGrnsResponseItem)
+
+
+export const CreateGrnBody = zod.object({
+  "supplierId": zod.number(),
+  "poId": zod.number().optional(),
+  "invoiceNumber": zod.string().optional(),
+  "invoiceDate": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "items": zod.array(zod.object({
+  "drugId": zod.number(),
+  "batchNo": zod.string(),
+  "expiry": zod.string(),
+  "qty": zod.number(),
+  "costPerUnit": zod.number(),
+  "mrp": zod.number(),
+  "location": zod.string().optional()
+}))
+})
+
+
+export const ListPharmacySalesQueryParams = zod.object({
+  "kind": zod.coerce.string().optional(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ListPharmacySalesResponseItem = zod.object({
+  "id": zod.number(),
+  "saleNumber": zod.string(),
+  "kind": zod.string(),
+  "patientId": zod.number().nullish(),
+  "patientName": zod.string().nullish(),
+  "prescriptionId": zod.number().nullish(),
+  "billId": zod.number().nullish(),
+  "billNumber": zod.string().nullish(),
+  "walkInName": zod.string().nullish(),
+  "walkInPhone": zod.string().nullish(),
+  "status": zod.string(),
+  "total": zod.number(),
+  "dispensedBy": zod.string().nullish(),
+  "dispensedAt": zod.string(),
+  "items": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "drugId": zod.number(),
+  "drugName": zod.string().optional(),
+  "batchId": zod.number(),
+  "batchNo": zod.string().optional(),
+  "qty": zod.number(),
+  "qtyReturned": zod.number().optional(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number(),
+  "amount": zod.number()
+}))
+})
+export const ListPharmacySalesResponse = zod.array(ListPharmacySalesResponseItem)
+
+
+export const CreatePharmacySaleBody = zod.object({
+  "kind": zod.string().describe('rx | otc'),
+  "patientId": zod.number().optional(),
+  "prescriptionId": zod.number().optional(),
+  "walkInName": zod.string().optional(),
+  "walkInPhone": zod.string().optional(),
+  "items": zod.array(zod.object({
+  "drugId": zod.number(),
+  "batchId": zod.number(),
+  "qty": zod.number(),
+  "discount": zod.number().optional()
+}))
+})
+
+
+export const GetPharmacySaleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPharmacySaleResponse = zod.object({
+  "id": zod.number(),
+  "saleNumber": zod.string(),
+  "kind": zod.string(),
+  "patientId": zod.number().nullish(),
+  "patientName": zod.string().nullish(),
+  "prescriptionId": zod.number().nullish(),
+  "billId": zod.number().nullish(),
+  "billNumber": zod.string().nullish(),
+  "walkInName": zod.string().nullish(),
+  "walkInPhone": zod.string().nullish(),
+  "status": zod.string(),
+  "total": zod.number(),
+  "dispensedBy": zod.string().nullish(),
+  "dispensedAt": zod.string(),
+  "items": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "drugId": zod.number(),
+  "drugName": zod.string().optional(),
+  "batchId": zod.number(),
+  "batchNo": zod.string().optional(),
+  "qty": zod.number(),
+  "qtyReturned": zod.number().optional(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number(),
+  "amount": zod.number()
+}))
+})
+
+
+export const ReturnPharmacySaleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReturnPharmacySaleBody = zod.object({
+  "reason": zod.string().optional(),
+  "items": zod.array(zod.object({
+  "saleItemId": zod.number(),
+  "qty": zod.number(),
+  "restock": zod.boolean().optional()
+}))
+})
+
+
+export const GetStockValueReportResponseItem = zod.object({
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "qtyOnHand": zod.number(),
+  "costValue": zod.number(),
+  "mrpValue": zod.number()
+})
+export const GetStockValueReportResponse = zod.array(GetStockValueReportResponseItem)
+
+
+export const GetMoversReportQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const GetMoversReportResponseItem = zod.object({
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "qtyDispensed": zod.number(),
+  "salesValue": zod.number()
+})
+export const GetMoversReportResponse = zod.array(GetMoversReportResponseItem)
+
+
+export const GetNearExpiryReportQueryParams = zod.object({
+  "days": zod.coerce.number().optional()
+})
+
+export const GetNearExpiryReportResponseItem = zod.object({
+  "id": zod.number(),
+  "drugId": zod.number(),
+  "drugName": zod.string(),
+  "batchNo": zod.string(),
+  "expiry": zod.string(),
+  "qtyOnHand": zod.number(),
+  "costPerUnit": zod.number(),
+  "mrp": zod.number(),
+  "location": zod.string().nullish(),
+  "daysToExpiry": zod.number().optional(),
+  "receivedAt": zod.string().optional()
+})
+export const GetNearExpiryReportResponse = zod.array(GetNearExpiryReportResponseItem)
+
+
+export const GetSupplierPurchasesReportQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetSupplierPurchasesReportResponseItem = zod.object({
+  "supplierId": zod.number(),
+  "supplierName": zod.string(),
+  "grnCount": zod.number(),
+  "totalCost": zod.number()
+})
+export const GetSupplierPurchasesReportResponse = zod.array(GetSupplierPurchasesReportResponseItem)
 
 
 export const ListBillsQueryParams = zod.object({

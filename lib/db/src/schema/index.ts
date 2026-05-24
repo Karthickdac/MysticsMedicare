@@ -206,7 +206,139 @@ export const drugsTable = pgTable("drugs", {
   category: text("category").notNull(),
   unit: text("unit").notNull(),
   manufacturer: text("manufacturer"),
+  // Pharmacy formulary fields — needed for GST-compliant retail dispensing.
+  strength: text("strength"),       // e.g. "500 mg", "5 mg/5 ml"
+  form: text("form"),               // tablet | capsule | syrup | injection | ointment | drops
+  schedule: text("schedule"),       // H | H1 | X | OTC — controls Rx-required logic
+  hsn: text("hsn"),                 // HSN code for GST reporting
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).notNull().default("12"),
+  mrp: numeric("mrp", { precision: 12, scale: 2 }),
+  reorderLevel: integer("reorder_level").notNull().default(10),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Pharmacy: suppliers, batches (lot-level stock), purchase orders & GRNs, and
+// sales (Rx dispense or OTC) with returns. Stock-on-hand lives on the batch
+// row; mutations happen under SELECT ... FOR UPDATE to keep counts honest
+// under concurrent dispense/receive traffic. Aligns with billsTable so a
+// dispense settles through the same GST + payment pipeline as any other bill.
+export const pharmacySuppliersTable = pgTable("pharmacy_suppliers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  gstin: text("gstin"),
+  contactPerson: text("contact_person"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const pharmacyBatchesTable = pgTable("pharmacy_batches", {
+  id: serial("id").primaryKey(),
+  drugId: integer("drug_id").notNull().references(() => drugsTable.id),
+  batchNo: text("batch_no").notNull(),
+  expiry: date("expiry").notNull(),
+  qtyOnHand: integer("qty_on_hand").notNull().default(0),
+  costPerUnit: numeric("cost_per_unit", { precision: 12, scale: 2 }).notNull().default("0"),
+  mrp: numeric("mrp", { precision: 12, scale: 2 }).notNull().default("0"),
+  location: text("location"),
+  receivedAt: timestamp("received_at").notNull().defaultNow(),
+  grnId: integer("grn_id"),
+}, (t) => ({
+  // Batch identity is (drug, batch_no, expiry); guarantees merge target uniqueness.
+  drugBatchExpiryUnique: uniqueIndex("pharmacy_batches_drug_batch_expiry_idx").on(t.drugId, t.batchNo, t.expiry),
+}));
+
+export const pharmacyPurchaseOrdersTable = pgTable("pharmacy_purchase_orders", {
+  id: serial("id").primaryKey(),
+  poNumber: text("po_number").notNull().unique(),
+  supplierId: integer("supplier_id").notNull().references(() => pharmacySuppliersTable.id),
+  status: text("status").notNull().default("draft"), // draft | placed | received | cancelled
+  notes: text("notes"),
+  expectedAmount: numeric("expected_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  placedAt: timestamp("placed_at"),
+});
+
+export const pharmacyPurchaseOrderItemsTable = pgTable("pharmacy_purchase_order_items", {
+  id: serial("id").primaryKey(),
+  poId: integer("po_id").notNull().references(() => pharmacyPurchaseOrdersTable.id, { onDelete: "cascade" }),
+  drugId: integer("drug_id").notNull().references(() => drugsTable.id),
+  qty: integer("qty").notNull(),
+  costPerUnit: numeric("cost_per_unit", { precision: 12, scale: 2 }).notNull(),
+});
+
+export const pharmacyGrnsTable = pgTable("pharmacy_grns", {
+  id: serial("id").primaryKey(),
+  grnNumber: text("grn_number").notNull().unique(),
+  supplierId: integer("supplier_id").notNull().references(() => pharmacySuppliersTable.id),
+  poId: integer("po_id").references(() => pharmacyPurchaseOrdersTable.id),
+  invoiceNumber: text("invoice_number"),
+  invoiceDate: date("invoice_date"),
+  landedCost: numeric("landed_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  notes: text("notes"),
+  receivedBy: text("received_by"),
+  receivedAt: timestamp("received_at").notNull().defaultNow(),
+});
+
+export const pharmacyGrnItemsTable = pgTable("pharmacy_grn_items", {
+  id: serial("id").primaryKey(),
+  grnId: integer("grn_id").notNull().references(() => pharmacyGrnsTable.id, { onDelete: "cascade" }),
+  drugId: integer("drug_id").notNull().references(() => drugsTable.id),
+  batchId: integer("batch_id").references(() => pharmacyBatchesTable.id),
+  batchNo: text("batch_no").notNull(),
+  expiry: date("expiry").notNull(),
+  qty: integer("qty").notNull(),
+  costPerUnit: numeric("cost_per_unit", { precision: 12, scale: 2 }).notNull(),
+  mrp: numeric("mrp", { precision: 12, scale: 2 }).notNull(),
+});
+
+export const pharmacySalesTable = pgTable("pharmacy_sales", {
+  id: serial("id").primaryKey(),
+  saleNumber: text("sale_number").notNull().unique(),
+  kind: text("kind").notNull(), // 'rx' | 'otc'
+  patientId: integer("patient_id").references(() => patientsTable.id),
+  prescriptionId: integer("prescription_id").references(() => prescriptionsTable.id),
+  billId: integer("bill_id").references(() => billsTable.id),
+  walkInName: text("walk_in_name"),
+  walkInPhone: text("walk_in_phone"),
+  status: text("status").notNull().default("dispensed"), // dispensed | returned | partial_return
+  total: numeric("total", { precision: 12, scale: 2 }).notNull().default("0"),
+  dispensedBy: text("dispensed_by"),
+  dispensedAt: timestamp("dispensed_at").notNull().defaultNow(),
+});
+
+export const pharmacySaleItemsTable = pgTable("pharmacy_sale_items", {
+  id: serial("id").primaryKey(),
+  saleId: integer("sale_id").notNull().references(() => pharmacySalesTable.id, { onDelete: "cascade" }),
+  drugId: integer("drug_id").notNull().references(() => drugsTable.id),
+  batchId: integer("batch_id").notNull().references(() => pharmacyBatchesTable.id),
+  qty: integer("qty").notNull(),
+  qtyReturned: integer("qty_returned").notNull().default(0),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(), // MRP at sale time
+  discount: numeric("discount", { precision: 12, scale: 2 }).notNull().default("0"),
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).notNull(),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(), // line total incl. GST
+});
+
+export const pharmacyReturnsTable = pgTable("pharmacy_returns", {
+  id: serial("id").primaryKey(),
+  returnNumber: text("return_number").notNull().unique(),
+  saleId: integer("sale_id").notNull().references(() => pharmacySalesTable.id),
+  reason: text("reason"),
+  refundAmount: numeric("refund_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  approvedBy: text("approved_by"),
+  returnedAt: timestamp("returned_at").notNull().defaultNow(),
+});
+
+export const pharmacyReturnItemsTable = pgTable("pharmacy_return_items", {
+  id: serial("id").primaryKey(),
+  returnId: integer("return_id").notNull().references(() => pharmacyReturnsTable.id, { onDelete: "cascade" }),
+  saleItemId: integer("sale_item_id").notNull().references(() => pharmacySaleItemsTable.id),
+  qty: integer("qty").notNull(),
+  restock: boolean("restock").notNull().default(true),
+  refundLine: numeric("refund_line", { precision: 12, scale: 2 }).notNull(),
 });
 
 export const billsTable = pgTable("bills", {

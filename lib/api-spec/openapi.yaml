@@ -622,14 +622,20 @@ paths:
     post:
       operationId: dispensePrescription
       tags: [pharmacy]
+      deprecated: true
+      description: "Deprecated. Use POST /pharmacy/sales which creates a sale, decrements batch stock (FEFO), posts a bill, and marks the prescription dispensed atomically."
       parameters:
         - { in: path, name: id, required: true, schema: { type: integer } }
       responses:
         "200":
-          description: Dispensed
+          description: No-op acknowledgement (deprecated)
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Prescription" }
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
 
   /pharmacy/queue:
     get:
@@ -669,6 +675,147 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Drug" }
+  /drugs/{id}:
+    patch:
+      operationId: updateDrug
+      tags: [pharmacy]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DrugInput" }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Drug" } } } }
+  /pharmacy/drugs/{id}/batches:
+    get:
+      operationId: listDrugBatches
+      tags: [pharmacy]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Batches, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PharmacyBatch" } } } } }
+  /pharmacy/batches:
+    get:
+      operationId: listAllBatches
+      tags: [pharmacy]
+      parameters:
+        - { in: query, name: nearExpiryDays, schema: { type: integer } }
+      responses:
+        "200": { description: All batches, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PharmacyBatch" } } } } }
+  /pharmacy/alerts:
+    get:
+      operationId: getPharmacyAlerts
+      tags: [pharmacy]
+      responses:
+        "200": { description: Alerts, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacyAlerts" } } } }
+  /pharmacy/suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [pharmacy]
+      responses:
+        "200": { description: Suppliers, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PharmacySupplier" } } } } }
+    post:
+      operationId: createSupplier
+      tags: [pharmacy]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacySupplierInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacySupplier" } } } }
+  /pharmacy/purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      tags: [pharmacy]
+      responses:
+        "200": { description: POs, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PurchaseOrder" } } } } }
+    post:
+      operationId: createPurchaseOrder
+      tags: [pharmacy]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PurchaseOrderInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/PurchaseOrder" } } } }
+  /pharmacy/purchase-orders/{id}:
+    get:
+      operationId: getPurchaseOrder
+      tags: [pharmacy]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: PO, content: { application/json: { schema: { $ref: "#/components/schemas/PurchaseOrder" } } } }
+  /pharmacy/grns:
+    get:
+      operationId: listGrns
+      tags: [pharmacy]
+      responses:
+        "200": { description: GRNs, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Grn" } } } } }
+    post:
+      operationId: createGrn
+      tags: [pharmacy]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/GrnInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Grn" } } } }
+  /pharmacy/sales:
+    get:
+      operationId: listPharmacySales
+      tags: [pharmacy]
+      parameters:
+        - { in: query, name: kind, schema: { type: string } }
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+      responses:
+        "200": { description: Sales, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PharmacySale" } } } } }
+    post:
+      operationId: createPharmacySale
+      tags: [pharmacy]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacySaleInput" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacySale" } } } }
+  /pharmacy/sales/{id}:
+    get:
+      operationId: getPharmacySale
+      tags: [pharmacy]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Sale, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacySale" } } } }
+  /pharmacy/sales/{id}/return:
+    post:
+      operationId: returnPharmacySale
+      tags: [pharmacy]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacyReturnInput" } } } }
+      responses:
+        "201": { description: Return, content: { application/json: { schema: { $ref: "#/components/schemas/PharmacyReturn" } } } }
+  /pharmacy/reports/stock-value:
+    get:
+      operationId: getStockValueReport
+      tags: [pharmacy]
+      responses:
+        "200": { description: Rows, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/StockValueRow" } } } } }
+  /pharmacy/reports/movers:
+    get:
+      operationId: getMoversReport
+      tags: [pharmacy]
+      parameters:
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer } }
+      responses:
+        "200": { description: Rows, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/MoverRow" } } } } }
+  /pharmacy/reports/near-expiry:
+    get:
+      operationId: getNearExpiryReport
+      tags: [pharmacy]
+      parameters:
+        - { in: query, name: days, schema: { type: integer } }
+      responses:
+        "200": { description: Batches, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PharmacyBatch" } } } } }
+  /pharmacy/reports/supplier-purchases:
+    get:
+      operationId: getSupplierPurchasesReport
+      tags: [pharmacy]
+      parameters:
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+      responses:
+        "200": { description: Rows, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/SupplierPurchasesRow" } } } } }
 
   /bills:
     get:
@@ -2003,7 +2150,7 @@ components:
 
     Drug:
       type: object
-      required: [id, name, category, unit, createdAt]
+      required: [id, name, category, unit, gstRate, reorderLevel, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -2011,6 +2158,13 @@ components:
         category: { type: string }
         unit: { type: string }
         manufacturer: { type: ["string", "null"] }
+        strength: { type: ["string", "null"] }
+        form: { type: ["string", "null"] }
+        schedule: { type: ["string", "null"] }
+        hsn: { type: ["string", "null"] }
+        gstRate: { type: number }
+        mrp: { type: ["number", "null"] }
+        reorderLevel: { type: integer }
         createdAt: { type: string }
     DrugInput:
       type: object
@@ -2021,6 +2175,266 @@ components:
         category: { type: string }
         unit: { type: string }
         manufacturer: { type: string }
+        strength: { type: string }
+        form: { type: string }
+        schedule: { type: string }
+        hsn: { type: string }
+        gstRate: { type: number }
+        mrp: { type: number }
+        reorderLevel: { type: integer }
+    PharmacySupplier:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        gstin: { type: ["string", "null"] }
+        contactPerson: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        createdAt: { type: string }
+    PharmacySupplierInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        gstin: { type: string }
+        contactPerson: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+    PharmacyBatch:
+      type: object
+      required: [id, drugId, drugName, batchNo, expiry, qtyOnHand, costPerUnit, mrp]
+      properties:
+        id: { type: integer }
+        drugId: { type: integer }
+        drugName: { type: string }
+        batchNo: { type: string }
+        expiry: { type: string }
+        qtyOnHand: { type: integer }
+        costPerUnit: { type: number }
+        mrp: { type: number }
+        location: { type: ["string", "null"] }
+        daysToExpiry: { type: integer }
+        receivedAt: { type: string }
+    PharmacyAlerts:
+      type: object
+      required: [lowStock, nearExpiry]
+      properties:
+        lowStock:
+          type: array
+          items:
+            type: object
+            required: [drugId, drugName, totalQty, reorderLevel]
+            properties:
+              drugId: { type: integer }
+              drugName: { type: string }
+              totalQty: { type: integer }
+              reorderLevel: { type: integer }
+        nearExpiry:
+          type: array
+          items: { $ref: "#/components/schemas/PharmacyBatch" }
+    PurchaseOrderItem:
+      type: object
+      required: [drugId, qty, costPerUnit]
+      properties:
+        id: { type: integer }
+        drugId: { type: integer }
+        drugName: { type: string }
+        qty: { type: integer }
+        costPerUnit: { type: number }
+    PurchaseOrder:
+      type: object
+      required: [id, poNumber, supplierId, supplierName, status, expectedAmount, items, createdAt]
+      properties:
+        id: { type: integer }
+        poNumber: { type: string }
+        supplierId: { type: integer }
+        supplierName: { type: string }
+        status: { type: string }
+        notes: { type: ["string", "null"] }
+        expectedAmount: { type: number }
+        createdBy: { type: ["string", "null"] }
+        createdAt: { type: string }
+        placedAt: { type: ["string", "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PurchaseOrderItem" }
+    PurchaseOrderInput:
+      type: object
+      required: [supplierId, items]
+      properties:
+        supplierId: { type: integer }
+        notes: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [drugId, qty, costPerUnit]
+            properties:
+              drugId: { type: integer }
+              qty: { type: integer }
+              costPerUnit: { type: number }
+    GrnItem:
+      type: object
+      required: [drugId, batchNo, expiry, qty, costPerUnit, mrp]
+      properties:
+        id: { type: integer }
+        drugId: { type: integer }
+        drugName: { type: string }
+        batchId: { type: ["integer", "null"] }
+        batchNo: { type: string }
+        expiry: { type: string }
+        qty: { type: integer }
+        costPerUnit: { type: number }
+        mrp: { type: number }
+    Grn:
+      type: object
+      required: [id, grnNumber, supplierId, supplierName, landedCost, items, receivedAt]
+      properties:
+        id: { type: integer }
+        grnNumber: { type: string }
+        supplierId: { type: integer }
+        supplierName: { type: string }
+        poId: { type: ["integer", "null"] }
+        invoiceNumber: { type: ["string", "null"] }
+        invoiceDate: { type: ["string", "null"] }
+        landedCost: { type: number }
+        notes: { type: ["string", "null"] }
+        receivedBy: { type: ["string", "null"] }
+        receivedAt: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GrnItem" }
+    GrnInput:
+      type: object
+      required: [supplierId, items]
+      properties:
+        supplierId: { type: integer }
+        poId: { type: integer }
+        invoiceNumber: { type: string }
+        invoiceDate: { type: string }
+        notes: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [drugId, batchNo, expiry, qty, costPerUnit, mrp]
+            properties:
+              drugId: { type: integer }
+              batchNo: { type: string }
+              expiry: { type: string }
+              qty: { type: integer }
+              costPerUnit: { type: number }
+              mrp: { type: number }
+              location: { type: string }
+    PharmacySaleItem:
+      type: object
+      required: [drugId, batchId, qty, unitPrice, gstRate, amount]
+      properties:
+        id: { type: integer }
+        drugId: { type: integer }
+        drugName: { type: string }
+        batchId: { type: integer }
+        batchNo: { type: string }
+        qty: { type: integer }
+        qtyReturned: { type: integer }
+        unitPrice: { type: number }
+        discount: { type: number }
+        gstRate: { type: number }
+        amount: { type: number }
+    PharmacySale:
+      type: object
+      required: [id, saleNumber, kind, status, total, items, dispensedAt]
+      properties:
+        id: { type: integer }
+        saleNumber: { type: string }
+        kind: { type: string }
+        patientId: { type: ["integer", "null"] }
+        patientName: { type: ["string", "null"] }
+        prescriptionId: { type: ["integer", "null"] }
+        billId: { type: ["integer", "null"] }
+        billNumber: { type: ["string", "null"] }
+        walkInName: { type: ["string", "null"] }
+        walkInPhone: { type: ["string", "null"] }
+        status: { type: string }
+        total: { type: number }
+        dispensedBy: { type: ["string", "null"] }
+        dispensedAt: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PharmacySaleItem" }
+    PharmacySaleInput:
+      type: object
+      required: [kind, items]
+      properties:
+        kind: { type: string, description: "rx | otc" }
+        patientId: { type: integer }
+        prescriptionId: { type: integer }
+        walkInName: { type: string }
+        walkInPhone: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [drugId, batchId, qty]
+            properties:
+              drugId: { type: integer }
+              batchId: { type: integer }
+              qty: { type: integer }
+              discount: { type: number }
+    PharmacyReturnInput:
+      type: object
+      required: [items]
+      properties:
+        reason: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [saleItemId, qty]
+            properties:
+              saleItemId: { type: integer }
+              qty: { type: integer }
+              restock: { type: boolean }
+    PharmacyReturn:
+      type: object
+      required: [id, returnNumber, saleId, refundAmount, returnedAt]
+      properties:
+        id: { type: integer }
+        returnNumber: { type: string }
+        saleId: { type: integer }
+        reason: { type: ["string", "null"] }
+        refundAmount: { type: number }
+        approvedBy: { type: ["string", "null"] }
+        returnedAt: { type: string }
+    StockValueRow:
+      type: object
+      required: [drugId, drugName, qtyOnHand, costValue, mrpValue]
+      properties:
+        drugId: { type: integer }
+        drugName: { type: string }
+        qtyOnHand: { type: integer }
+        costValue: { type: number }
+        mrpValue: { type: number }
+    MoverRow:
+      type: object
+      required: [drugId, drugName, qtyDispensed, salesValue]
+      properties:
+        drugId: { type: integer }
+        drugName: { type: string }
+        qtyDispensed: { type: integer }
+        salesValue: { type: number }
+    SupplierPurchasesRow:
+      type: object
+      required: [supplierId, supplierName, grnCount, totalCost]
+      properties:
+        supplierId: { type: integer }
+        supplierName: { type: string }
+        grnCount: { type: integer }
+        totalCost: { type: number }
 
     Bill:
       type: object

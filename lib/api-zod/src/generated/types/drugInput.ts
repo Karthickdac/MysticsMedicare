@@ -12,4 +12,11 @@ export interface DrugInput {
   category: string;
   unit: string;
   manufacturer?: string;
+  strength?: string;
+  form?: string;
+  schedule?: string;
+  hsn?: string;
+  gstRate?: number;
+  mrp?: number;
+  reorderLevel?: number;
 }

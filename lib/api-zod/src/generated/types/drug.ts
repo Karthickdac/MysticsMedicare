@@ -15,5 +15,17 @@ export interface Drug {
   unit: string;
   /** @nullable */
   manufacturer?: string | null;
+  /** @nullable */
+  strength?: string | null;
+  /** @nullable */
+  form?: string | null;
+  /** @nullable */
+  schedule?: string | null;
+  /** @nullable */
+  hsn?: string | null;
+  gstRate: number;
+  /** @nullable */
+  mrp?: number | null;
+  reorderLevel: number;
   createdAt: string;
 }

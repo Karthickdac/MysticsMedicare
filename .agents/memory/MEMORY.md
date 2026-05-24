@@ -1,2 +1,6 @@
-- [Billing endpoint authz](billing-endpoint-authz.md) — every billing/PDF endpoint (incl. GETs) must carry `requireRole(...)`; `requireAuth` alone leaks financial+PII to all logged-in roles.
-- [Money ledger transactions](money-ledger-transactions.md) — payment/refund inserts plus the bill aggregate (`paidAmount`/`refundedAmount`/`status`) recompute must run inside one DB transaction or concurrent writes will desync the ledger.
+- [Billing endpoint authz](billing-endpoint-authz.md) — role checks on billing routes.
+- [IPD discharge concurrency](ipd-discharge-concurrency.md) — locking discharge flow.
+- [Money ledger transactions](money-ledger-transactions.md) — money-mutation tx patterns.
+- [Orval zod naming](orval-zod-naming.md) — orval generator naming pitfalls.
+- [Pharmacy dispense pattern](pharmacy-dispense-pattern.md) — pharmacy sale tx: FOR UPDATE batches, FEFO, inline INV bill, Rx lock+status verify.
+- [Orval path+query collision](orval-path-and-query-collision.md) — combining path-param + query-param on one endpoint produces duplicate `XxxParams` types — keep query-only or path-only.

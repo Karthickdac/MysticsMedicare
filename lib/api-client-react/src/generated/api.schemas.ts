@@ -477,6 +477,18 @@ export interface Drug {
   unit: string;
   /** @nullable */
   manufacturer?: string | null;
+  /** @nullable */
+  strength?: string | null;
+  /** @nullable */
+  form?: string | null;
+  /** @nullable */
+  schedule?: string | null;
+  /** @nullable */
+  hsn?: string | null;
+  gstRate: number;
+  /** @nullable */
+  mrp?: number | null;
+  reorderLevel: number;
   createdAt: string;
 }
 
@@ -486,6 +498,256 @@ export interface DrugInput {
   category: string;
   unit: string;
   manufacturer?: string;
+  strength?: string;
+  form?: string;
+  schedule?: string;
+  hsn?: string;
+  gstRate?: number;
+  mrp?: number;
+  reorderLevel?: number;
+}
+
+export interface PharmacySupplier {
+  id: number;
+  name: string;
+  /** @nullable */
+  gstin?: string | null;
+  /** @nullable */
+  contactPerson?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
+  createdAt: string;
+}
+
+export interface PharmacySupplierInput {
+  name: string;
+  gstin?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+}
+
+export interface PharmacyBatch {
+  id: number;
+  drugId: number;
+  drugName: string;
+  batchNo: string;
+  expiry: string;
+  qtyOnHand: number;
+  costPerUnit: number;
+  mrp: number;
+  /** @nullable */
+  location?: string | null;
+  daysToExpiry?: number;
+  receivedAt?: string;
+}
+
+export type PharmacyAlertsLowStockItem = {
+  drugId: number;
+  drugName: string;
+  totalQty: number;
+  reorderLevel: number;
+};
+
+export interface PharmacyAlerts {
+  lowStock: PharmacyAlertsLowStockItem[];
+  nearExpiry: PharmacyBatch[];
+}
+
+export interface PurchaseOrderItem {
+  id?: number;
+  drugId: number;
+  drugName?: string;
+  qty: number;
+  costPerUnit: number;
+}
+
+export interface PurchaseOrder {
+  id: number;
+  poNumber: string;
+  supplierId: number;
+  supplierName: string;
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  expectedAmount: number;
+  /** @nullable */
+  createdBy?: string | null;
+  createdAt: string;
+  /** @nullable */
+  placedAt?: string | null;
+  items: PurchaseOrderItem[];
+}
+
+export type PurchaseOrderInputItemsItem = {
+  drugId: number;
+  qty: number;
+  costPerUnit: number;
+};
+
+export interface PurchaseOrderInput {
+  supplierId: number;
+  notes?: string;
+  items: PurchaseOrderInputItemsItem[];
+}
+
+export interface GrnItem {
+  id?: number;
+  drugId: number;
+  drugName?: string;
+  /** @nullable */
+  batchId?: number | null;
+  batchNo: string;
+  expiry: string;
+  qty: number;
+  costPerUnit: number;
+  mrp: number;
+}
+
+export interface Grn {
+  id: number;
+  grnNumber: string;
+  supplierId: number;
+  supplierName: string;
+  /** @nullable */
+  poId?: number | null;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  invoiceDate?: string | null;
+  landedCost: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  receivedBy?: string | null;
+  receivedAt: string;
+  items: GrnItem[];
+}
+
+export type GrnInputItemsItem = {
+  drugId: number;
+  batchNo: string;
+  expiry: string;
+  qty: number;
+  costPerUnit: number;
+  mrp: number;
+  location?: string;
+};
+
+export interface GrnInput {
+  supplierId: number;
+  poId?: number;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  notes?: string;
+  items: GrnInputItemsItem[];
+}
+
+export interface PharmacySaleItem {
+  id?: number;
+  drugId: number;
+  drugName?: string;
+  batchId: number;
+  batchNo?: string;
+  qty: number;
+  qtyReturned?: number;
+  unitPrice: number;
+  discount?: number;
+  gstRate: number;
+  amount: number;
+}
+
+export interface PharmacySale {
+  id: number;
+  saleNumber: string;
+  kind: string;
+  /** @nullable */
+  patientId?: number | null;
+  /** @nullable */
+  patientName?: string | null;
+  /** @nullable */
+  prescriptionId?: number | null;
+  /** @nullable */
+  billId?: number | null;
+  /** @nullable */
+  billNumber?: string | null;
+  /** @nullable */
+  walkInName?: string | null;
+  /** @nullable */
+  walkInPhone?: string | null;
+  status: string;
+  total: number;
+  /** @nullable */
+  dispensedBy?: string | null;
+  dispensedAt: string;
+  items: PharmacySaleItem[];
+}
+
+export type PharmacySaleInputItemsItem = {
+  drugId: number;
+  batchId: number;
+  qty: number;
+  discount?: number;
+};
+
+export interface PharmacySaleInput {
+  /** rx | otc */
+  kind: string;
+  patientId?: number;
+  prescriptionId?: number;
+  walkInName?: string;
+  walkInPhone?: string;
+  items: PharmacySaleInputItemsItem[];
+}
+
+export type PharmacyReturnInputItemsItem = {
+  saleItemId: number;
+  qty: number;
+  restock?: boolean;
+};
+
+export interface PharmacyReturnInput {
+  reason?: string;
+  items: PharmacyReturnInputItemsItem[];
+}
+
+export interface PharmacyReturn {
+  id: number;
+  returnNumber: string;
+  saleId: number;
+  /** @nullable */
+  reason?: string | null;
+  refundAmount: number;
+  /** @nullable */
+  approvedBy?: string | null;
+  returnedAt: string;
+}
+
+export interface StockValueRow {
+  drugId: number;
+  drugName: string;
+  qtyOnHand: number;
+  costValue: number;
+  mrpValue: number;
+}
+
+export interface MoverRow {
+  drugId: number;
+  drugName: string;
+  qtyDispensed: number;
+  salesValue: number;
+}
+
+export interface SupplierPurchasesRow {
+  supplierId: number;
+  supplierName: string;
+  grnCount: number;
+  totalCost: number;
 }
 
 export interface BillItem {
@@ -1192,6 +1454,35 @@ status?: string;
 export type ListPrescriptionsParams = {
 patientId?: number;
 status?: string;
+};
+
+export type DispensePrescription200 = {
+  ok: boolean;
+};
+
+export type ListAllBatchesParams = {
+nearExpiryDays?: number;
+};
+
+export type ListPharmacySalesParams = {
+kind?: string;
+from?: string;
+to?: string;
+};
+
+export type GetMoversReportParams = {
+from?: string;
+to?: string;
+limit?: number;
+};
+
+export type GetNearExpiryReportParams = {
+days?: number;
+};
+
+export type GetSupplierPurchasesReportParams = {
+from?: string;
+to?: string;
 };
 
 export type ListBillsParams = {
