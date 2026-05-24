@@ -228,6 +228,155 @@ export interface BedAssignmentInput {
   patientId: number;
 }
 
+export type BedStatusInputStatus = typeof BedStatusInputStatus[keyof typeof BedStatusInputStatus];
+
+
+export const BedStatusInputStatus = {
+  available: 'available',
+  cleaning: 'cleaning',
+  maintenance: 'maintenance',
+} as const;
+
+export interface BedStatusInput {
+  status: BedStatusInputStatus;
+}
+
+export interface Admission {
+  id: number;
+  patientId: number;
+  /** @nullable */
+  patientName?: string | null;
+  /** @nullable */
+  encounterId?: number | null;
+  doctorId: number;
+  /** @nullable */
+  doctorName?: string | null;
+  /** @nullable */
+  bedId?: number | null;
+  /** @nullable */
+  bedCode?: string | null;
+  ward: string;
+  /** @nullable */
+  reason?: string | null;
+  status: string;
+  advanceAmount: string;
+  /** @nullable */
+  summary?: string | null;
+  admittedAt: string;
+  /** @nullable */
+  dischargedAt?: string | null;
+  createdAt: string;
+}
+
+export type AdmissionDischarge = Admission & ({
+  /** @nullable */
+  summaryUrl?: string | null;
+});
+
+export interface AdmissionInput {
+  patientId: number;
+  doctorId: number;
+  bedId: number;
+  reason?: string;
+  advanceAmount?: number;
+}
+
+export interface AdmissionTransferInput {
+  toBedId: number;
+  reason?: string;
+}
+
+export interface AdmissionDischargeInput {
+  summary?: string;
+}
+
+export interface WardRound {
+  id: number;
+  admissionId: number;
+  /** @nullable */
+  doctorId?: number | null;
+  /** @nullable */
+  doctorName?: string | null;
+  note: string;
+  /** @nullable */
+  signedBy?: string | null;
+  createdAt: string;
+}
+
+export interface WardRoundInput {
+  note: string;
+  doctorId?: number;
+}
+
+export interface NursingNote {
+  id: number;
+  admissionId: number;
+  /** @nullable */
+  nurseId?: number | null;
+  /** @nullable */
+  nurseName?: string | null;
+  category: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface NursingNoteInput {
+  note: string;
+  category?: string;
+  nurseId?: number;
+}
+
+export interface MarEntry {
+  /** @nullable */
+  id?: number | null;
+  prescriptionId: number;
+  drug: string;
+  dosage: string;
+  /** @nullable */
+  frequency?: string | null;
+  scheduledAt: string;
+  status: string;
+  /** @nullable */
+  administeredBy?: string | null;
+  /** @nullable */
+  administeredAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type MarDoseInputStatus = typeof MarDoseInputStatus[keyof typeof MarDoseInputStatus];
+
+
+export const MarDoseInputStatus = {
+  given: 'given',
+  held: 'held',
+  refused: 'refused',
+} as const;
+
+export interface MarDoseInput {
+  prescriptionId: number;
+  scheduledAt: string;
+  status: MarDoseInputStatus;
+  notes?: string;
+}
+
+export interface IpdCensusWard {
+  ward: string;
+  total: number;
+  occupied: number;
+}
+
+export interface IpdCensus {
+  totalBeds: number;
+  occupied: number;
+  available: number;
+  cleaning: number;
+  occupancyRate: number;
+  activeAdmissions: number;
+  avgLengthOfStayDays: number;
+  wards: IpdCensusWard[];
+}
+
 export interface LabOrder {
   id: number;
   patientId: number;
@@ -778,6 +927,12 @@ status?: string;
 export type ListEncountersParams = {
 patientId?: number;
 type?: string;
+};
+
+export type ListAdmissionsParams = {
+status?: string;
+patientId?: number;
+ward?: string;
 };
 
 export type ListLabOrdersParams = {

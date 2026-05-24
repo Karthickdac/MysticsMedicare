@@ -392,6 +392,245 @@ export const DischargeBedResponse = zod.object({
 })
 
 
+export const UpdateBedStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBedStatusBody = zod.object({
+  "status": zod.enum(['available', 'cleaning', 'maintenance'])
+})
+
+export const UpdateBedStatusResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "ward": zod.string(),
+  "status": zod.string(),
+  "patientId": zod.number().nullish(),
+  "patientName": zod.string().nullish(),
+  "admittedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+export const ListAdmissionsQueryParams = zod.object({
+  "status": zod.coerce.string().optional(),
+  "patientId": zod.coerce.number().optional(),
+  "ward": zod.coerce.string().optional()
+})
+
+export const ListAdmissionsResponseItem = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string().nullish(),
+  "encounterId": zod.number().nullish(),
+  "doctorId": zod.number(),
+  "doctorName": zod.string().nullish(),
+  "bedId": zod.number().nullish(),
+  "bedCode": zod.string().nullish(),
+  "ward": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.string(),
+  "advanceAmount": zod.string(),
+  "summary": zod.string().nullish(),
+  "admittedAt": zod.string(),
+  "dischargedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListAdmissionsResponse = zod.array(ListAdmissionsResponseItem)
+
+
+export const CreateAdmissionBody = zod.object({
+  "patientId": zod.number(),
+  "doctorId": zod.number(),
+  "bedId": zod.number(),
+  "reason": zod.string().optional(),
+  "advanceAmount": zod.number().optional()
+})
+
+
+export const GetAdmissionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAdmissionResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string().nullish(),
+  "encounterId": zod.number().nullish(),
+  "doctorId": zod.number(),
+  "doctorName": zod.string().nullish(),
+  "bedId": zod.number().nullish(),
+  "bedCode": zod.string().nullish(),
+  "ward": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.string(),
+  "advanceAmount": zod.string(),
+  "summary": zod.string().nullish(),
+  "admittedAt": zod.string(),
+  "dischargedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+export const TransferAdmissionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TransferAdmissionBody = zod.object({
+  "toBedId": zod.number(),
+  "reason": zod.string().optional()
+})
+
+export const TransferAdmissionResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string().nullish(),
+  "encounterId": zod.number().nullish(),
+  "doctorId": zod.number(),
+  "doctorName": zod.string().nullish(),
+  "bedId": zod.number().nullish(),
+  "bedCode": zod.string().nullish(),
+  "ward": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.string(),
+  "advanceAmount": zod.string(),
+  "summary": zod.string().nullish(),
+  "admittedAt": zod.string(),
+  "dischargedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+export const DischargeAdmissionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DischargeAdmissionBody = zod.object({
+  "summary": zod.string().optional()
+})
+
+export const DischargeAdmissionResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string().nullish(),
+  "encounterId": zod.number().nullish(),
+  "doctorId": zod.number(),
+  "doctorName": zod.string().nullish(),
+  "bedId": zod.number().nullish(),
+  "bedCode": zod.string().nullish(),
+  "ward": zod.string(),
+  "reason": zod.string().nullish(),
+  "status": zod.string(),
+  "advanceAmount": zod.string(),
+  "summary": zod.string().nullish(),
+  "admittedAt": zod.string(),
+  "dischargedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "summaryUrl": zod.string().nullish()
+}))
+
+
+export const ListWardRoundsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListWardRoundsResponseItem = zod.object({
+  "id": zod.number(),
+  "admissionId": zod.number(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "note": zod.string(),
+  "signedBy": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListWardRoundsResponse = zod.array(ListWardRoundsResponseItem)
+
+
+export const CreateWardRoundParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateWardRoundBody = zod.object({
+  "note": zod.string(),
+  "doctorId": zod.number().optional()
+})
+
+
+export const ListNursingNotesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListNursingNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "admissionId": zod.number(),
+  "nurseId": zod.number().nullish(),
+  "nurseName": zod.string().nullish(),
+  "category": zod.string(),
+  "note": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListNursingNotesResponse = zod.array(ListNursingNotesResponseItem)
+
+
+export const CreateNursingNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateNursingNoteBody = zod.object({
+  "note": zod.string(),
+  "category": zod.string().optional(),
+  "nurseId": zod.number().optional()
+})
+
+
+export const ListMarParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListMarResponseItem = zod.object({
+  "id": zod.number().nullish(),
+  "prescriptionId": zod.number(),
+  "drug": zod.string(),
+  "dosage": zod.string(),
+  "frequency": zod.string().nullish(),
+  "scheduledAt": zod.string(),
+  "status": zod.string(),
+  "administeredBy": zod.string().nullish(),
+  "administeredAt": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+export const ListMarResponse = zod.array(ListMarResponseItem)
+
+
+export const RecordMarDoseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordMarDoseBody = zod.object({
+  "prescriptionId": zod.number(),
+  "scheduledAt": zod.string(),
+  "status": zod.enum(['given', 'held', 'refused']),
+  "notes": zod.string().optional()
+})
+
+
+export const GetIpdCensusResponse = zod.object({
+  "totalBeds": zod.number(),
+  "occupied": zod.number(),
+  "available": zod.number(),
+  "cleaning": zod.number(),
+  "occupancyRate": zod.number(),
+  "activeAdmissions": zod.number(),
+  "avgLengthOfStayDays": zod.number(),
+  "wards": zod.array(zod.object({
+  "ward": zod.string(),
+  "total": zod.number(),
+  "occupied": zod.number()
+}))
+})
+
+
 export const ListLabOrdersQueryParams = zod.object({
   "patientId": zod.coerce.number().optional(),
   "status": zod.coerce.string().optional()

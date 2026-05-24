@@ -84,9 +84,74 @@ export const bedsTable = pgTable("beds", {
   id: serial("id").primaryKey(),
   code: varchar("code", { length: 20 }).notNull().unique(),
   ward: text("ward").notNull(),
+  floor: text("floor"),
+  bedType: text("bed_type"),
+  genderPolicy: text("gender_policy"),
   status: text("status").notNull().default("available"),
   patientId: integer("patient_id").references(() => patientsTable.id),
   admittedAt: timestamp("admitted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// IPD admissions — first-class table separate from encounters so a single
+// inpatient stay can span multiple bed transfers, ward rounds, nursing notes,
+// and MAR entries while still being linked to its driving clinical encounter.
+export const admissionsTable = pgTable("admissions", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
+  encounterId: integer("encounter_id").references(() => encountersTable.id),
+  doctorId: integer("doctor_id").notNull().references(() => staffTable.id),
+  bedId: integer("bed_id").references(() => bedsTable.id),
+  ward: text("ward").notNull(),
+  reason: text("reason"),
+  status: text("status").notNull().default("active"),
+  advanceAmount: numeric("advance_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  summary: text("summary"),
+  admittedAt: timestamp("admitted_at").notNull().defaultNow(),
+  dischargedAt: timestamp("discharged_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const bedTransfersTable = pgTable("bed_transfers", {
+  id: serial("id").primaryKey(),
+  admissionId: integer("admission_id").notNull().references(() => admissionsTable.id, { onDelete: "cascade" }),
+  fromBedId: integer("from_bed_id").references(() => bedsTable.id),
+  toBedId: integer("to_bed_id").notNull().references(() => bedsTable.id),
+  reason: text("reason"),
+  transferredBy: text("transferred_by"),
+  transferredAt: timestamp("transferred_at").notNull().defaultNow(),
+});
+
+export const wardRoundsTable = pgTable("ward_rounds", {
+  id: serial("id").primaryKey(),
+  admissionId: integer("admission_id").notNull().references(() => admissionsTable.id, { onDelete: "cascade" }),
+  doctorId: integer("doctor_id").references(() => staffTable.id),
+  note: text("note").notNull(),
+  signedBy: text("signed_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const nursingNotesTable = pgTable("nursing_notes", {
+  id: serial("id").primaryKey(),
+  admissionId: integer("admission_id").notNull().references(() => admissionsTable.id, { onDelete: "cascade" }),
+  nurseId: integer("nurse_id").references(() => staffTable.id),
+  category: text("category").notNull().default("general"),
+  note: text("note").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Medication administration record — one row per scheduled dose. Doses are
+// generated up-front when the prescription is added to MAR (or on-the-fly via
+// GET expansion) and then updated to given / held / refused as nurses act.
+export const marEntriesTable = pgTable("mar_entries", {
+  id: serial("id").primaryKey(),
+  admissionId: integer("admission_id").notNull().references(() => admissionsTable.id, { onDelete: "cascade" }),
+  prescriptionId: integer("prescription_id").notNull().references(() => prescriptionsTable.id, { onDelete: "cascade" }),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  status: text("status").notNull().default("pending"),
+  administeredBy: text("administered_by"),
+  administeredAt: timestamp("administered_at"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

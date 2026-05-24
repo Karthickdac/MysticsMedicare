@@ -15,6 +15,8 @@ import Appointments from "@/pages/appointments";
 import AppointmentNew from "@/pages/appointment-new";
 import OpdQueue from "@/pages/opd-queue";
 import Ipd from "@/pages/ipd";
+import IpdAdmit from "@/pages/ipd-admit";
+import IpdAdmission from "@/pages/ipd-admission";
 import Beds from "@/pages/beds";
 import Lab from "@/pages/lab";
 import Radiology from "@/pages/radiology";
@@ -72,6 +74,8 @@ function Router() {
             <Route path="/appointments/new" component={AppointmentNew} />
             <Route path="/appointments" component={Appointments} />
             <Route path="/opd" component={OpdQueue} />
+            <Route path="/ipd/admit" component={IpdAdmit} />
+            <Route path="/ipd/admissions/:id" component={IpdAdmission} />
             <Route path="/ipd" component={Ipd} />
             <Route path="/beds" component={Beds} />
             <Route path="/lab" component={Lab} />

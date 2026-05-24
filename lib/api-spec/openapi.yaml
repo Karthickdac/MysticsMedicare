@@ -14,6 +14,8 @@ tags:
   - name: appointments
   - name: encounters
   - name: beds
+  - name: admissions
+  - name: ipd
   - name: lab
   - name: prescriptions
   - name: pharmacy
@@ -344,6 +346,201 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Bed" }
+  /beds/{id}/status:
+    post:
+      operationId: updateBedStatus
+      tags: [beds]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BedStatusInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Bed" }
+
+  /admissions:
+    get:
+      operationId: listAdmissions
+      tags: [admissions]
+      parameters:
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: patientId, schema: { type: integer } }
+        - { in: query, name: ward, schema: { type: string } }
+      responses:
+        "200":
+          description: Admissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Admission" }
+    post:
+      operationId: createAdmission
+      tags: [admissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdmissionInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+  /admissions/{id}:
+    get:
+      operationId: getAdmission
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Admission
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+  /admissions/{id}/transfer:
+    post:
+      operationId: transferAdmission
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdmissionTransferInput" }
+      responses:
+        "200":
+          description: Transferred
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+  /admissions/{id}/discharge:
+    post:
+      operationId: dischargeAdmission
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdmissionDischargeInput" }
+      responses:
+        "200":
+          description: Discharged
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdmissionDischarge" }
+  /admissions/{id}/rounds:
+    get:
+      operationId: listWardRounds
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Rounds
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WardRound" }
+    post:
+      operationId: createWardRound
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WardRoundInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WardRound" }
+  /admissions/{id}/nursing-notes:
+    get:
+      operationId: listNursingNotes
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Nursing notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NursingNote" }
+    post:
+      operationId: createNursingNote
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NursingNoteInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NursingNote" }
+  /admissions/{id}/mar:
+    get:
+      operationId: listMar
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: MAR
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MarEntry" }
+    post:
+      operationId: recordMarDose
+      tags: [admissions]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MarDoseInput" }
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MarEntry" }
+
+  /ipd/census:
+    get:
+      operationId: getIpdCensus
+      tags: [ipd]
+      responses:
+        "200":
+          description: Census
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IpdCensus" }
 
   /lab/orders:
     get:
@@ -1350,6 +1547,143 @@ components:
       required: [patientId]
       properties:
         patientId: { type: integer }
+    BedStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [available, cleaning, maintenance]
+
+    Admission:
+      type: object
+      required: [id, patientId, doctorId, ward, status, advanceAmount, admittedAt, createdAt]
+      properties:
+        id: { type: integer }
+        patientId: { type: integer }
+        patientName: { type: ["string", "null"] }
+        encounterId: { type: ["integer", "null"] }
+        doctorId: { type: integer }
+        doctorName: { type: ["string", "null"] }
+        bedId: { type: ["integer", "null"] }
+        bedCode: { type: ["string", "null"] }
+        ward: { type: string }
+        reason: { type: ["string", "null"] }
+        status: { type: string }
+        advanceAmount: { type: string }
+        summary: { type: ["string", "null"] }
+        admittedAt: { type: string }
+        dischargedAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+    AdmissionDischarge:
+      allOf:
+        - $ref: "#/components/schemas/Admission"
+        - type: object
+          properties:
+            summaryUrl: { type: ["string", "null"] }
+    AdmissionInput:
+      type: object
+      required: [patientId, doctorId, bedId]
+      properties:
+        patientId: { type: integer }
+        doctorId: { type: integer }
+        bedId: { type: integer }
+        reason: { type: string }
+        advanceAmount: { type: number }
+    AdmissionTransferInput:
+      type: object
+      required: [toBedId]
+      properties:
+        toBedId: { type: integer }
+        reason: { type: string }
+    AdmissionDischargeInput:
+      type: object
+      properties:
+        summary: { type: string }
+
+    WardRound:
+      type: object
+      required: [id, admissionId, note, createdAt]
+      properties:
+        id: { type: integer }
+        admissionId: { type: integer }
+        doctorId: { type: ["integer", "null"] }
+        doctorName: { type: ["string", "null"] }
+        note: { type: string }
+        signedBy: { type: ["string", "null"] }
+        createdAt: { type: string }
+    WardRoundInput:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string }
+        doctorId: { type: integer }
+
+    NursingNote:
+      type: object
+      required: [id, admissionId, category, note, createdAt]
+      properties:
+        id: { type: integer }
+        admissionId: { type: integer }
+        nurseId: { type: ["integer", "null"] }
+        nurseName: { type: ["string", "null"] }
+        category: { type: string }
+        note: { type: string }
+        createdAt: { type: string }
+    NursingNoteInput:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string }
+        category: { type: string }
+        nurseId: { type: integer }
+
+    MarEntry:
+      type: object
+      required: [prescriptionId, drug, dosage, scheduledAt, status]
+      properties:
+        id: { type: ["integer", "null"] }
+        prescriptionId: { type: integer }
+        drug: { type: string }
+        dosage: { type: string }
+        frequency: { type: ["string", "null"] }
+        scheduledAt: { type: string }
+        status: { type: string }
+        administeredBy: { type: ["string", "null"] }
+        administeredAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    MarDoseInput:
+      type: object
+      required: [prescriptionId, scheduledAt, status]
+      properties:
+        prescriptionId: { type: integer }
+        scheduledAt: { type: string }
+        status:
+          type: string
+          enum: [given, held, refused]
+        notes: { type: string }
+
+    IpdCensusWard:
+      type: object
+      required: [ward, total, occupied]
+      properties:
+        ward: { type: string }
+        total: { type: integer }
+        occupied: { type: integer }
+    IpdCensus:
+      type: object
+      required: [totalBeds, occupied, available, cleaning, occupancyRate, activeAdmissions, avgLengthOfStayDays, wards]
+      properties:
+        totalBeds: { type: integer }
+        occupied: { type: integer }
+        available: { type: integer }
+        cleaning: { type: integer }
+        occupancyRate: { type: number }
+        activeAdmissions: { type: integer }
+        avgLengthOfStayDays: { type: number }
+        wards:
+          type: array
+          items: { $ref: "#/components/schemas/IpdCensusWard" }
 
     LabOrder:
       type: object
