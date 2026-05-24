@@ -1272,6 +1272,17 @@ export type HospitalSettingsHolidaysItem = {
   label: string;
 };
 
+/**
+ * Per-report-type subtitle/accreditation lines used in PDF headers. Empty string suppresses the subtitle; missing key uses the built-in default.
+ */
+export type HospitalSettingsReportSubtitles = {
+  lab?: string;
+  radiology?: string;
+  prescription?: string;
+  vaccination?: string;
+  discharge?: string;
+};
+
 export interface HospitalSettings {
   id: number;
   name: string;
@@ -1305,6 +1316,8 @@ export interface HospitalSettings {
   receiptPrefix?: string | null;
   workingHours?: HospitalSettingsWorkingHours;
   holidays?: HospitalSettingsHolidaysItem[];
+  /** Per-report-type subtitle/accreditation lines used in PDF headers. Empty string suppresses the subtitle; missing key uses the built-in default. */
+  reportSubtitles?: HospitalSettingsReportSubtitles;
   updatedAt: string;
 }
 
@@ -1346,6 +1359,14 @@ export type HospitalSettingsInputHolidaysItem = {
   label: string;
 };
 
+export type HospitalSettingsInputReportSubtitles = {
+  lab?: string;
+  radiology?: string;
+  prescription?: string;
+  vaccination?: string;
+  discharge?: string;
+};
+
 export interface HospitalSettingsInput {
   name?: string;
   legalName?: string;
@@ -1364,6 +1385,7 @@ export interface HospitalSettingsInput {
   receiptPrefix?: string;
   workingHours?: HospitalSettingsInputWorkingHours;
   holidays?: HospitalSettingsInputHolidaysItem[];
+  reportSubtitles?: HospitalSettingsInputReportSubtitles;
 }
 
 export type AdminReportsOverviewOpdVolumeItem = {

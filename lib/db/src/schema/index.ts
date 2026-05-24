@@ -94,6 +94,7 @@ export const hospitalSettingsTable = pgTable("hospital_settings", {
   receiptPrefix: text("receipt_prefix").default("RCT"),
   workingHours: jsonb("working_hours").notNull().default({}),
   holidays: jsonb("holidays").notNull().default([]),
+  reportSubtitles: jsonb("report_subtitles").notNull().default({}),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

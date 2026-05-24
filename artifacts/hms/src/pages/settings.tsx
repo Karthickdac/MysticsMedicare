@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings as SettingsIcon, Plus, Trash2, Save, Building2, Receipt, Clock, CalendarOff } from "lucide-react";
+import { Settings as SettingsIcon, Plus, Trash2, Save, Building2, Receipt, Clock, CalendarOff, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +20,16 @@ const DAYS = [
 
 type DayCfg = { open?: string; close?: string; closed?: boolean };
 type Holiday = { date: string; label: string };
+type ReportKind = "lab" | "radiology" | "prescription" | "vaccination" | "discharge";
+type ReportSubtitles = Partial<Record<ReportKind, string>>;
+
+const REPORT_FIELDS: Array<{ key: ReportKind; label: string; placeholder: string; help: string }> = [
+  { key: "lab", label: "Laboratory report", placeholder: "NABL-accredited diagnostic services", help: "Shown under LABORATORY REPORT on every lab PDF." },
+  { key: "radiology", label: "Radiology report", placeholder: "Imaging & Diagnostics", help: "Shown under RADIOLOGY REPORT on every imaging PDF." },
+  { key: "prescription", label: "Prescription", placeholder: "e.g. OPD Pharmacy — Dispensary Wing", help: "Optional. Leave blank to suppress the subtitle." },
+  { key: "vaccination", label: "Vaccination certificate", placeholder: "e.g. Immunization Clinic — Govt. authorized", help: "Optional. Leave blank to suppress the subtitle." },
+  { key: "discharge", label: "Discharge summary", placeholder: "e.g. Inpatient Services", help: "Optional. Leave blank to suppress the subtitle." },
+];
 
 export default function Settings() {
   const { data, isLoading } = useGetHospitalSettings();
@@ -31,6 +41,7 @@ export default function Settings() {
   const [hours, setHours] = useState<Record<string, DayCfg>>({});
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [newHoliday, setNewHoliday] = useState<Holiday>({ date: "", label: "" });
+  const [reportSubtitles, setReportSubtitles] = useState<ReportSubtitles>({});
 
   useEffect(() => {
     if (!data) return;
@@ -53,6 +64,7 @@ export default function Settings() {
     });
     setHours((data.workingHours as Record<string, DayCfg>) ?? {});
     setHolidays((data.holidays as Holiday[]) ?? []);
+    setReportSubtitles(((data as { reportSubtitles?: ReportSubtitles }).reportSubtitles) ?? {});
   }, [data]);
 
   const dirty = useMemo(() => true, []); // keep button always enabled — server is the source of truth
@@ -73,6 +85,7 @@ export default function Settings() {
       ...form,
       workingHours: hours,
       holidays,
+      reportSubtitles,
     };
     update.mutate({ data: payload }, {
       onSuccess: () => { toast({ title: "Settings saved" }); qc.invalidateQueries({ queryKey: getGetHospitalSettingsQueryKey() }); },
@@ -98,6 +111,7 @@ export default function Settings() {
           <TabsTrigger value="billing"><Receipt className="w-4 h-4 mr-2" />Billing</TabsTrigger>
           <TabsTrigger value="hours"><Clock className="w-4 h-4 mr-2" />Working hours</TabsTrigger>
           <TabsTrigger value="holidays"><CalendarOff className="w-4 h-4 mr-2" />Holidays</TabsTrigger>
+          <TabsTrigger value="reports"><FileText className="w-4 h-4 mr-2" />Report headers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="org" className="space-y-4">
@@ -177,6 +191,30 @@ export default function Settings() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Printed report headers</CardTitle>
+              <CardDescription>
+                Customize the subtitle line shown below the report title on lab, radiology, prescription, vaccination and discharge PDFs. The hospital name, address and GSTIN at the top of every page come from the Organization tab. Invoices are excluded — their header is fully driven by the organization profile.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {REPORT_FIELDS.map((f) => (
+                <Row key={f.key} label={f.label}>
+                  <Input
+                    value={reportSubtitles[f.key] ?? ""}
+                    onChange={(e) => setReportSubtitles((s) => ({ ...s, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                    data-testid={`input-report-subtitle-${f.key}`}
+                  />
+                  <p className="text-xs text-muted-foreground">{f.help}</p>
+                </Row>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>

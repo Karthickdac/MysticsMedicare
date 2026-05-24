@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { HospitalSettingsInputHolidaysItem } from './hospitalSettingsInputHolidaysItem';
+import type { HospitalSettingsInputReportSubtitles } from './hospitalSettingsInputReportSubtitles';
 import type { HospitalSettingsInputWorkingHours } from './hospitalSettingsInputWorkingHours';
 
 export interface HospitalSettingsInput {
@@ -26,4 +27,5 @@ export interface HospitalSettingsInput {
   receiptPrefix?: string;
   workingHours?: HospitalSettingsInputWorkingHours;
   holidays?: HospitalSettingsInputHolidaysItem[];
+  reportSubtitles?: HospitalSettingsInputReportSubtitles;
 }

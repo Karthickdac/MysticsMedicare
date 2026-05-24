@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { HospitalSettingsHolidaysItem } from './hospitalSettingsHolidaysItem';
+import type { HospitalSettingsReportSubtitles } from './hospitalSettingsReportSubtitles';
 import type { HospitalSettingsWorkingHours } from './hospitalSettingsWorkingHours';
 
 export interface HospitalSettings {
@@ -41,5 +42,7 @@ export interface HospitalSettings {
   receiptPrefix?: string | null;
   workingHours?: HospitalSettingsWorkingHours;
   holidays?: HospitalSettingsHolidaysItem[];
+  /** Per-report-type subtitle/accreditation lines used in PDF headers. Empty string suppresses the subtitle; missing key uses the built-in default. */
+  reportSubtitles?: HospitalSettingsReportSubtitles;
   updatedAt: string;
 }

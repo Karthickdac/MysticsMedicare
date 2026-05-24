@@ -3343,6 +3343,15 @@ components:
             properties:
               date: { type: string }
               label: { type: string }
+        reportSubtitles:
+          type: object
+          description: Per-report-type subtitle/accreditation lines used in PDF headers. Empty string suppresses the subtitle; missing key uses the built-in default.
+          properties:
+            lab: { type: string }
+            radiology: { type: string }
+            prescription: { type: string }
+            vaccination: { type: string }
+            discharge: { type: string }
         updatedAt: { type: string }
     PublicHospitalSettings:
       type: object
@@ -3394,6 +3403,14 @@ components:
             properties:
               date: { type: string }
               label: { type: string }
+        reportSubtitles:
+          type: object
+          properties:
+            lab: { type: string }
+            radiology: { type: string }
+            prescription: { type: string }
+            vaccination: { type: string }
+            discharge: { type: string }
 
     AdminReportsOverview:
       type: object

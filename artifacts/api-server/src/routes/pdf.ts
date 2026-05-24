@@ -22,7 +22,25 @@ import { getHospitalSettings } from "../lib/hospital-settings";
 
 const router: IRouter = Router();
 
-async function startPdf(res: Response, filename: string) {
+// Report types that can carry a configurable subtitle line (department name,
+// accreditation, etc.). Invoices are intentionally excluded — their header is
+// fully driven by the organization profile (name + address + GSTIN).
+type ReportKind = "lab" | "radiology" | "prescription" | "vaccination" | "discharge";
+
+const DEFAULT_REPORT_SUBTITLES: Record<ReportKind, string> = {
+  lab: "NABL-accredited diagnostic services",
+  radiology: "Imaging & Diagnostics",
+  prescription: "",
+  vaccination: "",
+  discharge: "",
+};
+
+type StartedPdf = {
+  doc: PDFKit.PDFDocument;
+  settings: Awaited<ReturnType<typeof getHospitalSettings>>;
+};
+
+async function startPdf(res: Response, filename: string): Promise<StartedPdf> {
   const settings = await getHospitalSettings();
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
@@ -37,7 +55,27 @@ async function startPdf(res: Response, filename: string) {
     doc.fontSize(9).text(meta, { align: "center" });
   }
   doc.moveDown().fillColor("#000");
-  return doc;
+  return { doc, settings };
+}
+
+// Render the centered report title + an optional per-report subtitle line.
+// The subtitle resolves from settings.reportSubtitles[kind] when configured
+// (admins can edit this from Settings → Report headers) and falls back to a
+// safe built-in default. An empty string in settings explicitly suppresses
+// the line, letting hospitals turn the subtitle off entirely.
+function reportHeader(
+  doc: PDFKit.PDFDocument,
+  settings: StartedPdf["settings"],
+  title: string,
+  kind: ReportKind,
+): void {
+  doc.fontSize(16).fillColor("#000").text(title, { align: "center" });
+  const configured = (settings.reportSubtitles as Record<string, unknown> | null)?.[kind];
+  const subtitle = typeof configured === "string" ? configured : DEFAULT_REPORT_SUBTITLES[kind];
+  if (subtitle && subtitle.trim().length > 0) {
+    doc.fontSize(9).fillColor("#666").text(subtitle, { align: "center" });
+  }
+  doc.fillColor("#000").moveDown();
 }
 
 function inr(n: string | number | null | undefined) {
@@ -49,7 +87,7 @@ export async function renderInvoicePdf(res: Response, id: number): Promise<void>
   if (!b) { res.status(404).json({ error: "Bill not found" }); return; }
   const [p] = b.patientId ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
   const payments = await db.select().from(billPaymentsTable).where(eq(billPaymentsTable.billId, id));
-  const doc = await startPdf(res, `invoice-${b.billNumber}.pdf`);
+  const { doc } = await startPdf(res, `invoice-${b.billNumber}.pdf`);
   doc.fontSize(16).text("TAX INVOICE", { align: "center" });
   doc.moveDown();
 
@@ -144,7 +182,7 @@ export async function renderReceiptPdf(res: Response, id: number): Promise<void>
   if (!pay) { res.status(404).json({ error: "Receipt not found" }); return; }
   const [b] = await db.select().from(billsTable).where(eq(billsTable.id, pay.billId));
   const [p] = b ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
-  const doc = await startPdf(res, `receipt-${pay.receiptNumber}.pdf`);
+  const { doc } = await startPdf(res, `receipt-${pay.receiptNumber}.pdf`);
   doc.fontSize(16).text("PAYMENT RECEIPT", { align: "center" }).moveDown();
   doc.fontSize(11);
   doc.text(`Receipt #: ${pay.receiptNumber}`);
@@ -214,8 +252,8 @@ export async function renderDischargeSummaryPdf(res: Response, id: number): Prom
         .where(and(eq(marEntriesTable.admissionId, adm.id), eq(marEntriesTable.status, "given")))
     : [];
 
-  const doc = await startPdf(res, `discharge-${id}.pdf`);
-  doc.fontSize(16).text("DISCHARGE SUMMARY", { align: "center" }).moveDown();
+  const { doc, settings } = await startPdf(res, `discharge-${id}.pdf`);
+  reportHeader(doc, settings, "DISCHARGE SUMMARY", "discharge");
   if (p) {
     doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
     doc.text(`Age/Gender: ${p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : "-"} / ${p.gender}`);
@@ -296,10 +334,8 @@ export async function renderLabReportPdf(res: Response, id: number): Promise<voi
   const [o] = await db.select().from(labOrdersTable).where(eq(labOrdersTable.id, id));
   if (!o) { res.status(404).json({ error: "Lab order not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
-  const doc = await startPdf(res, `lab-${id}.pdf`);
-  doc.fontSize(16).text("LABORATORY REPORT", { align: "center" });
-  doc.fontSize(9).fillColor("#666").text("NABL-accredited diagnostic services", { align: "center" });
-  doc.fillColor("#000").moveDown();
+  const { doc, settings } = await startPdf(res, `lab-${id}.pdf`);
+  reportHeader(doc, settings, "LABORATORY REPORT", "lab");
 
   const headerY = doc.y;
   doc.fontSize(10);
@@ -384,10 +420,8 @@ export async function renderRadiologyReportPdf(res: Response, id: number): Promi
   const [o] = await db.select().from(radiologyTable).where(eq(radiologyTable.id, id));
   if (!o) { res.status(404).json({ error: "Radiology order not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
-  const doc = await startPdf(res, `radiology-${id}.pdf`);
-  doc.fontSize(16).text("RADIOLOGY REPORT", { align: "center" });
-  doc.fontSize(9).fillColor("#666").text("Imaging & Diagnostics", { align: "center" });
-  doc.fillColor("#000").moveDown();
+  const { doc, settings } = await startPdf(res, `radiology-${id}.pdf`);
+  reportHeader(doc, settings, "RADIOLOGY REPORT", "radiology");
 
   const headerY = doc.y;
   doc.fontSize(10);
@@ -439,8 +473,8 @@ export async function renderPrescriptionPdf(res: Response, id: number): Promise<
   const [rx] = await db.select().from(prescriptionsTable).where(eq(prescriptionsTable.id, id));
   if (!rx) { res.status(404).json({ error: "Prescription not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, rx.patientId));
-  const doc = await startPdf(res, `prescription-${id}.pdf`);
-  doc.fontSize(16).text("PRESCRIPTION (Rx)", { align: "center" }).moveDown();
+  const { doc, settings } = await startPdf(res, `prescription-${id}.pdf`);
+  reportHeader(doc, settings, "PRESCRIPTION (Rx)", "prescription");
   if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   if (rx.prescribedBy) doc.text(`Prescribing Doctor: ${rx.prescribedBy}`);
   doc.text(`Date: ${new Date(rx.createdAt).toLocaleString("en-IN")}`);
@@ -467,8 +501,8 @@ export async function renderVaccinationPdf(res: Response, id: number): Promise<v
   const [v] = await db.select().from(vaccinationsTable).where(eq(vaccinationsTable.id, id));
   if (!v) { res.status(404).json({ error: "Vaccination record not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, v.patientId));
-  const doc = await startPdf(res, `vaccination-${id}.pdf`);
-  doc.fontSize(16).text("VACCINATION CERTIFICATE", { align: "center" }).moveDown();
+  const { doc, settings } = await startPdf(res, `vaccination-${id}.pdf`);
+  reportHeader(doc, settings, "VACCINATION CERTIFICATE", "vaccination");
   if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   doc.text(`Date Administered: ${new Date(v.administeredAt).toLocaleString("en-IN")}`);
   doc.moveDown();
@@ -489,7 +523,7 @@ export async function renderVitalPdf(res: Response, id: number): Promise<void> {
   const [v] = await db.select().from(vitalsTable).where(eq(vitalsTable.id, id));
   if (!v) { res.status(404).json({ error: "Vitals record not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, v.patientId));
-  const doc = await startPdf(res, `vitals-${id}.pdf`);
+  const { doc } = await startPdf(res, `vitals-${id}.pdf`);
   doc.fontSize(16).text("VITALS RECORD", { align: "center" }).moveDown();
   if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
   doc.text(`Recorded At: ${new Date(v.recordedAt).toLocaleString("en-IN")}`);
@@ -617,7 +651,7 @@ export async function renderPatientHistoryPdf(res: Response, patientId: number):
     rads.map((r) => (r.imageUrl ? fetchImageBuffer(r.imageUrl) : Promise.resolve(null))),
   );
 
-  const doc = await startPdf(res, `patient-history-${p.uhid}.pdf`);
+  const { doc } = await startPdf(res, `patient-history-${p.uhid}.pdf`);
 
   const section = (title: string) => {
     if (doc.y > 720) doc.addPage();

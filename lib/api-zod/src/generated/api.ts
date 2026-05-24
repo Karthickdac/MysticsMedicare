@@ -2386,6 +2386,13 @@ export const GetHospitalSettingsResponse = zod.object({
   "date": zod.string(),
   "label": zod.string()
 })).optional(),
+  "reportSubtitles": zod.object({
+  "lab": zod.string().optional(),
+  "radiology": zod.string().optional(),
+  "prescription": zod.string().optional(),
+  "vaccination": zod.string().optional(),
+  "discharge": zod.string().optional()
+}).optional().describe('Per-report-type subtitle\/accreditation lines used in PDF headers. Empty string suppresses the subtitle; missing key uses the built-in default.'),
   "updatedAt": zod.string()
 })
 
@@ -2410,7 +2417,14 @@ export const UpdateHospitalSettingsBody = zod.object({
   "holidays": zod.array(zod.object({
   "date": zod.string(),
   "label": zod.string()
-})).optional()
+})).optional(),
+  "reportSubtitles": zod.object({
+  "lab": zod.string().optional(),
+  "radiology": zod.string().optional(),
+  "prescription": zod.string().optional(),
+  "vaccination": zod.string().optional(),
+  "discharge": zod.string().optional()
+}).optional()
 })
 
 export const UpdateHospitalSettingsResponse = zod.object({
@@ -2435,6 +2449,13 @@ export const UpdateHospitalSettingsResponse = zod.object({
   "date": zod.string(),
   "label": zod.string()
 })).optional(),
+  "reportSubtitles": zod.object({
+  "lab": zod.string().optional(),
+  "radiology": zod.string().optional(),
+  "prescription": zod.string().optional(),
+  "vaccination": zod.string().optional(),
+  "discharge": zod.string().optional()
+}).optional().describe('Per-report-type subtitle\/accreditation lines used in PDF headers. Empty string suppresses the subtitle; missing key uses the built-in default.'),
   "updatedAt": zod.string()
 })
 

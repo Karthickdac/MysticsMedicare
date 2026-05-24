@@ -33,6 +33,7 @@ function shape(r: HospitalSettingsRow) {
     receiptPrefix: r.receiptPrefix,
     workingHours: (r.workingHours as Record<string, unknown>) ?? {},
     holidays: (r.holidays as Array<{ date: string; label: string }>) ?? [],
+    reportSubtitles: (r.reportSubtitles as Record<string, string>) ?? {},
     updatedAt: requiredIso(r.updatedAt),
   };
 }
