@@ -401,13 +401,101 @@ export interface IpdCensus {
   wards: IpdCensusWard[];
 }
 
+export interface LabResultParam {
+  name: string;
+  value: string;
+  /** @nullable */
+  unit?: string | null;
+  /**
+     * N (normal), H (high), L (low), A (abnormal)
+     * @nullable
+     */
+  flag?: string | null;
+  /** @nullable */
+  refRange?: string | null;
+  /** @nullable */
+  comment?: string | null;
+}
+
+export type LabRefByAgeSexSex = typeof LabRefByAgeSexSex[keyof typeof LabRefByAgeSexSex];
+
+
+export const LabRefByAgeSexSex = {
+  M: 'M',
+  F: 'F',
+  A: 'A',
+} as const;
+
+export interface LabRefByAgeSex {
+  /** @nullable */
+  minAgeYears?: number | null;
+  /** @nullable */
+  maxAgeYears?: number | null;
+  sex: LabRefByAgeSexSex;
+  low: number;
+  high: number;
+}
+
+export interface LabCatalogParam {
+  name: string;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  refLow?: number | null;
+  /** @nullable */
+  refHigh?: number | null;
+  /** @nullable */
+  refText?: string | null;
+  refByAgeSex?: LabRefByAgeSex[];
+}
+
+export interface LabCatalogItem {
+  id: number;
+  code: string;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  sampleType: string;
+  /** @nullable */
+  container?: string | null;
+  price: number;
+  gstRate: number;
+  /** @nullable */
+  hsn?: string | null;
+  turnaroundHours: number;
+  parameters?: LabCatalogParam[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface LabCatalogInput {
+  code: string;
+  name: string;
+  category?: string;
+  sampleType: string;
+  container?: string;
+  price?: number;
+  gstRate?: number;
+  hsn?: string;
+  turnaroundHours?: number;
+  parameters?: LabCatalogParam[];
+  active?: boolean;
+}
+
 export interface LabOrder {
   id: number;
   patientId: number;
   patientName: string;
+  /** @nullable */
+  patientAge?: number | null;
+  /** @nullable */
+  patientSex?: string | null;
+  /** @nullable */
+  catalogId?: number | null;
   testName: string;
   /** @nullable */
   category?: string | null;
+  priority: string;
   status: string;
   /** @nullable */
   result?: string | null;
@@ -417,22 +505,92 @@ export interface LabOrder {
   notes?: string | null;
   /** @nullable */
   orderedBy?: string | null;
+  /** @nullable */
+  billId?: number | null;
+  /** @nullable */
+  sampleId?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  /** @nullable */
+  collectedBy?: string | null;
+  /** @nullable */
+  collectedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  results?: LabResultParam[];
+  /** @nullable */
+  attachmentUrl?: string | null;
+  /** @nullable */
+  verifiedBy?: string | null;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  reportPdfUrl?: string | null;
+  /** @nullable */
+  dispatchedAt?: string | null;
+  /** @nullable */
+  dispatchedVia?: string | null;
   createdAt: string;
   /** @nullable */
   completedAt?: string | null;
 }
 
+export type LabOrderInputPriority = typeof LabOrderInputPriority[keyof typeof LabOrderInputPriority];
+
+
+export const LabOrderInputPriority = {
+  routine: 'routine',
+  urgent: 'urgent',
+  stat: 'stat',
+} as const;
+
 export interface LabOrderInput {
   patientId: number;
-  testName: string;
+  catalogId?: number;
+  testName?: string;
   category?: string;
+  priority?: LabOrderInputPriority;
   orderedBy?: string;
+  /** If true and catalogId set, auto-create a bill line for this order */
+  autoBill?: boolean;
+}
+
+export interface CollectLabSampleInput {
+  collectedBy?: string;
+  sampleId?: string;
+  barcode?: string;
+}
+
+export interface RejectLabSampleInput {
+  reason: string;
 }
 
 export interface LabResultInput {
-  result: string;
+  /** Legacy free-text result; prefer 'results' parameter grid */
+  result?: string;
   normalRange?: string;
   notes?: string;
+  results?: LabResultParam[];
+  attachmentUrl?: string;
+}
+
+export interface VerifyLabResultInput {
+  verifiedBy: string;
+}
+
+export type DispatchInputVia = typeof DispatchInputVia[keyof typeof DispatchInputVia];
+
+
+export const DispatchInputVia = {
+  sms: 'sms',
+  whatsapp: 'whatsapp',
+  email: 'email',
+  both: 'both',
+  none: 'none',
+} as const;
+
+export interface DispatchInput {
+  via?: DispatchInputVia;
 }
 
 export interface Prescription {
@@ -1110,12 +1268,45 @@ export interface VitalInput {
   recordedBy?: string;
 }
 
+export interface RadiologyCatalogItem {
+  id: number;
+  code: string;
+  modality: string;
+  bodyPart: string;
+  name: string;
+  price: number;
+  gstRate: number;
+  /** @nullable */
+  hsn?: string | null;
+  durationMin: number;
+  /** @nullable */
+  prepInstructions?: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface RadiologyCatalogInput {
+  code: string;
+  modality: string;
+  bodyPart: string;
+  name: string;
+  price?: number;
+  gstRate?: number;
+  hsn?: string;
+  durationMin?: number;
+  prepInstructions?: string;
+  active?: boolean;
+}
+
 export interface RadiologyOrder {
   id: number;
   patientId: number;
   patientName: string;
+  /** @nullable */
+  catalogId?: number | null;
   modality: string;
   bodyPart: string;
+  priority: string;
   status: string;
   /** @nullable */
   findings?: string | null;
@@ -1125,21 +1316,69 @@ export interface RadiologyOrder {
   radiologist?: string | null;
   /** @nullable */
   imageUrl?: string | null;
+  /** @nullable */
+  pacsUrl?: string | null;
+  /** @nullable */
+  billId?: number | null;
+  /** @nullable */
+  scheduledAt?: string | null;
+  /** @nullable */
+  technologist?: string | null;
+  /** @nullable */
+  capturedAt?: string | null;
+  /** @nullable */
+  verifiedBy?: string | null;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  reportPdfUrl?: string | null;
+  /** @nullable */
+  dispatchedAt?: string | null;
+  /** @nullable */
+  dispatchedVia?: string | null;
   createdAt: string;
   /** @nullable */
   completedAt?: string | null;
 }
 
+export type RadiologyOrderInputPriority = typeof RadiologyOrderInputPriority[keyof typeof RadiologyOrderInputPriority];
+
+
+export const RadiologyOrderInputPriority = {
+  routine: 'routine',
+  urgent: 'urgent',
+  stat: 'stat',
+} as const;
+
 export interface RadiologyOrderInput {
   patientId: number;
-  modality: string;
-  bodyPart: string;
+  catalogId?: number;
+  modality?: string;
+  bodyPart?: string;
+  priority?: RadiologyOrderInputPriority;
+  scheduledAt?: string;
+  autoBill?: boolean;
+}
+
+export interface ScheduleRadiologyInput {
+  scheduledAt: string;
+  technologist?: string;
+}
+
+export interface CaptureRadiologyInput {
+  imageUrl?: string;
+  pacsUrl?: string;
+  technologist?: string;
 }
 
 export interface RadiologyReportInput {
-  findings: string;
+  findings?: string;
   impression?: string;
   radiologist?: string;
+}
+
+export interface VerifyRadiologyInput {
+  verifiedBy: string;
 }
 
 export interface OtBooking {

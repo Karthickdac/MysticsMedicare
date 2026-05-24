@@ -5,9 +5,13 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { LabResultParam } from './labResultParam';
 
 export interface LabResultInput {
-  result: string;
+  /** Legacy free-text result; prefer 'results' parameter grid */
+  result?: string;
   normalRange?: string;
   notes?: string;
+  results?: LabResultParam[];
+  attachmentUrl?: string;
 }

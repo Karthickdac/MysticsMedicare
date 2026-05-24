@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RadiologyReportInput {
-  findings?: string;
-  impression?: string;
-  radiologist?: string;
+export interface ScheduleRadiologyInput {
+  scheduledAt: string;
+  technologist?: string;
 }

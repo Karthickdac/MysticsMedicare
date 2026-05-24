@@ -5,9 +5,14 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { RadiologyOrderInputPriority } from './radiologyOrderInputPriority';
 
 export interface RadiologyOrderInput {
   patientId: number;
-  modality: string;
-  bodyPart: string;
+  catalogId?: number;
+  modality?: string;
+  bodyPart?: string;
+  priority?: RadiologyOrderInputPriority;
+  scheduledAt?: string;
+  autoBill?: boolean;
 }

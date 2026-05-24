@@ -646,13 +646,37 @@ export const ListLabOrdersResponseItem = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
   "testName": zod.string(),
   "category": zod.string().nullish(),
+  "priority": zod.string(),
   "status": zod.string(),
   "result": zod.string().nullish(),
   "normalRange": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -661,9 +685,12 @@ export const ListLabOrdersResponse = zod.array(ListLabOrdersResponseItem)
 
 export const CreateLabOrderBody = zod.object({
   "patientId": zod.number(),
-  "testName": zod.string(),
+  "catalogId": zod.number().optional(),
+  "testName": zod.string().optional(),
   "category": zod.string().optional(),
-  "orderedBy": zod.string().optional()
+  "priority": zod.enum(['routine', 'urgent', 'stat']).optional(),
+  "orderedBy": zod.string().optional(),
+  "autoBill": zod.boolean().optional().describe('If true and catalogId set, auto-create a bill line for this order')
 })
 
 
@@ -672,24 +699,376 @@ export const RecordLabResultParams = zod.object({
 })
 
 export const RecordLabResultBody = zod.object({
-  "result": zod.string(),
+  "result": zod.string().optional().describe('Legacy free-text result; prefer \'results\' parameter grid'),
   "normalRange": zod.string().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().optional()
 })
 
 export const RecordLabResultResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
   "testName": zod.string(),
   "category": zod.string().nullish(),
+  "priority": zod.string(),
   "status": zod.string(),
   "result": zod.string().nullish(),
   "normalRange": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
+})
+
+
+export const CollectLabSampleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CollectLabSampleBody = zod.object({
+  "collectedBy": zod.string().optional(),
+  "sampleId": zod.string().optional(),
+  "barcode": zod.string().optional()
+})
+
+export const CollectLabSampleResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
+  "testName": zod.string(),
+  "category": zod.string().nullish(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "result": zod.string().nullish(),
+  "normalRange": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const RejectLabSampleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectLabSampleBody = zod.object({
+  "reason": zod.string()
+})
+
+export const RejectLabSampleResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
+  "testName": zod.string(),
+  "category": zod.string().nullish(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "result": zod.string().nullish(),
+  "normalRange": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const VerifyLabResultParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const VerifyLabResultBody = zod.object({
+  "verifiedBy": zod.string()
+})
+
+export const VerifyLabResultResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
+  "testName": zod.string(),
+  "category": zod.string().nullish(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "result": zod.string().nullish(),
+  "normalRange": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const DispatchLabReportParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DispatchLabReportBody = zod.object({
+  "via": zod.enum(['sms', 'whatsapp', 'email', 'both', 'none']).optional()
+})
+
+export const DispatchLabReportResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
+  "testName": zod.string(),
+  "category": zod.string().nullish(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "result": zod.string().nullish(),
+  "normalRange": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const ListLabCatalogResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string().nullish(),
+  "sampleType": zod.string(),
+  "container": zod.string().nullish(),
+  "price": zod.number(),
+  "gstRate": zod.number(),
+  "hsn": zod.string().nullish(),
+  "turnaroundHours": zod.number(),
+  "parameters": zod.array(zod.object({
+  "name": zod.string(),
+  "unit": zod.string().nullish(),
+  "refLow": zod.number().nullish(),
+  "refHigh": zod.number().nullish(),
+  "refText": zod.string().nullish(),
+  "refByAgeSex": zod.array(zod.object({
+  "minAgeYears": zod.number().nullish(),
+  "maxAgeYears": zod.number().nullish(),
+  "sex": zod.enum(['M', 'F', 'A']),
+  "low": zod.number(),
+  "high": zod.number()
+})).optional()
+})).optional(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListLabCatalogResponse = zod.array(ListLabCatalogResponseItem)
+
+
+export const CreateLabCatalogItemBody = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string().optional(),
+  "sampleType": zod.string(),
+  "container": zod.string().optional(),
+  "price": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "hsn": zod.string().optional(),
+  "turnaroundHours": zod.number().optional(),
+  "parameters": zod.array(zod.object({
+  "name": zod.string(),
+  "unit": zod.string().nullish(),
+  "refLow": zod.number().nullish(),
+  "refHigh": zod.number().nullish(),
+  "refText": zod.string().nullish(),
+  "refByAgeSex": zod.array(zod.object({
+  "minAgeYears": zod.number().nullish(),
+  "maxAgeYears": zod.number().nullish(),
+  "sex": zod.enum(['M', 'F', 'A']),
+  "low": zod.number(),
+  "high": zod.number()
+})).optional()
+})).optional(),
+  "active": zod.boolean().optional()
+})
+
+
+export const UpdateLabCatalogItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateLabCatalogItemBody = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string().optional(),
+  "sampleType": zod.string(),
+  "container": zod.string().optional(),
+  "price": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "hsn": zod.string().optional(),
+  "turnaroundHours": zod.number().optional(),
+  "parameters": zod.array(zod.object({
+  "name": zod.string(),
+  "unit": zod.string().nullish(),
+  "refLow": zod.number().nullish(),
+  "refHigh": zod.number().nullish(),
+  "refText": zod.string().nullish(),
+  "refByAgeSex": zod.array(zod.object({
+  "minAgeYears": zod.number().nullish(),
+  "maxAgeYears": zod.number().nullish(),
+  "sex": zod.enum(['M', 'F', 'A']),
+  "low": zod.number(),
+  "high": zod.number()
+})).optional()
+})).optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateLabCatalogItemResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string().nullish(),
+  "sampleType": zod.string(),
+  "container": zod.string().nullish(),
+  "price": zod.number(),
+  "gstRate": zod.number(),
+  "hsn": zod.string().nullish(),
+  "turnaroundHours": zod.number(),
+  "parameters": zod.array(zod.object({
+  "name": zod.string(),
+  "unit": zod.string().nullish(),
+  "refLow": zod.number().nullish(),
+  "refHigh": zod.number().nullish(),
+  "refText": zod.string().nullish(),
+  "refByAgeSex": zod.array(zod.object({
+  "minAgeYears": zod.number().nullish(),
+  "maxAgeYears": zod.number().nullish(),
+  "sex": zod.enum(['M', 'F', 'A']),
+  "low": zod.number(),
+  "high": zod.number()
+})).optional()
+})).optional(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+export const GetLabReportPdfParams = zod.object({
+  "id": zod.coerce.number()
 })
 
 
@@ -1943,13 +2322,25 @@ export const ListRadiologyOrdersResponseItem = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
   "modality": zod.string(),
   "bodyPart": zod.string(),
+  "priority": zod.string(),
   "status": zod.string(),
   "findings": zod.string().nullish(),
   "impression": zod.string().nullish(),
   "radiologist": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -1958,8 +2349,12 @@ export const ListRadiologyOrdersResponse = zod.array(ListRadiologyOrdersResponse
 
 export const CreateRadiologyOrderBody = zod.object({
   "patientId": zod.number(),
-  "modality": zod.string(),
-  "bodyPart": zod.string()
+  "catalogId": zod.number().optional(),
+  "modality": zod.string().optional(),
+  "bodyPart": zod.string().optional(),
+  "priority": zod.enum(['routine', 'urgent', 'stat']).optional(),
+  "scheduledAt": zod.string().optional(),
+  "autoBill": zod.boolean().optional()
 })
 
 
@@ -1968,7 +2363,7 @@ export const RecordRadiologyReportParams = zod.object({
 })
 
 export const RecordRadiologyReportBody = zod.object({
-  "findings": zod.string(),
+  "findings": zod.string().optional(),
   "impression": zod.string().optional(),
   "radiologist": zod.string().optional()
 })
@@ -1977,16 +2372,314 @@ export const RecordRadiologyReportResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
   "modality": zod.string(),
   "bodyPart": zod.string(),
+  "priority": zod.string(),
   "status": zod.string(),
   "findings": zod.string().nullish(),
   "impression": zod.string().nullish(),
   "radiologist": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
+
+
+export const ScheduleRadiologyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ScheduleRadiologyBody = zod.object({
+  "scheduledAt": zod.string(),
+  "technologist": zod.string().optional()
+})
+
+export const ScheduleRadiologyResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "findings": zod.string().nullish(),
+  "impression": zod.string().nullish(),
+  "radiologist": zod.string().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const CaptureRadiologyImagesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CaptureRadiologyImagesBody = zod.object({
+  "imageUrl": zod.string().optional(),
+  "pacsUrl": zod.string().optional(),
+  "technologist": zod.string().optional()
+})
+
+export const CaptureRadiologyImagesResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "findings": zod.string().nullish(),
+  "impression": zod.string().nullish(),
+  "radiologist": zod.string().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const VerifyRadiologyReportParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const VerifyRadiologyReportBody = zod.object({
+  "verifiedBy": zod.string()
+})
+
+export const VerifyRadiologyReportResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "findings": zod.string().nullish(),
+  "impression": zod.string().nullish(),
+  "radiologist": zod.string().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const DispatchRadiologyReportParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DispatchRadiologyReportBody = zod.object({
+  "via": zod.enum(['sms', 'whatsapp', 'email', 'both', 'none']).optional()
+})
+
+export const DispatchRadiologyReportResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "findings": zod.string().nullish(),
+  "impression": zod.string().nullish(),
+  "radiologist": zod.string().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const ListRadiologyCatalogResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "name": zod.string(),
+  "price": zod.number(),
+  "gstRate": zod.number(),
+  "hsn": zod.string().nullish(),
+  "durationMin": zod.number(),
+  "prepInstructions": zod.string().nullish(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListRadiologyCatalogResponse = zod.array(ListRadiologyCatalogResponseItem)
+
+
+export const CreateRadiologyCatalogItemBody = zod.object({
+  "code": zod.string(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "name": zod.string(),
+  "price": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "hsn": zod.string().optional(),
+  "durationMin": zod.number().optional(),
+  "prepInstructions": zod.string().optional(),
+  "active": zod.boolean().optional()
+})
+
+
+export const UpdateRadiologyCatalogItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRadiologyCatalogItemBody = zod.object({
+  "code": zod.string(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "name": zod.string(),
+  "price": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "hsn": zod.string().optional(),
+  "durationMin": zod.number().optional(),
+  "prepInstructions": zod.string().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateRadiologyCatalogItemResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "name": zod.string(),
+  "price": zod.number(),
+  "gstRate": zod.number(),
+  "hsn": zod.string().nullish(),
+  "durationMin": zod.number(),
+  "prepInstructions": zod.string().nullish(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+export const GetRadiologyReportPdfParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const GetPortalLabReportsResponseItem = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
+  "testName": zod.string(),
+  "category": zod.string().nullish(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "result": zod.string().nullish(),
+  "normalRange": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+export const GetPortalLabReportsResponse = zod.array(GetPortalLabReportsResponseItem)
+
+
+export const GetPortalRadiologyReportsResponseItem = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "findings": zod.string().nullish(),
+  "impression": zod.string().nullish(),
+  "radiologist": zod.string().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+export const GetPortalRadiologyReportsResponse = zod.array(GetPortalRadiologyReportsResponseItem)
 
 
 export const ListOtBookingsResponseItem = zod.object({

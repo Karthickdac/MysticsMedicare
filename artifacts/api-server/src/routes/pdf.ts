@@ -7,6 +7,7 @@ import {
   billPaymentsTable,
   encountersTable,
   labOrdersTable,
+  radiologyTable,
   prescriptionsTable,
   vitalsTable,
   admissionsTable,
@@ -269,28 +270,142 @@ router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
   doc.end();
 });
 
+// Lab report PDF: structured header, sample/collection block, parameter
+// grid with reference range + flag column, and a signature footer.
 router.get("/pdf/lab-report/:orderId", async (req, res) => {
   const id = Number(req.params.orderId);
   const [o] = await db.select().from(labOrdersTable).where(eq(labOrdersTable.id, id));
   if (!o) return res.status(404).json({ error: "Lab order not found" });
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
   const doc = startPdf(res, `lab-${id}.pdf`);
-  doc.fontSize(16).text("LABORATORY REPORT", { align: "center" }).moveDown();
-  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
-  doc.text(`Order ID: ${o.id}`);
-  doc.text(`Test: ${o.testName}`);
-  doc.text(`Status: ${o.status}`);
-  doc.text(`Ordered: ${new Date(o.createdAt).toLocaleString("en-IN")}`);
-  if (o.completedAt) doc.text(`Completed: ${new Date(o.completedAt).toLocaleString("en-IN")}`);
-  doc.moveDown();
-  doc.fontSize(12).text("Result", { underline: true });
-  doc.fontSize(11).text(o.result ?? "Pending");
-  if (o.normalRange) doc.text(`Normal Range: ${o.normalRange}`);
+  doc.fontSize(16).text("LABORATORY REPORT", { align: "center" });
+  doc.fontSize(9).fillColor("#666").text("NABL-accredited diagnostic services", { align: "center" });
+  doc.fillColor("#000").moveDown();
+
+  const headerY = doc.y;
+  doc.fontSize(10);
+  if (p) {
+    doc.text(`Patient: ${p.name}`, 50, headerY);
+    doc.text(`UHID: ${p.uhid}`, 50);
+    doc.text(`Sex/DOB: ${p.gender} / ${p.dob}`, 50);
+  }
+  doc.text(`Order ID: ${o.id}`, 320, headerY);
+  doc.text(`Test: ${o.testName}`, 320);
+  doc.text(`Sample ID: ${o.sampleId ?? "—"}`, 320);
+  doc.text(`Status: ${o.status.toUpperCase()}`, 320);
+  doc.text(`Priority: ${o.priority}`, 320);
+  doc.moveDown(2);
+
+  const collectedAt = o.collectedAt ? new Date(o.collectedAt).toLocaleString("en-IN") : "—";
+  const verifiedAt = o.verifiedAt ? new Date(o.verifiedAt).toLocaleString("en-IN") : "—";
+  doc.fontSize(9).fillColor("#555");
+  doc.text(`Ordered: ${new Date(o.createdAt).toLocaleString("en-IN")}    Collected: ${collectedAt}    Verified: ${verifiedAt}`);
+  doc.fillColor("#000").moveDown();
+
+  // Parameter grid
+  const results = (o.resultsJson as Array<{ name: string; value: string; unit?: string | null; flag?: string | null; refRange?: string | null; comment?: string | null }>) ?? [];
+  if (results.length > 0) {
+    const tableTop = doc.y;
+    doc.fontSize(9).fillColor("#666");
+    doc.text("Parameter", 50, tableTop, { width: 180 });
+    doc.text("Result", 230, tableTop, { width: 80, align: "right" });
+    doc.text("Flag", 310, tableTop, { width: 40, align: "center" });
+    doc.text("Unit", 350, tableTop, { width: 60 });
+    doc.text("Reference", 410, tableTop, { width: 140 });
+    doc.moveTo(50, tableTop + 14).lineTo(550, tableTop + 14).strokeColor("#ccc").stroke();
+    doc.fillColor("#000");
+    let y = tableTop + 20;
+    for (const r of results) {
+      const abnormal = r.flag === "H" || r.flag === "L" || r.flag === "A";
+      doc.fontSize(9).text(r.name, 50, y, { width: 180 });
+      doc.fillColor(abnormal ? "#b91c1c" : "#000");
+      doc.text(r.value, 230, y, { width: 80, align: "right" });
+      doc.text(r.flag ?? "", 310, y, { width: 40, align: "center" });
+      doc.fillColor("#000");
+      doc.text(r.unit ?? "", 350, y, { width: 60 });
+      doc.text(r.refRange ?? "", 410, y, { width: 140 });
+      if (r.comment) {
+        y += 12;
+        doc.fontSize(8).fillColor("#666").text(`Comment: ${r.comment}`, 50, y, { width: 500 });
+        doc.fillColor("#000").fontSize(9);
+      }
+      y += 16;
+    }
+    doc.y = y + 8;
+  } else if (o.result) {
+    doc.fontSize(12).text("Result", { underline: true });
+    doc.fontSize(11).text(o.result);
+    if (o.normalRange) doc.text(`Normal Range: ${o.normalRange}`);
+  } else {
+    doc.fontSize(11).fillColor("#999").text("Pending").fillColor("#000");
+  }
+
   if (o.notes) {
     doc.moveDown();
-    doc.fontSize(12).text("Notes", { underline: true });
-    doc.fontSize(11).text(o.notes);
+    doc.fontSize(11).fillColor("#666").text(`Notes: ${o.notes}`).fillColor("#000");
   }
+
+  // Signature footer
+  doc.moveDown(3);
+  doc.fontSize(9).fillColor("#555");
+  doc.text("__________________________", 50);
+  doc.text(`Verified by: ${o.verifiedBy ?? "— (pending verification)"}`, 50);
+  doc.text(`Verified on: ${verifiedAt}`, 50);
+  doc.text("This is a computer-generated report. Reference ranges are age/sex-adjusted where applicable.", 50, doc.y + 10, { width: 500 });
+  doc.fillColor("#000");
+  doc.end();
+});
+
+// Radiology report PDF.
+router.get("/pdf/radiology-report/:orderId", async (req, res) => {
+  const id = Number(req.params.orderId);
+  const [o] = await db.select().from(radiologyTable).where(eq(radiologyTable.id, id));
+  if (!o) return res.status(404).json({ error: "Radiology order not found" });
+  const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
+  const doc = startPdf(res, `radiology-${id}.pdf`);
+  doc.fontSize(16).text("RADIOLOGY REPORT", { align: "center" });
+  doc.fontSize(9).fillColor("#666").text("Imaging & Diagnostics", { align: "center" });
+  doc.fillColor("#000").moveDown();
+
+  const headerY = doc.y;
+  doc.fontSize(10);
+  if (p) {
+    doc.text(`Patient: ${p.name}`, 50, headerY);
+    doc.text(`UHID: ${p.uhid}`, 50);
+    doc.text(`Sex/DOB: ${p.gender} / ${p.dob}`, 50);
+  }
+  doc.text(`Order ID: ${o.id}`, 320, headerY);
+  doc.text(`Modality: ${o.modality}`, 320);
+  doc.text(`Body Part: ${o.bodyPart}`, 320);
+  doc.text(`Status: ${o.status.toUpperCase()}`, 320);
+  doc.text(`Priority: ${o.priority}`, 320);
+  doc.moveDown(2);
+
+  const scheduledAt = o.scheduledAt ? new Date(o.scheduledAt).toLocaleString("en-IN") : "—";
+  const capturedAt = o.capturedAt ? new Date(o.capturedAt).toLocaleString("en-IN") : "—";
+  const verifiedAt = o.verifiedAt ? new Date(o.verifiedAt).toLocaleString("en-IN") : "—";
+  doc.fontSize(9).fillColor("#555");
+  doc.text(`Scheduled: ${scheduledAt}    Captured: ${capturedAt}    Verified: ${verifiedAt}`);
+  if (o.technologist) doc.text(`Technologist: ${o.technologist}`);
+  doc.fillColor("#000").moveDown();
+
+  if (o.imageUrl || o.pacsUrl) {
+    doc.fontSize(10).fillColor("#0369a1").text(`Image: ${o.imageUrl ?? o.pacsUrl ?? ""}`, { link: o.imageUrl ?? o.pacsUrl ?? undefined, underline: true }).fillColor("#000");
+    doc.moveDown();
+  }
+
+  doc.fontSize(12).text("Findings", { underline: true });
+  doc.fontSize(11).text(o.findings ?? "Pending");
+  doc.moveDown();
+  doc.fontSize(12).text("Impression", { underline: true });
+  doc.fontSize(11).text(o.impression ?? "Pending");
+
+  doc.moveDown(3);
+  doc.fontSize(9).fillColor("#555");
+  doc.text("__________________________", 50);
+  doc.text(`Radiologist: ${o.radiologist ?? "—"}`, 50);
+  doc.text(`Verified by: ${o.verifiedBy ?? "— (pending verification)"} on ${verifiedAt}`, 50);
+  doc.fillColor("#000");
   doc.end();
 });
 

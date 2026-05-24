@@ -170,16 +170,55 @@ export const marEntriesTable = pgTable(
   }),
 );
 
+// Lab test catalog — master list of tests. Each catalog row carries
+// pricing/GST/HSN for auto-billing and a `parameters` jsonb that defines the
+// per-parameter result grid (units, reference ranges, age/sex-aware variants).
+export const labTestCatalogTable = pgTable("lab_test_catalog", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  category: text("category"),
+  sampleType: text("sample_type").notNull(),
+  container: text("container"),
+  price: numeric("price", { precision: 12, scale: 2 }).notNull().default("0"),
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  hsn: text("hsn"),
+  turnaroundHours: integer("turnaround_hours").notNull().default(24),
+  // parameters: [{ name, unit, refLow?, refHigh?, refText?,
+  //   refByAgeSex?: [{ minAgeYears, maxAgeYears, sex: 'M'|'F'|'A', low, high }] }]
+  parameters: jsonb("parameters").notNull().default(sql`'[]'::jsonb`),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const labOrdersTable = pgTable("lab_orders", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
+  catalogId: integer("catalog_id").references(() => labTestCatalogTable.id),
   testName: text("test_name").notNull(),
   category: text("category"),
+  priority: text("priority").notNull().default("routine"), // routine|urgent|stat
+  // pending → collected → in_lab → resulted → verified → dispatched. Or 'rejected'.
   status: text("status").notNull().default("pending"),
+  // Legacy single-result fields kept for back-compat; new structured results
+  // live in resultsJson as [{ name, value, unit, flag, refRange, comment }].
   result: text("result"),
   normalRange: text("normal_range"),
   notes: text("notes"),
   orderedBy: text("ordered_by"),
+  billId: integer("bill_id"),
+  sampleId: text("sample_id"),
+  barcode: text("barcode"),
+  collectedBy: text("collected_by"),
+  collectedAt: timestamp("collected_at"),
+  rejectionReason: text("rejection_reason"),
+  resultsJson: jsonb("results_json").notNull().default(sql`'[]'::jsonb`),
+  attachmentUrl: text("attachment_url"),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  reportPdfUrl: text("report_pdf_url"),
+  dispatchedAt: timestamp("dispatched_at"),
+  dispatchedVia: text("dispatched_via"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 });
@@ -478,16 +517,46 @@ export const vitalsTable = pgTable("vitals", {
   recordedBy: text("recorded_by"),
 });
 
+// Radiology procedure catalog (X-Ray/CT/MRI/USG) used for auto-billing and
+// scheduling defaults (duration, prep instructions).
+export const radiologyCatalogTable = pgTable("radiology_catalog", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  modality: text("modality").notNull(),
+  bodyPart: text("body_part").notNull(),
+  name: text("name").notNull(),
+  price: numeric("price", { precision: 12, scale: 2 }).notNull().default("0"),
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  hsn: text("hsn"),
+  durationMin: integer("duration_min").notNull().default(15),
+  prepInstructions: text("prep_instructions"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const radiologyTable = pgTable("radiology_orders", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
+  catalogId: integer("catalog_id").references(() => radiologyCatalogTable.id),
   modality: text("modality").notNull(),
   bodyPart: text("body_part").notNull(),
+  priority: text("priority").notNull().default("routine"),
+  // pending → scheduled → captured → reported → verified → dispatched
   status: text("status").notNull().default("pending"),
   findings: text("findings"),
   impression: text("impression"),
   radiologist: text("radiologist"),
   imageUrl: text("image_url"),
+  pacsUrl: text("pacs_url"),
+  billId: integer("bill_id"),
+  scheduledAt: timestamp("scheduled_at"),
+  technologist: text("technologist"),
+  capturedAt: timestamp("captured_at"),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  reportPdfUrl: text("report_pdf_url"),
+  dispatchedAt: timestamp("dispatched_at"),
+  dispatchedVia: text("dispatched_via"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 });

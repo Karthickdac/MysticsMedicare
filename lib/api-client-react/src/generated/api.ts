@@ -37,17 +37,20 @@ import type {
   Bill,
   BillFull,
   BillInput,
+  CaptureRadiologyInput,
   CashierSession,
   CheckupPackage,
   CheckupPackageInput,
   ClaimUpdateInput,
   CloseSessionInput,
+  CollectLabSampleInput,
   CollectionsReportRow,
   ConsentForm,
   ConsentFormInput,
   DashboardCharts,
   DashboardSummary,
   DeleteDrug200,
+  DispatchInput,
   DispensePrescription200,
   Drug,
   DrugInput,
@@ -68,6 +71,8 @@ import type {
   InventoryItem,
   InventoryItemInput,
   IpdCensus,
+  LabCatalogInput,
+  LabCatalogItem,
   LabOrder,
   LabOrderInput,
   LabResultInput,
@@ -124,13 +129,17 @@ import type {
   PurchaseOrderInput,
   QueueStats,
   QueueToken,
+  RadiologyCatalogInput,
+  RadiologyCatalogItem,
   RadiologyOrder,
   RadiologyOrderInput,
   RadiologyReportInput,
   Refund,
   RefundInput,
+  RejectLabSampleInput,
   RosterShift,
   RosterShiftInput,
+  ScheduleRadiologyInput,
   SendNotificationInput,
   ServiceCatalogInput,
   ServiceCatalogItem,
@@ -147,6 +156,8 @@ import type {
   UploadUrlResponse,
   Vaccination,
   VaccinationInput,
+  VerifyLabResultInput,
+  VerifyRadiologyInput,
   VideoRecording,
   VideoRecordingInput,
   Vital,
@@ -2917,6 +2928,543 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getRecordLabResultMutationOptions(options));
     }
+
+export const getCollectLabSampleUrl = (id: number,) => {
+
+
+
+
+  return `/api/lab/orders/${id}/collect`
+}
+
+export const collectLabSample = async (id: number,
+    collectLabSampleInput: CollectLabSampleInput, options?: RequestInit): Promise<LabOrder> => {
+
+  return customFetch<LabOrder>(getCollectLabSampleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      collectLabSampleInput,)
+  }
+);}
+
+
+
+
+export const getCollectLabSampleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof collectLabSample>>, TError,{id: number;data: BodyType<CollectLabSampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof collectLabSample>>, TError,{id: number;data: BodyType<CollectLabSampleInput>}, TContext> => {
+
+const mutationKey = ['collectLabSample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof collectLabSample>>, {id: number;data: BodyType<CollectLabSampleInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  collectLabSample(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CollectLabSampleMutationResult = NonNullable<Awaited<ReturnType<typeof collectLabSample>>>
+    export type CollectLabSampleMutationBody = BodyType<CollectLabSampleInput>
+    export type CollectLabSampleMutationError = ErrorType<unknown>
+
+    export const useCollectLabSample = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof collectLabSample>>, TError,{id: number;data: BodyType<CollectLabSampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof collectLabSample>>,
+        TError,
+        {id: number;data: BodyType<CollectLabSampleInput>},
+        TContext
+      > => {
+      return useMutation(getCollectLabSampleMutationOptions(options));
+    }
+
+export const getRejectLabSampleUrl = (id: number,) => {
+
+
+
+
+  return `/api/lab/orders/${id}/reject`
+}
+
+export const rejectLabSample = async (id: number,
+    rejectLabSampleInput: RejectLabSampleInput, options?: RequestInit): Promise<LabOrder> => {
+
+  return customFetch<LabOrder>(getRejectLabSampleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      rejectLabSampleInput,)
+  }
+);}
+
+
+
+
+export const getRejectLabSampleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectLabSample>>, TError,{id: number;data: BodyType<RejectLabSampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectLabSample>>, TError,{id: number;data: BodyType<RejectLabSampleInput>}, TContext> => {
+
+const mutationKey = ['rejectLabSample'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectLabSample>>, {id: number;data: BodyType<RejectLabSampleInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rejectLabSample(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectLabSampleMutationResult = NonNullable<Awaited<ReturnType<typeof rejectLabSample>>>
+    export type RejectLabSampleMutationBody = BodyType<RejectLabSampleInput>
+    export type RejectLabSampleMutationError = ErrorType<unknown>
+
+    export const useRejectLabSample = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectLabSample>>, TError,{id: number;data: BodyType<RejectLabSampleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectLabSample>>,
+        TError,
+        {id: number;data: BodyType<RejectLabSampleInput>},
+        TContext
+      > => {
+      return useMutation(getRejectLabSampleMutationOptions(options));
+    }
+
+export const getVerifyLabResultUrl = (id: number,) => {
+
+
+
+
+  return `/api/lab/orders/${id}/verify`
+}
+
+export const verifyLabResult = async (id: number,
+    verifyLabResultInput: VerifyLabResultInput, options?: RequestInit): Promise<LabOrder> => {
+
+  return customFetch<LabOrder>(getVerifyLabResultUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      verifyLabResultInput,)
+  }
+);}
+
+
+
+
+export const getVerifyLabResultMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyLabResult>>, TError,{id: number;data: BodyType<VerifyLabResultInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyLabResult>>, TError,{id: number;data: BodyType<VerifyLabResultInput>}, TContext> => {
+
+const mutationKey = ['verifyLabResult'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyLabResult>>, {id: number;data: BodyType<VerifyLabResultInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyLabResult(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyLabResultMutationResult = NonNullable<Awaited<ReturnType<typeof verifyLabResult>>>
+    export type VerifyLabResultMutationBody = BodyType<VerifyLabResultInput>
+    export type VerifyLabResultMutationError = ErrorType<unknown>
+
+    export const useVerifyLabResult = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyLabResult>>, TError,{id: number;data: BodyType<VerifyLabResultInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyLabResult>>,
+        TError,
+        {id: number;data: BodyType<VerifyLabResultInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyLabResultMutationOptions(options));
+    }
+
+export const getDispatchLabReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/lab/orders/${id}/dispatch`
+}
+
+export const dispatchLabReport = async (id: number,
+    dispatchInput: DispatchInput, options?: RequestInit): Promise<LabOrder> => {
+
+  return customFetch<LabOrder>(getDispatchLabReportUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      dispatchInput,)
+  }
+);}
+
+
+
+
+export const getDispatchLabReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchLabReport>>, TError,{id: number;data: BodyType<DispatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dispatchLabReport>>, TError,{id: number;data: BodyType<DispatchInput>}, TContext> => {
+
+const mutationKey = ['dispatchLabReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dispatchLabReport>>, {id: number;data: BodyType<DispatchInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  dispatchLabReport(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DispatchLabReportMutationResult = NonNullable<Awaited<ReturnType<typeof dispatchLabReport>>>
+    export type DispatchLabReportMutationBody = BodyType<DispatchInput>
+    export type DispatchLabReportMutationError = ErrorType<unknown>
+
+    export const useDispatchLabReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchLabReport>>, TError,{id: number;data: BodyType<DispatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dispatchLabReport>>,
+        TError,
+        {id: number;data: BodyType<DispatchInput>},
+        TContext
+      > => {
+      return useMutation(getDispatchLabReportMutationOptions(options));
+    }
+
+export const getListLabCatalogUrl = () => {
+
+
+
+
+  return `/api/lab/catalog`
+}
+
+export const listLabCatalog = async ( options?: RequestInit): Promise<LabCatalogItem[]> => {
+
+  return customFetch<LabCatalogItem[]>(getListLabCatalogUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLabCatalogQueryKey = () => {
+    return [
+    `/api/lab/catalog`
+    ] as const;
+    }
+
+
+export const getListLabCatalogQueryOptions = <TData = Awaited<ReturnType<typeof listLabCatalog>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLabCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLabCatalogQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLabCatalog>>> = ({ signal }) => listLabCatalog({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLabCatalog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLabCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof listLabCatalog>>>
+export type ListLabCatalogQueryError = ErrorType<unknown>
+
+
+
+export function useListLabCatalog<TData = Awaited<ReturnType<typeof listLabCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLabCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLabCatalogQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateLabCatalogItemUrl = () => {
+
+
+
+
+  return `/api/lab/catalog`
+}
+
+export const createLabCatalogItem = async (labCatalogInput: LabCatalogInput, options?: RequestInit): Promise<LabCatalogItem> => {
+
+  return customFetch<LabCatalogItem>(getCreateLabCatalogItemUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      labCatalogInput,)
+  }
+);}
+
+
+
+
+export const getCreateLabCatalogItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLabCatalogItem>>, TError,{data: BodyType<LabCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLabCatalogItem>>, TError,{data: BodyType<LabCatalogInput>}, TContext> => {
+
+const mutationKey = ['createLabCatalogItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLabCatalogItem>>, {data: BodyType<LabCatalogInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLabCatalogItem(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLabCatalogItemMutationResult = NonNullable<Awaited<ReturnType<typeof createLabCatalogItem>>>
+    export type CreateLabCatalogItemMutationBody = BodyType<LabCatalogInput>
+    export type CreateLabCatalogItemMutationError = ErrorType<unknown>
+
+    export const useCreateLabCatalogItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLabCatalogItem>>, TError,{data: BodyType<LabCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLabCatalogItem>>,
+        TError,
+        {data: BodyType<LabCatalogInput>},
+        TContext
+      > => {
+      return useMutation(getCreateLabCatalogItemMutationOptions(options));
+    }
+
+export const getUpdateLabCatalogItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/lab/catalog/${id}`
+}
+
+export const updateLabCatalogItem = async (id: number,
+    labCatalogInput: LabCatalogInput, options?: RequestInit): Promise<LabCatalogItem> => {
+
+  return customFetch<LabCatalogItem>(getUpdateLabCatalogItemUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      labCatalogInput,)
+  }
+);}
+
+
+
+
+export const getUpdateLabCatalogItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLabCatalogItem>>, TError,{id: number;data: BodyType<LabCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLabCatalogItem>>, TError,{id: number;data: BodyType<LabCatalogInput>}, TContext> => {
+
+const mutationKey = ['updateLabCatalogItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLabCatalogItem>>, {id: number;data: BodyType<LabCatalogInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLabCatalogItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLabCatalogItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateLabCatalogItem>>>
+    export type UpdateLabCatalogItemMutationBody = BodyType<LabCatalogInput>
+    export type UpdateLabCatalogItemMutationError = ErrorType<unknown>
+
+    export const useUpdateLabCatalogItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLabCatalogItem>>, TError,{id: number;data: BodyType<LabCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLabCatalogItem>>,
+        TError,
+        {id: number;data: BodyType<LabCatalogInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateLabCatalogItemMutationOptions(options));
+    }
+
+export const getGetLabReportPdfUrl = (id: number,) => {
+
+
+
+
+  return `/api/pdf/lab-report/${id}`
+}
+
+export const getLabReportPdf = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetLabReportPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLabReportPdfQueryKey = (id: number,) => {
+    return [
+    `/api/pdf/lab-report/${id}`
+    ] as const;
+    }
+
+
+export const getGetLabReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getLabReportPdf>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLabReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLabReportPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLabReportPdf>>> = ({ signal }) => getLabReportPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLabReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLabReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getLabReportPdf>>>
+export type GetLabReportPdfQueryError = ErrorType<unknown>
+
+
+
+export function useGetLabReportPdf<TData = Awaited<ReturnType<typeof getLabReportPdf>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLabReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLabReportPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListPrescriptionsUrl = (params?: ListPrescriptionsParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -6842,6 +7390,685 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getRecordRadiologyReportMutationOptions(options));
     }
+
+export const getScheduleRadiologyUrl = (id: number,) => {
+
+
+
+
+  return `/api/radiology/${id}/schedule`
+}
+
+export const scheduleRadiology = async (id: number,
+    scheduleRadiologyInput: ScheduleRadiologyInput, options?: RequestInit): Promise<RadiologyOrder> => {
+
+  return customFetch<RadiologyOrder>(getScheduleRadiologyUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      scheduleRadiologyInput,)
+  }
+);}
+
+
+
+
+export const getScheduleRadiologyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scheduleRadiology>>, TError,{id: number;data: BodyType<ScheduleRadiologyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scheduleRadiology>>, TError,{id: number;data: BodyType<ScheduleRadiologyInput>}, TContext> => {
+
+const mutationKey = ['scheduleRadiology'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scheduleRadiology>>, {id: number;data: BodyType<ScheduleRadiologyInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  scheduleRadiology(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScheduleRadiologyMutationResult = NonNullable<Awaited<ReturnType<typeof scheduleRadiology>>>
+    export type ScheduleRadiologyMutationBody = BodyType<ScheduleRadiologyInput>
+    export type ScheduleRadiologyMutationError = ErrorType<unknown>
+
+    export const useScheduleRadiology = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scheduleRadiology>>, TError,{id: number;data: BodyType<ScheduleRadiologyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scheduleRadiology>>,
+        TError,
+        {id: number;data: BodyType<ScheduleRadiologyInput>},
+        TContext
+      > => {
+      return useMutation(getScheduleRadiologyMutationOptions(options));
+    }
+
+export const getCaptureRadiologyImagesUrl = (id: number,) => {
+
+
+
+
+  return `/api/radiology/${id}/capture`
+}
+
+export const captureRadiologyImages = async (id: number,
+    captureRadiologyInput: CaptureRadiologyInput, options?: RequestInit): Promise<RadiologyOrder> => {
+
+  return customFetch<RadiologyOrder>(getCaptureRadiologyImagesUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      captureRadiologyInput,)
+  }
+);}
+
+
+
+
+export const getCaptureRadiologyImagesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captureRadiologyImages>>, TError,{id: number;data: BodyType<CaptureRadiologyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof captureRadiologyImages>>, TError,{id: number;data: BodyType<CaptureRadiologyInput>}, TContext> => {
+
+const mutationKey = ['captureRadiologyImages'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof captureRadiologyImages>>, {id: number;data: BodyType<CaptureRadiologyInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  captureRadiologyImages(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CaptureRadiologyImagesMutationResult = NonNullable<Awaited<ReturnType<typeof captureRadiologyImages>>>
+    export type CaptureRadiologyImagesMutationBody = BodyType<CaptureRadiologyInput>
+    export type CaptureRadiologyImagesMutationError = ErrorType<unknown>
+
+    export const useCaptureRadiologyImages = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captureRadiologyImages>>, TError,{id: number;data: BodyType<CaptureRadiologyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof captureRadiologyImages>>,
+        TError,
+        {id: number;data: BodyType<CaptureRadiologyInput>},
+        TContext
+      > => {
+      return useMutation(getCaptureRadiologyImagesMutationOptions(options));
+    }
+
+export const getVerifyRadiologyReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/radiology/${id}/verify`
+}
+
+export const verifyRadiologyReport = async (id: number,
+    verifyRadiologyInput: VerifyRadiologyInput, options?: RequestInit): Promise<RadiologyOrder> => {
+
+  return customFetch<RadiologyOrder>(getVerifyRadiologyReportUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      verifyRadiologyInput,)
+  }
+);}
+
+
+
+
+export const getVerifyRadiologyReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyRadiologyReport>>, TError,{id: number;data: BodyType<VerifyRadiologyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyRadiologyReport>>, TError,{id: number;data: BodyType<VerifyRadiologyInput>}, TContext> => {
+
+const mutationKey = ['verifyRadiologyReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyRadiologyReport>>, {id: number;data: BodyType<VerifyRadiologyInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyRadiologyReport(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyRadiologyReportMutationResult = NonNullable<Awaited<ReturnType<typeof verifyRadiologyReport>>>
+    export type VerifyRadiologyReportMutationBody = BodyType<VerifyRadiologyInput>
+    export type VerifyRadiologyReportMutationError = ErrorType<unknown>
+
+    export const useVerifyRadiologyReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyRadiologyReport>>, TError,{id: number;data: BodyType<VerifyRadiologyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyRadiologyReport>>,
+        TError,
+        {id: number;data: BodyType<VerifyRadiologyInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyRadiologyReportMutationOptions(options));
+    }
+
+export const getDispatchRadiologyReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/radiology/${id}/dispatch`
+}
+
+export const dispatchRadiologyReport = async (id: number,
+    dispatchInput: DispatchInput, options?: RequestInit): Promise<RadiologyOrder> => {
+
+  return customFetch<RadiologyOrder>(getDispatchRadiologyReportUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      dispatchInput,)
+  }
+);}
+
+
+
+
+export const getDispatchRadiologyReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchRadiologyReport>>, TError,{id: number;data: BodyType<DispatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dispatchRadiologyReport>>, TError,{id: number;data: BodyType<DispatchInput>}, TContext> => {
+
+const mutationKey = ['dispatchRadiologyReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dispatchRadiologyReport>>, {id: number;data: BodyType<DispatchInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  dispatchRadiologyReport(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DispatchRadiologyReportMutationResult = NonNullable<Awaited<ReturnType<typeof dispatchRadiologyReport>>>
+    export type DispatchRadiologyReportMutationBody = BodyType<DispatchInput>
+    export type DispatchRadiologyReportMutationError = ErrorType<unknown>
+
+    export const useDispatchRadiologyReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchRadiologyReport>>, TError,{id: number;data: BodyType<DispatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dispatchRadiologyReport>>,
+        TError,
+        {id: number;data: BodyType<DispatchInput>},
+        TContext
+      > => {
+      return useMutation(getDispatchRadiologyReportMutationOptions(options));
+    }
+
+export const getListRadiologyCatalogUrl = () => {
+
+
+
+
+  return `/api/radiology/catalog`
+}
+
+export const listRadiologyCatalog = async ( options?: RequestInit): Promise<RadiologyCatalogItem[]> => {
+
+  return customFetch<RadiologyCatalogItem[]>(getListRadiologyCatalogUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRadiologyCatalogQueryKey = () => {
+    return [
+    `/api/radiology/catalog`
+    ] as const;
+    }
+
+
+export const getListRadiologyCatalogQueryOptions = <TData = Awaited<ReturnType<typeof listRadiologyCatalog>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadiologyCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRadiologyCatalogQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRadiologyCatalog>>> = ({ signal }) => listRadiologyCatalog({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRadiologyCatalog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRadiologyCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof listRadiologyCatalog>>>
+export type ListRadiologyCatalogQueryError = ErrorType<unknown>
+
+
+
+export function useListRadiologyCatalog<TData = Awaited<ReturnType<typeof listRadiologyCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadiologyCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRadiologyCatalogQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateRadiologyCatalogItemUrl = () => {
+
+
+
+
+  return `/api/radiology/catalog`
+}
+
+export const createRadiologyCatalogItem = async (radiologyCatalogInput: RadiologyCatalogInput, options?: RequestInit): Promise<RadiologyCatalogItem> => {
+
+  return customFetch<RadiologyCatalogItem>(getCreateRadiologyCatalogItemUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      radiologyCatalogInput,)
+  }
+);}
+
+
+
+
+export const getCreateRadiologyCatalogItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRadiologyCatalogItem>>, TError,{data: BodyType<RadiologyCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRadiologyCatalogItem>>, TError,{data: BodyType<RadiologyCatalogInput>}, TContext> => {
+
+const mutationKey = ['createRadiologyCatalogItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRadiologyCatalogItem>>, {data: BodyType<RadiologyCatalogInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRadiologyCatalogItem(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRadiologyCatalogItemMutationResult = NonNullable<Awaited<ReturnType<typeof createRadiologyCatalogItem>>>
+    export type CreateRadiologyCatalogItemMutationBody = BodyType<RadiologyCatalogInput>
+    export type CreateRadiologyCatalogItemMutationError = ErrorType<unknown>
+
+    export const useCreateRadiologyCatalogItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRadiologyCatalogItem>>, TError,{data: BodyType<RadiologyCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRadiologyCatalogItem>>,
+        TError,
+        {data: BodyType<RadiologyCatalogInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRadiologyCatalogItemMutationOptions(options));
+    }
+
+export const getUpdateRadiologyCatalogItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/radiology/catalog/${id}`
+}
+
+export const updateRadiologyCatalogItem = async (id: number,
+    radiologyCatalogInput: RadiologyCatalogInput, options?: RequestInit): Promise<RadiologyCatalogItem> => {
+
+  return customFetch<RadiologyCatalogItem>(getUpdateRadiologyCatalogItemUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      radiologyCatalogInput,)
+  }
+);}
+
+
+
+
+export const getUpdateRadiologyCatalogItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRadiologyCatalogItem>>, TError,{id: number;data: BodyType<RadiologyCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRadiologyCatalogItem>>, TError,{id: number;data: BodyType<RadiologyCatalogInput>}, TContext> => {
+
+const mutationKey = ['updateRadiologyCatalogItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRadiologyCatalogItem>>, {id: number;data: BodyType<RadiologyCatalogInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRadiologyCatalogItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRadiologyCatalogItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateRadiologyCatalogItem>>>
+    export type UpdateRadiologyCatalogItemMutationBody = BodyType<RadiologyCatalogInput>
+    export type UpdateRadiologyCatalogItemMutationError = ErrorType<unknown>
+
+    export const useUpdateRadiologyCatalogItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRadiologyCatalogItem>>, TError,{id: number;data: BodyType<RadiologyCatalogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRadiologyCatalogItem>>,
+        TError,
+        {id: number;data: BodyType<RadiologyCatalogInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateRadiologyCatalogItemMutationOptions(options));
+    }
+
+export const getGetRadiologyReportPdfUrl = (id: number,) => {
+
+
+
+
+  return `/api/pdf/radiology-report/${id}`
+}
+
+export const getRadiologyReportPdf = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetRadiologyReportPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRadiologyReportPdfQueryKey = (id: number,) => {
+    return [
+    `/api/pdf/radiology-report/${id}`
+    ] as const;
+    }
+
+
+export const getGetRadiologyReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getRadiologyReportPdf>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRadiologyReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRadiologyReportPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRadiologyReportPdf>>> = ({ signal }) => getRadiologyReportPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRadiologyReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRadiologyReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getRadiologyReportPdf>>>
+export type GetRadiologyReportPdfQueryError = ErrorType<unknown>
+
+
+
+export function useGetRadiologyReportPdf<TData = Awaited<ReturnType<typeof getRadiologyReportPdf>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRadiologyReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRadiologyReportPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetPortalLabReportsUrl = () => {
+
+
+
+
+  return `/api/portal/lab-reports`
+}
+
+export const getPortalLabReports = async ( options?: RequestInit): Promise<LabOrder[]> => {
+
+  return customFetch<LabOrder[]>(getGetPortalLabReportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalLabReportsQueryKey = () => {
+    return [
+    `/api/portal/lab-reports`
+    ] as const;
+    }
+
+
+export const getGetPortalLabReportsQueryOptions = <TData = Awaited<ReturnType<typeof getPortalLabReports>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalLabReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalLabReportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalLabReports>>> = ({ signal }) => getPortalLabReports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalLabReports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalLabReportsQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalLabReports>>>
+export type GetPortalLabReportsQueryError = ErrorType<unknown>
+
+
+
+export function useGetPortalLabReports<TData = Awaited<ReturnType<typeof getPortalLabReports>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalLabReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalLabReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetPortalRadiologyReportsUrl = () => {
+
+
+
+
+  return `/api/portal/radiology-reports`
+}
+
+export const getPortalRadiologyReports = async ( options?: RequestInit): Promise<RadiologyOrder[]> => {
+
+  return customFetch<RadiologyOrder[]>(getGetPortalRadiologyReportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalRadiologyReportsQueryKey = () => {
+    return [
+    `/api/portal/radiology-reports`
+    ] as const;
+    }
+
+
+export const getGetPortalRadiologyReportsQueryOptions = <TData = Awaited<ReturnType<typeof getPortalRadiologyReports>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalRadiologyReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalRadiologyReportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalRadiologyReports>>> = ({ signal }) => getPortalRadiologyReports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalRadiologyReports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalRadiologyReportsQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalRadiologyReports>>>
+export type GetPortalRadiologyReportsQueryError = ErrorType<unknown>
+
+
+
+export function useGetPortalRadiologyReports<TData = Awaited<ReturnType<typeof getPortalRadiologyReports>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalRadiologyReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalRadiologyReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListOtBookingsUrl = () => {
 

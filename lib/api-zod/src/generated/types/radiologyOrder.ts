@@ -10,8 +10,11 @@ export interface RadiologyOrder {
   id: number;
   patientId: number;
   patientName: string;
+  /** @nullable */
+  catalogId?: number | null;
   modality: string;
   bodyPart: string;
+  priority: string;
   status: string;
   /** @nullable */
   findings?: string | null;
@@ -21,6 +24,26 @@ export interface RadiologyOrder {
   radiologist?: string | null;
   /** @nullable */
   imageUrl?: string | null;
+  /** @nullable */
+  pacsUrl?: string | null;
+  /** @nullable */
+  billId?: number | null;
+  /** @nullable */
+  scheduledAt?: string | null;
+  /** @nullable */
+  technologist?: string | null;
+  /** @nullable */
+  capturedAt?: string | null;
+  /** @nullable */
+  verifiedBy?: string | null;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  reportPdfUrl?: string | null;
+  /** @nullable */
+  dispatchedAt?: string | null;
+  /** @nullable */
+  dispatchedVia?: string | null;
   createdAt: string;
   /** @nullable */
   completedAt?: string | null;

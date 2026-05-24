@@ -5,10 +5,15 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { LabOrderInputPriority } from './labOrderInputPriority';
 
 export interface LabOrderInput {
   patientId: number;
-  testName: string;
+  catalogId?: number;
+  testName?: string;
   category?: string;
+  priority?: LabOrderInputPriority;
   orderedBy?: string;
+  /** If true and catalogId set, auto-create a bill line for this order */
+  autoBill?: boolean;
 }

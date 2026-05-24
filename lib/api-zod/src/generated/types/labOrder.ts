@@ -5,14 +5,22 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { LabResultParam } from './labResultParam';
 
 export interface LabOrder {
   id: number;
   patientId: number;
   patientName: string;
+  /** @nullable */
+  patientAge?: number | null;
+  /** @nullable */
+  patientSex?: string | null;
+  /** @nullable */
+  catalogId?: number | null;
   testName: string;
   /** @nullable */
   category?: string | null;
+  priority: string;
   status: string;
   /** @nullable */
   result?: string | null;
@@ -22,6 +30,31 @@ export interface LabOrder {
   notes?: string | null;
   /** @nullable */
   orderedBy?: string | null;
+  /** @nullable */
+  billId?: number | null;
+  /** @nullable */
+  sampleId?: string | null;
+  /** @nullable */
+  barcode?: string | null;
+  /** @nullable */
+  collectedBy?: string | null;
+  /** @nullable */
+  collectedAt?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  results?: LabResultParam[];
+  /** @nullable */
+  attachmentUrl?: string | null;
+  /** @nullable */
+  verifiedBy?: string | null;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  reportPdfUrl?: string | null;
+  /** @nullable */
+  dispatchedAt?: string | null;
+  /** @nullable */
+  dispatchedVia?: string | null;
   createdAt: string;
   /** @nullable */
   completedAt?: string | null;

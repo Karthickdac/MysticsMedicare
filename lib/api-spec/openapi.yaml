@@ -588,6 +588,89 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LabOrder" }
+  /lab/orders/{id}/collect:
+    post:
+      operationId: collectLabSample
+      tags: [lab]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollectLabSampleInput" }
+      responses:
+        "200": { description: Collected, content: { application/json: { schema: { $ref: "#/components/schemas/LabOrder" } } } }
+  /lab/orders/{id}/reject:
+    post:
+      operationId: rejectLabSample
+      tags: [lab]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RejectLabSampleInput" }
+      responses:
+        "200": { description: Rejected, content: { application/json: { schema: { $ref: "#/components/schemas/LabOrder" } } } }
+  /lab/orders/{id}/verify:
+    post:
+      operationId: verifyLabResult
+      tags: [lab]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyLabResultInput" }
+      responses:
+        "200": { description: Verified, content: { application/json: { schema: { $ref: "#/components/schemas/LabOrder" } } } }
+  /lab/orders/{id}/dispatch:
+    post:
+      operationId: dispatchLabReport
+      tags: [lab]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DispatchInput" }
+      responses:
+        "200": { description: Dispatched, content: { application/json: { schema: { $ref: "#/components/schemas/LabOrder" } } } }
+  /lab/catalog:
+    get:
+      operationId: listLabCatalog
+      tags: [lab]
+      responses:
+        "200": { description: Items, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/LabCatalogItem" } } } } }
+    post:
+      operationId: createLabCatalogItem
+      tags: [lab]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LabCatalogInput" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/LabCatalogItem" } } } }
+  /lab/catalog/{id}:
+    patch:
+      operationId: updateLabCatalogItem
+      tags: [lab]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LabCatalogInput" }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/LabCatalogItem" } } } }
+  /pdf/lab-report/{id}:
+    get:
+      operationId: getLabReportPdf
+      tags: [lab]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: PDF, content: { application/pdf: { schema: { type: string, format: binary } } } }
 
   /prescriptions:
     get:
@@ -1272,6 +1355,113 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RadiologyOrder" }
+  /radiology/{id}/schedule:
+    post:
+      operationId: scheduleRadiology
+      tags: [radiology]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleRadiologyInput" }
+      responses:
+        "200": { description: Scheduled, content: { application/json: { schema: { $ref: "#/components/schemas/RadiologyOrder" } } } }
+  /radiology/{id}/capture:
+    post:
+      operationId: captureRadiologyImages
+      tags: [radiology]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaptureRadiologyInput" }
+      responses:
+        "200": { description: Captured, content: { application/json: { schema: { $ref: "#/components/schemas/RadiologyOrder" } } } }
+  /radiology/{id}/verify:
+    post:
+      operationId: verifyRadiologyReport
+      tags: [radiology]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyRadiologyInput" }
+      responses:
+        "200": { description: Verified, content: { application/json: { schema: { $ref: "#/components/schemas/RadiologyOrder" } } } }
+  /radiology/{id}/dispatch:
+    post:
+      operationId: dispatchRadiologyReport
+      tags: [radiology]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DispatchInput" }
+      responses:
+        "200": { description: Dispatched, content: { application/json: { schema: { $ref: "#/components/schemas/RadiologyOrder" } } } }
+  /radiology/catalog:
+    get:
+      operationId: listRadiologyCatalog
+      tags: [radiology]
+      responses:
+        "200": { description: Items, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/RadiologyCatalogItem" } } } } }
+    post:
+      operationId: createRadiologyCatalogItem
+      tags: [radiology]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RadiologyCatalogInput" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/RadiologyCatalogItem" } } } }
+  /radiology/catalog/{id}:
+    patch:
+      operationId: updateRadiologyCatalogItem
+      tags: [radiology]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RadiologyCatalogInput" }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/RadiologyCatalogItem" } } } }
+  /pdf/radiology-report/{id}:
+    get:
+      operationId: getRadiologyReportPdf
+      tags: [radiology]
+      parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: PDF, content: { application/pdf: { schema: { type: string, format: binary } } } }
+  /portal/lab-reports:
+    get:
+      operationId: getPortalLabReports
+      tags: [portal]
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LabOrder" }
+  /portal/radiology-reports:
+    get:
+      operationId: getPortalRadiologyReports
+      tags: [portal]
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RadiologyOrder" }
 
   /ot/bookings:
     get:
@@ -2094,37 +2284,149 @@ components:
           type: array
           items: { $ref: "#/components/schemas/IpdCensusWard" }
 
+    LabResultParam:
+      type: object
+      required: [name, value]
+      properties:
+        name: { type: string }
+        value: { type: string }
+        unit: { type: ["string", "null"] }
+        flag: { type: ["string", "null"], description: "N (normal), H (high), L (low), A (abnormal)" }
+        refRange: { type: ["string", "null"] }
+        comment: { type: ["string", "null"] }
+    LabRefByAgeSex:
+      type: object
+      required: [sex, low, high]
+      properties:
+        minAgeYears: { type: ["integer", "null"] }
+        maxAgeYears: { type: ["integer", "null"] }
+        sex: { type: string, enum: [M, F, A] }
+        low: { type: number }
+        high: { type: number }
+    LabCatalogParam:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        unit: { type: ["string", "null"] }
+        refLow: { type: ["number", "null"] }
+        refHigh: { type: ["number", "null"] }
+        refText: { type: ["string", "null"] }
+        refByAgeSex:
+          type: array
+          items: { $ref: "#/components/schemas/LabRefByAgeSex" }
+    LabCatalogItem:
+      type: object
+      required: [id, code, name, sampleType, price, gstRate, turnaroundHours, active, createdAt]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        category: { type: ["string", "null"] }
+        sampleType: { type: string }
+        container: { type: ["string", "null"] }
+        price: { type: number }
+        gstRate: { type: number }
+        hsn: { type: ["string", "null"] }
+        turnaroundHours: { type: integer }
+        parameters:
+          type: array
+          items: { $ref: "#/components/schemas/LabCatalogParam" }
+        active: { type: boolean }
+        createdAt: { type: string }
+    LabCatalogInput:
+      type: object
+      required: [code, name, sampleType]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
+        sampleType: { type: string }
+        container: { type: string }
+        price: { type: number }
+        gstRate: { type: number }
+        hsn: { type: string }
+        turnaroundHours: { type: integer }
+        parameters:
+          type: array
+          items: { $ref: "#/components/schemas/LabCatalogParam" }
+        active: { type: boolean }
     LabOrder:
       type: object
-      required: [id, patientId, patientName, testName, status, createdAt]
+      required: [id, patientId, patientName, testName, status, priority, createdAt]
       properties:
         id: { type: integer }
         patientId: { type: integer }
         patientName: { type: string }
+        patientAge: { type: ["integer", "null"] }
+        patientSex: { type: ["string", "null"] }
+        catalogId: { type: ["integer", "null"] }
         testName: { type: string }
         category: { type: ["string", "null"] }
+        priority: { type: string }
         status: { type: string }
         result: { type: ["string", "null"] }
         normalRange: { type: ["string", "null"] }
         notes: { type: ["string", "null"] }
         orderedBy: { type: ["string", "null"] }
+        billId: { type: ["integer", "null"] }
+        sampleId: { type: ["string", "null"] }
+        barcode: { type: ["string", "null"] }
+        collectedBy: { type: ["string", "null"] }
+        collectedAt: { type: ["string", "null"] }
+        rejectionReason: { type: ["string", "null"] }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/LabResultParam" }
+        attachmentUrl: { type: ["string", "null"] }
+        verifiedBy: { type: ["string", "null"] }
+        verifiedAt: { type: ["string", "null"] }
+        reportPdfUrl: { type: ["string", "null"] }
+        dispatchedAt: { type: ["string", "null"] }
+        dispatchedVia: { type: ["string", "null"] }
         createdAt: { type: string }
         completedAt: { type: ["string", "null"] }
     LabOrderInput:
       type: object
-      required: [patientId, testName]
+      required: [patientId]
       properties:
         patientId: { type: integer }
+        catalogId: { type: integer }
         testName: { type: string }
         category: { type: string }
+        priority: { type: string, enum: [routine, urgent, stat] }
         orderedBy: { type: string }
+        autoBill: { type: boolean, description: "If true and catalogId set, auto-create a bill line for this order" }
+    CollectLabSampleInput:
+      type: object
+      properties:
+        collectedBy: { type: string }
+        sampleId: { type: string }
+        barcode: { type: string }
+    RejectLabSampleInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
     LabResultInput:
       type: object
-      required: [result]
       properties:
-        result: { type: string }
+        result: { type: string, description: "Legacy free-text result; prefer 'results' parameter grid" }
         normalRange: { type: string }
         notes: { type: string }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/LabResultParam" }
+        attachmentUrl: { type: string }
+    VerifyLabResultInput:
+      type: object
+      required: [verifiedBy]
+      properties:
+        verifiedBy: { type: string }
+    DispatchInput:
+      type: object
+      properties:
+        via: { type: string, enum: [sms, whatsapp, email, both, none] }
 
     Prescription:
       type: object
@@ -2792,36 +3094,98 @@ components:
         height: { type: number }
         recordedBy: { type: string }
 
+    RadiologyCatalogItem:
+      type: object
+      required: [id, code, modality, bodyPart, name, price, gstRate, durationMin, active, createdAt]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        modality: { type: string }
+        bodyPart: { type: string }
+        name: { type: string }
+        price: { type: number }
+        gstRate: { type: number }
+        hsn: { type: ["string", "null"] }
+        durationMin: { type: integer }
+        prepInstructions: { type: ["string", "null"] }
+        active: { type: boolean }
+        createdAt: { type: string }
+    RadiologyCatalogInput:
+      type: object
+      required: [code, modality, bodyPart, name]
+      properties:
+        code: { type: string }
+        modality: { type: string }
+        bodyPart: { type: string }
+        name: { type: string }
+        price: { type: number }
+        gstRate: { type: number }
+        hsn: { type: string }
+        durationMin: { type: integer }
+        prepInstructions: { type: string }
+        active: { type: boolean }
     RadiologyOrder:
       type: object
-      required: [id, patientId, patientName, modality, bodyPart, status, createdAt]
+      required: [id, patientId, patientName, modality, bodyPart, status, priority, createdAt]
       properties:
         id: { type: integer }
         patientId: { type: integer }
         patientName: { type: string }
+        catalogId: { type: ["integer", "null"] }
         modality: { type: string }
         bodyPart: { type: string }
+        priority: { type: string }
         status: { type: string }
         findings: { type: ["string", "null"] }
         impression: { type: ["string", "null"] }
         radiologist: { type: ["string", "null"] }
         imageUrl: { type: ["string", "null"] }
+        pacsUrl: { type: ["string", "null"] }
+        billId: { type: ["integer", "null"] }
+        scheduledAt: { type: ["string", "null"] }
+        technologist: { type: ["string", "null"] }
+        capturedAt: { type: ["string", "null"] }
+        verifiedBy: { type: ["string", "null"] }
+        verifiedAt: { type: ["string", "null"] }
+        reportPdfUrl: { type: ["string", "null"] }
+        dispatchedAt: { type: ["string", "null"] }
+        dispatchedVia: { type: ["string", "null"] }
         createdAt: { type: string }
         completedAt: { type: ["string", "null"] }
     RadiologyOrderInput:
       type: object
-      required: [patientId, modality, bodyPart]
+      required: [patientId]
       properties:
         patientId: { type: integer }
+        catalogId: { type: integer }
         modality: { type: string }
         bodyPart: { type: string }
+        priority: { type: string, enum: [routine, urgent, stat] }
+        scheduledAt: { type: string }
+        autoBill: { type: boolean }
+    ScheduleRadiologyInput:
+      type: object
+      required: [scheduledAt]
+      properties:
+        scheduledAt: { type: string }
+        technologist: { type: string }
+    CaptureRadiologyInput:
+      type: object
+      properties:
+        imageUrl: { type: string }
+        pacsUrl: { type: string }
+        technologist: { type: string }
     RadiologyReportInput:
       type: object
-      required: [findings]
       properties:
         findings: { type: string }
         impression: { type: string }
         radiologist: { type: string }
+    VerifyRadiologyInput:
+      type: object
+      required: [verifiedBy]
+      properties:
+        verifiedBy: { type: string }
 
     OtBooking:
       type: object

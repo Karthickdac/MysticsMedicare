@@ -5,9 +5,8 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { DispatchInputVia } from './dispatchInputVia';
 
-export interface RadiologyReportInput {
-  findings?: string;
-  impression?: string;
-  radiologist?: string;
+export interface DispatchInput {
+  via?: DispatchInputVia;
 }

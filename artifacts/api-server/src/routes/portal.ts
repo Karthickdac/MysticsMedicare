@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
-import { db, patientsTable, appointmentsTable, billsTable, staffTable } from "@workspace/db";
+import { db, patientsTable, appointmentsTable, billsTable, staffTable, labOrdersTable, radiologyTable } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 import { and, desc, eq } from "drizzle-orm";
 import {
   issuePatientCookie,
@@ -76,6 +77,87 @@ router.get("/portal/bills", requirePatient, async (req, res) => {
       gstAmount: num(b.cgst) + num(b.sgst) + num(b.igst),
       paymentMethod: b.paymentMethod,
       createdAt: requiredIso(b.createdAt),
+    })),
+  );
+});
+
+// Portal-visible lab reports: only verified or dispatched results are
+// shown — keeps patients from seeing un-signed values.
+router.get("/portal/lab-reports", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const rows = await db
+    .select()
+    .from(labOrdersTable)
+    .where(and(eq(labOrdersTable.patientId, pid), inArray(labOrdersTable.status, ["verified", "dispatched"])))
+    .orderBy(desc(labOrdersTable.createdAt))
+    .limit(100);
+  res.json(
+    rows.map((l) => ({
+      id: l.id,
+      patientId: l.patientId,
+      patientName: "",
+      catalogId: l.catalogId,
+      testName: l.testName,
+      category: l.category,
+      priority: l.priority,
+      status: l.status,
+      result: l.result,
+      normalRange: l.normalRange,
+      notes: l.notes,
+      orderedBy: l.orderedBy,
+      billId: l.billId,
+      sampleId: l.sampleId,
+      barcode: l.barcode,
+      collectedBy: l.collectedBy,
+      collectedAt: l.collectedAt ? l.collectedAt.toISOString() : null,
+      rejectionReason: l.rejectionReason,
+      results: (l.resultsJson as unknown[]) ?? [],
+      attachmentUrl: l.attachmentUrl,
+      verifiedBy: l.verifiedBy,
+      verifiedAt: l.verifiedAt ? l.verifiedAt.toISOString() : null,
+      reportPdfUrl: l.reportPdfUrl,
+      dispatchedAt: l.dispatchedAt ? l.dispatchedAt.toISOString() : null,
+      dispatchedVia: l.dispatchedVia,
+      createdAt: l.createdAt.toISOString(),
+      completedAt: l.completedAt ? l.completedAt.toISOString() : null,
+    })),
+  );
+});
+
+router.get("/portal/radiology-reports", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const rows = await db
+    .select()
+    .from(radiologyTable)
+    .where(and(eq(radiologyTable.patientId, pid), inArray(radiologyTable.status, ["verified", "dispatched"])))
+    .orderBy(desc(radiologyTable.createdAt))
+    .limit(100);
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      patientId: r.patientId,
+      patientName: "",
+      catalogId: r.catalogId,
+      modality: r.modality,
+      bodyPart: r.bodyPart,
+      priority: r.priority,
+      status: r.status,
+      findings: r.findings,
+      impression: r.impression,
+      radiologist: r.radiologist,
+      imageUrl: r.imageUrl,
+      pacsUrl: r.pacsUrl,
+      billId: r.billId,
+      scheduledAt: r.scheduledAt ? r.scheduledAt.toISOString() : null,
+      technologist: r.technologist,
+      capturedAt: r.capturedAt ? r.capturedAt.toISOString() : null,
+      verifiedBy: r.verifiedBy,
+      verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : null,
+      reportPdfUrl: r.reportPdfUrl,
+      dispatchedAt: r.dispatchedAt ? r.dispatchedAt.toISOString() : null,
+      dispatchedVia: r.dispatchedVia,
+      createdAt: r.createdAt.toISOString(),
+      completedAt: r.completedAt ? r.completedAt.toISOString() : null,
     })),
   );
 });
