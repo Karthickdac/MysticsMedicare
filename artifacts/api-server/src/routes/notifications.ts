@@ -100,11 +100,13 @@ router.delete("/notifications/templates/:id", async (req, res) => {
   res.status(204).send();
 });
 
-router.post("/notifications/templates/preview", async (req, res) => {
+async function previewHandler(req: import("express").Request, res: import("express").Response) {
   const parsed = PreviewNotificationTemplateBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   res.json({ rendered: renderTemplate(parsed.data.bodyTemplate, parsed.data.variables) });
-});
+}
+router.post("/notifications/templates/preview", previewHandler);
+router.post("/notifications/test-template", previewHandler);
 
 router.post("/notifications/send", async (req, res) => {
   const parsed = SendNotificationBody.safeParse(req.body);
@@ -115,19 +117,36 @@ router.post("/notifications/send", async (req, res) => {
 });
 
 router.get("/notifications/log", async (req, res) => {
-  const conds = [] as ReturnType<typeof eq>[];
+  const { gte, lte } = await import("drizzle-orm");
+  const conds = [] as unknown[];
   if (req.query.patientId) conds.push(eq(notificationLogTable.patientId, Number(req.query.patientId)));
   if (req.query.eventKey) conds.push(eq(notificationLogTable.eventKey, String(req.query.eventKey)));
   if (req.query.channel) conds.push(eq(notificationLogTable.channel, String(req.query.channel)));
   if (req.query.status) conds.push(eq(notificationLogTable.status, String(req.query.status)));
+  if (req.query.from) conds.push(gte(notificationLogTable.sentAt, new Date(String(req.query.from))));
+  if (req.query.to) conds.push(lte(notificationLogTable.sentAt, new Date(String(req.query.to))));
+  const limit = Math.min(Number(req.query.limit ?? 100) || 100, 500);
+  const offset = Math.max(Number(req.query.offset ?? 0) || 0, 0);
   const rows = await db
     .select({ l: notificationLogTable, p: patientsTable })
     .from(notificationLogTable)
     .leftJoin(patientsTable, eq(notificationLogTable.patientId, patientsTable.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(conds.length ? and(...(conds as Parameters<typeof and>)) : undefined)
     .orderBy(desc(notificationLogTable.sentAt))
-    .limit(500);
+    .limit(limit)
+    .offset(offset);
   res.json(rows.map((r) => shapeLog(r.l, r.p)));
+});
+
+router.get("/notifications/log/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const [r] = await db
+    .select({ l: notificationLogTable, p: patientsTable })
+    .from(notificationLogTable)
+    .leftJoin(patientsTable, eq(notificationLogTable.patientId, patientsTable.id))
+    .where(eq(notificationLogTable.id, id));
+  if (!r) return res.status(404).json({ error: "Not found" });
+  res.json(shapeLog(r.l, r.p));
 });
 
 router.get("/notifications/events", (_req, res) => {

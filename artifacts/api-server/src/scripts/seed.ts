@@ -21,6 +21,7 @@ import {
   notificationTemplatesTable,
 } from "@workspace/db";
 import { NOTIFICATION_EVENTS } from "../lib/notifications";
+import { hashPassword } from "../lib/auth";
 
 async function main() {
   console.log("Seeding database...");
@@ -75,9 +76,10 @@ async function main() {
     { email: "radiology@medicare.in", password: "radiology123", name: "Dr. Vikram Joshi", role: "radiologist", staffId: staff[10].id },
     { email: "billing@medicare.in", password: "billing123", name: "Amit Khanna", role: "accountant", staffId: staff[11].id },
   ];
-  await db.insert(usersTable).values(
-    userRows.map((u) => ({ email: u.email, passwordHash: u.password, name: u.name, role: u.role, staffId: u.staffId })),
+  const hashedUsers = await Promise.all(
+    userRows.map(async (u) => ({ email: u.email, passwordHash: await hashPassword(u.password), name: u.name, role: u.role, staffId: u.staffId })),
   );
+  await db.insert(usersTable).values(hashedUsers);
   console.log(`✓ ${userRows.length} users`);
 
   // ============= PATIENTS =============

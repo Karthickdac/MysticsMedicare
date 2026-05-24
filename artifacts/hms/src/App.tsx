@@ -55,6 +55,7 @@ function Router() {
         <Shell>
           <Switch>
             <Route path="/" component={Dashboard} />
+            <Route path="/dashboard" component={Dashboard} />
             <Route path="/patients/new" component={PatientNew} />
             <Route path="/patients/:id" component={PatientProfile} />
             <Route path="/patients" component={Patients} />
