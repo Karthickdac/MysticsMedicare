@@ -24,6 +24,11 @@ export type Column<T> = {
   key: string;
   header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
+  // CSV/export accessor. Because `cell` returns JSX (badges, icons, spans),
+  // it cannot be serialized to CSV. Pages opting into CSV export must
+  // provide an `exportValue` returning a primitive for every column they
+  // want included. Columns without `exportValue` are skipped from the CSV.
+  exportValue?: (row: T) => string | number | null | undefined;
   className?: string;
   headerClassName?: string;
   align?: "left" | "right" | "center";
@@ -46,12 +51,15 @@ export type DataTableProps<T> = {
 };
 
 function toCsv<T>(rows: T[], cols: Column<T>[]): string {
-  const header = cols.map((c) => '"' + String(c.header ?? c.key).replace(/"/g, '""') + '"').join(",");
+  const exportable = cols.filter((c) => typeof c.exportValue === "function");
+  const header = exportable
+    .map((c) => '"' + String(typeof c.header === "string" ? c.header : c.key).replace(/"/g, '""') + '"')
+    .join(",");
   const lines = rows.map((r) =>
-    cols
+    exportable
       .map((c) => {
-        const v = c.cell(r);
-        const flat = typeof v === "string" || typeof v === "number" ? String(v) : "";
+        const v = c.exportValue!(r);
+        const flat = v === null || v === undefined ? "" : String(v);
         return '"' + flat.replace(/"/g, '""') + '"';
       })
       .join(","),

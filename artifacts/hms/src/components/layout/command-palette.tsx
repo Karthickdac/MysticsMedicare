@@ -14,7 +14,7 @@ import {
   Activity, Users, Calendar, Clock, BedDouble, TestTube, Cross,
   ShieldPlus, IndianRupee, Package, Scissors, Syringe, FileSignature,
   ClipboardCheck, Video, MessageSquare, ListTree, UserCog, Settings,
-  Bell, UserPlus, FilePlus2, Stethoscope, CalendarPlus,
+  Bell, UserPlus, FilePlus2, Stethoscope,
 } from "lucide-react";
 
 type NavCmd = {
@@ -55,7 +55,6 @@ const NAV: NavCmd[] = [
 
 const ACTIONS: NavCmd[] = [
   { label: "Register new patient", href: "/patients/new", icon: UserPlus, section: "Quick actions", roles: ["admin", "doctor", "nurse", "receptionist"] },
-  { label: "Book new appointment", href: "/appointments/new", icon: CalendarPlus, section: "Quick actions", keywords: "schedule slot opd", roles: ["admin", "doctor", "nurse", "receptionist"] },
   { label: "Create new bill", href: "/billing/new", icon: FilePlus2, section: "Quick actions", keywords: "invoice gst", roles: ["admin", "accountant", "cashier", "receptionist"] },
 ];
 

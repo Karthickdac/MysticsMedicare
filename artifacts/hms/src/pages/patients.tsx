@@ -25,6 +25,7 @@ export default function Patients() {
       key: "uhid",
       header: "UHID",
       cell: (p) => <span className="font-mono text-xs font-medium">{p.uhid}</span>,
+      exportValue: (p) => p.uhid,
     },
     {
       key: "patient",
@@ -37,13 +38,20 @@ export default function Patients() {
           <span className="font-medium">{p.name}</span>
         </div>
       ),
+      exportValue: (p) => p.name,
     },
     {
       key: "ag",
       header: "Age / Sex",
       cell: (p) => <span className="text-sm">{p.age}y · <span className="uppercase">{p.gender?.[0] ?? "—"}</span></span>,
+      exportValue: (p) => `${p.age}y / ${p.gender ?? ""}`,
     },
-    { key: "phone", header: "Contact", cell: (p) => <span className="font-mono text-xs">{p.phone}</span> },
+    {
+      key: "phone",
+      header: "Contact",
+      cell: (p) => <span className="font-mono text-xs">{p.phone}</span>,
+      exportValue: (p) => p.phone,
+    },
     {
       key: "registered",
       header: "Registered",
@@ -52,6 +60,7 @@ export default function Patients() {
           {new Date(p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
         </span>
       ),
+      exportValue: (p) => new Date(p.createdAt).toISOString().slice(0, 10),
     },
     {
       key: "actions",

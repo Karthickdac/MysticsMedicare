@@ -7,9 +7,13 @@ import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
-// Roles allowed to read patient PHI. Billing-only roles (cashier, accountant)
-// access patients indirectly via bills; they must not list/read raw PHI.
-const PATIENT_READ_ROLES = ["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"] as const;
+// Roles allowed to read patient records. Includes clinical, front-desk, and
+// billing staff — billing roles need patient lookup to attach bills to a
+// patient. Anonymous/portal users and roles not listed here are denied.
+const PATIENT_LOOKUP_ROLES = [
+  "admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist",
+  "cashier", "accountant",
+] as const;
 
 function shape(p: typeof patientsTable.$inferSelect) {
   return {
@@ -32,7 +36,7 @@ function shape(p: typeof patientsTable.$inferSelect) {
   };
 }
 
-router.get("/patients", requireRole(...PATIENT_READ_ROLES), async (req, res) => {
+router.get("/patients", requireRole(...PATIENT_LOOKUP_ROLES), async (req, res) => {
   const search = typeof req.query.search === "string" ? req.query.search : null;
   const rows = await db
     .select()
@@ -78,7 +82,7 @@ router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (
   res.status(201).json(shape(row));
 });
 
-router.get("/patients/:id", requireRole(...PATIENT_READ_ROLES), async (req, res) => {
+router.get("/patients/:id", requireRole(...PATIENT_LOOKUP_ROLES), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.select().from(patientsTable).where(eq(patientsTable.id, id)).limit(1);
   if (!row) return res.status(404).json({ error: "Patient not found" });

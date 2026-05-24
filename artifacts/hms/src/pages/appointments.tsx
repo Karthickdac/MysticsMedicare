@@ -45,11 +45,13 @@ export default function Appointments() {
           </div>
         </div>
       ),
+      exportValue: (a) => new Date(a.scheduledAt).toISOString(),
     },
     {
       key: "patient",
       header: "Patient",
       cell: (a) => <span className="font-medium">{a.patientName}</span>,
+      exportValue: (a) => a.patientName ?? "",
     },
     {
       key: "doctor",
@@ -60,12 +62,19 @@ export default function Appointments() {
           {a.doctorName ?? "—"}
         </div>
       ),
+      exportValue: (a) => a.doctorName ?? "",
     },
-    { key: "dept", header: "Department", cell: (a) => <Badge variant="outline">{a.department}</Badge> },
+    {
+      key: "dept",
+      header: "Department",
+      cell: (a) => <Badge variant="outline">{a.department}</Badge>,
+      exportValue: (a) => a.department,
+    },
     {
       key: "reason",
       header: "Reason",
       cell: (a) => <span className="text-sm text-muted-foreground truncate max-w-[260px] inline-block">{a.reason ?? "—"}</span>,
+      exportValue: (a) => a.reason ?? "",
     },
     {
       key: "status",
@@ -75,6 +84,7 @@ export default function Appointments() {
           {a.status.replace("_", " ")}
         </Badge>
       ),
+      exportValue: (a) => a.status,
     },
   ];
 

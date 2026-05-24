@@ -45,25 +45,38 @@ export default function Billing() {
   }, [bills]);
 
   const cols: Column<Bill>[] = [
-    { key: "no", header: "Bill #", cell: (b) => <span className="font-mono text-xs font-medium">{b.billNumber}</span> },
+    {
+      key: "no",
+      header: "Bill #",
+      cell: (b) => <span className="font-mono text-xs font-medium">{b.billNumber}</span>,
+      exportValue: (b) => b.billNumber,
+    },
     {
       key: "date",
       header: "Date",
       cell: (b) => (
         <span className="text-sm">{new Date(b.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
       ),
+      exportValue: (b) => new Date(b.createdAt).toISOString().slice(0, 10),
     },
-    { key: "patient", header: "Patient", cell: (b) => <span className="font-medium">{b.patientName}</span> },
+    {
+      key: "patient",
+      header: "Patient",
+      cell: (b) => <span className="font-medium">{b.patientName}</span>,
+      exportValue: (b) => b.patientName ?? "",
+    },
     {
       key: "total",
       header: "Total",
       align: "right",
       cell: (b) => <span className="font-mono font-semibold tabular-nums">{inr(b.total)}</span>,
+      exportValue: (b) => b.total,
     },
     {
       key: "status",
       header: "Status",
       cell: (b) => <Badge variant="outline" className={statusTone[b.status] ?? ""}>{b.status}</Badge>,
+      exportValue: (b) => b.status,
     },
     {
       key: "actions",
