@@ -140,7 +140,11 @@ export default function Staff() {
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="h-32 text-center text-muted-foreground">No staff match the filters</TableCell></TableRow>
               ) : (
-                filtered.map((p) => (
+                filtered.map((p) => {
+                  const perms: string[] = Array.isArray((p as unknown as { permissions?: unknown }).permissions)
+                    ? ((p as unknown as { permissions: string[] }).permissions)
+                    : [];
+                  return (
                   <TableRow key={p.id} data-testid={`row-staff-${p.id}`}>
                     <TableCell className="font-mono text-xs">{p.staffId}</TableCell>
                     <TableCell className="font-medium">{p.name}{p.specialization && <div className="text-xs text-muted-foreground">{p.specialization}</div>}</TableCell>
@@ -150,21 +154,21 @@ export default function Staff() {
                           <button className="inline-flex items-center gap-1.5 capitalize hover:text-primary" data-testid={`perms-${p.id}`}>
                             {p.role}
                             <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground tabular-nums">({p.permissions.length})</span>
+                            <span className="text-xs text-muted-foreground tabular-nums">({perms.length})</span>
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 max-h-[400px] overflow-y-auto" align="start">
                           <div className="space-y-2">
                             <div className="font-medium text-sm flex items-center gap-2 capitalize">
                               <Shield className="w-4 h-4 text-primary" />
-                              {p.role} — {p.permissions.length} permission{p.permissions.length === 1 ? "" : "s"}
+                              {p.role} — {perms.length} permission{perms.length === 1 ? "" : "s"}
                             </div>
                             <div className="text-xs text-muted-foreground">Inherited from the role definition. Edit under Roles & Permissions.</div>
-                            {p.permissions.length === 0 ? (
+                            {perms.length === 0 ? (
                               <div className="text-xs text-destructive py-2">This role has no permissions — the user cannot access any protected route.</div>
                             ) : (
                               <div className="flex flex-wrap gap-1">
-                                {p.permissions.map((perm) => (
+                                {perms.map((perm) => (
                                   <span key={perm} className="text-[10px] px-1.5 py-0.5 rounded border bg-muted/40 text-muted-foreground font-mono">{perm}</span>
                                 ))}
                               </div>
@@ -184,7 +188,8 @@ export default function Staff() {
                       <Button size="icon" variant="ghost" onClick={() => setDeleting(p)} className="text-destructive" data-testid={`button-delete-${p.id}`}><Trash2 className="w-4 h-4" /></Button>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
