@@ -4,6 +4,7 @@ import {
   db,
   patientsTable,
   billsTable,
+  billPaymentsTable,
   encountersTable,
   labOrdersTable,
   prescriptionsTable,
@@ -12,6 +13,8 @@ import {
   marEntriesTable,
 } from "@workspace/db";
 import { and, desc, eq, gte } from "drizzle-orm";
+import { num } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -26,27 +29,133 @@ function startPdf(res: Response, filename: string) {
   return doc;
 }
 
-router.get("/pdf/invoice/:billId", async (req, res) => {
+function inr(n: string | number | null | undefined) {
+  return `Rs. ${num(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+router.get("/pdf/invoice/:billId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
   const id = Number(req.params.billId);
   const [b] = await db.select().from(billsTable).where(eq(billsTable.id, id));
   if (!b) return res.status(404).json({ error: "Bill not found" });
   const [p] = b.patientId ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
+  const payments = await db.select().from(billPaymentsTable).where(eq(billPaymentsTable.billId, id));
   const doc = startPdf(res, `invoice-${b.billNumber}.pdf`);
-  doc.fontSize(16).text("TAX INVOICE", { align: "center" }).moveDown();
-  doc.fontSize(11);
-  doc.text(`Invoice #: ${b.billNumber}`);
+  doc.fontSize(16).text("TAX INVOICE", { align: "center" });
+  doc.fontSize(9).fillColor("#666")
+    .text("123 Health Avenue, New Delhi 110001 — GSTIN: 07AABCU9603R1ZX", { align: "center" });
+  doc.fillColor("#000").moveDown();
+
+  const headerY = doc.y;
+  doc.fontSize(10);
+  doc.text(`Invoice #: ${b.billNumber}`, 50, headerY);
   doc.text(`Date: ${new Date(b.createdAt).toLocaleString("en-IN")}`);
+  doc.text(`GST Mode: ${b.gstMode === "inter" ? "Inter-state (IGST)" : "Intra-state (CGST+SGST)"}`);
+  doc.text(`Status: ${b.status.toUpperCase()}`);
+
   if (p) {
-    doc.text(`Patient: ${p.name}  (MRN: ${p.uhid})`);
+    doc.text(`Patient: ${p.name}  (UHID: ${p.uhid})`, 320, headerY);
+    doc.text(`Phone: ${p.phone}`, 320);
+    if (b.insuranceProvider) doc.text(`Insurer: ${b.insuranceProvider}${b.tpa ? ` (${b.tpa})` : ""}`, 320);
+    if (b.policyNumber) doc.text(`Policy: ${b.policyNumber}`, 320);
+  }
+  doc.moveDown(2);
+
+  // Items table
+  const items = (b.items as Array<{ description: string; serviceCode?: string; quantity: number; unitPrice: number; discount?: number; gstRate?: number; amount: number }>) ?? [];
+  const tableTop = doc.y;
+  doc.fontSize(9).fillColor("#666");
+  doc.text("Service", 50, tableTop, { width: 230 });
+  doc.text("HSN", 280, tableTop, { width: 50 });
+  doc.text("Qty", 330, tableTop, { width: 40, align: "right" });
+  doc.text("Rate", 370, tableTop, { width: 60, align: "right" });
+  doc.text("GST%", 430, tableTop, { width: 40, align: "right" });
+  doc.text("Amount", 470, tableTop, { width: 80, align: "right" });
+  doc.moveTo(50, tableTop + 14).lineTo(550, tableTop + 14).strokeColor("#ccc").stroke();
+  doc.fillColor("#000");
+  let y = tableTop + 20;
+  for (const it of items) {
+    doc.fontSize(9).text(it.description, 50, y, { width: 230 });
+    doc.text(it.serviceCode ?? "—", 280, y, { width: 50 });
+    doc.text(String(it.quantity), 330, y, { width: 40, align: "right" });
+    doc.text(num(it.unitPrice).toFixed(2), 370, y, { width: 60, align: "right" });
+    doc.text(num(it.gstRate ?? 18).toFixed(0) + "%", 430, y, { width: 40, align: "right" });
+    doc.text(num(it.amount).toFixed(2), 470, y, { width: 80, align: "right" });
+    y += 16;
+    if (y > 720) { doc.addPage(); y = 60; }
+  }
+  doc.moveTo(50, y).lineTo(550, y).strokeColor("#ccc").stroke();
+  y += 10;
+
+  // Totals block
+  const rightCol = 470;
+  const labelCol = 360;
+  function row(label: string, val: string, bold = false) {
+    if (bold) doc.fontSize(11).font("Helvetica-Bold"); else doc.fontSize(10).font("Helvetica");
+    doc.text(label, labelCol, y, { width: 110, align: "right" });
+    doc.text(val, rightCol, y, { width: 80, align: "right" });
+    y += bold ? 18 : 14;
+    doc.font("Helvetica");
+  }
+  row("Subtotal", inr(b.subtotal));
+  if (num(b.discount) > 0) row("Discount", "- " + inr(b.discount));
+  if (num(b.cgst) > 0) row("CGST", inr(b.cgst));
+  if (num(b.sgst) > 0) row("SGST", inr(b.sgst));
+  if (num(b.igst) > 0) row("IGST", inr(b.igst));
+  row("Grand Total", inr(b.total), true);
+  if (num(b.paidAmount) > 0) row("Paid", inr(b.paidAmount));
+  if (num(b.refundedAmount) > 0) row("Refunded", inr(b.refundedAmount));
+  const balance = num(b.total) - num(b.paidAmount) + num(b.refundedAmount);
+  row("Balance Due", inr(balance), true);
+
+  if (payments.length > 0) {
+    y += 12;
+    doc.fontSize(10).font("Helvetica-Bold").text("Payments", 50, y); y += 14;
+    doc.font("Helvetica").fontSize(9);
+    for (const pay of payments) {
+      doc.text(
+        `${new Date(pay.receivedAt).toLocaleString("en-IN")}  •  ${pay.receiptNumber}  •  ${pay.mode.toUpperCase()}  •  ${inr(pay.amount)}${pay.reference ? `  •  Ref: ${pay.reference}` : ""}`,
+        50, y,
+      );
+      y += 12;
+    }
+  }
+  if (b.status === "void") {
+    y += 8;
+    doc.fontSize(11).fillColor("#b00").text(`*** VOIDED — ${b.voidReason ?? "no reason recorded"} ***`, 50, y);
+    doc.fillColor("#000");
+  }
+  doc.end();
+});
+
+router.get("/pdf/receipt/:paymentId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+  const id = Number(req.params.paymentId);
+  const [pay] = await db.select().from(billPaymentsTable).where(eq(billPaymentsTable.id, id));
+  if (!pay) return res.status(404).json({ error: "Receipt not found" });
+  const [b] = await db.select().from(billsTable).where(eq(billsTable.id, pay.billId));
+  const [p] = b ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
+  const doc = startPdf(res, `receipt-${pay.receiptNumber}.pdf`);
+  doc.fontSize(16).text("PAYMENT RECEIPT", { align: "center" }).moveDown();
+  doc.fontSize(11);
+  doc.text(`Receipt #: ${pay.receiptNumber}`);
+  doc.text(`Date: ${new Date(pay.receivedAt).toLocaleString("en-IN")}`);
+  if (b) doc.text(`Against Invoice: ${b.billNumber}`);
+  if (p) {
+    doc.text(`Patient: ${p.name}  (UHID: ${p.uhid})`);
     doc.text(`Phone: ${p.phone}`);
   }
   doc.moveDown();
-  doc.text(`Subtotal: ₹ ${b.subtotal}`);
-  doc.text(`CGST: ₹ ${b.cgst}`);
-  doc.text(`SGST: ₹ ${b.sgst}`);
-  doc.text(`IGST: ₹ ${b.igst}`);
-  doc.fontSize(14).text(`Total: ₹ ${b.total}`, { underline: true });
-  doc.fontSize(11).text(`Status: ${b.status.toUpperCase()}`);
+  doc.text(`Mode: ${pay.mode.toUpperCase()}`);
+  if (pay.reference) doc.text(`Reference: ${pay.reference}`);
+  if (pay.receivedBy) doc.text(`Received By: ${pay.receivedBy}`);
+  doc.moveDown();
+  doc.fontSize(18).text(`Amount: ${inr(pay.amount)}`, { underline: true });
+  if (b) {
+    doc.moveDown();
+    const balance = num(b.total) - num(b.paidAmount) + num(b.refundedAmount);
+    doc.fontSize(11).text(`Bill Total: ${inr(b.total)}    Paid: ${inr(b.paidAmount)}    Balance: ${inr(balance)}`);
+  }
+  doc.moveDown(2);
+  doc.fontSize(9).fillColor("#666").text("This is a computer generated receipt and does not require a signature.", { align: "center" });
   doc.end();
 });
 

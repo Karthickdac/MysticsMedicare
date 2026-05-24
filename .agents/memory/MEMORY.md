@@ -1,2 +1,2 @@
-- [Orval zod naming](orval-zod-naming.md) — name request-body schema components `*Input` to avoid api-zod re-export collision with operationId-based zod.
-- [IPD locking & MAR dedupe](ipd-discharge-concurrency.md) — admit/transfer/discharge must lock admission first then beds; MAR upsert needs DB unique index.
+- [Billing endpoint authz](billing-endpoint-authz.md) — every billing/PDF endpoint (incl. GETs) must carry `requireRole(...)`; `requireAuth` alone leaks financial+PII to all logged-in roles.
+- [Money ledger transactions](money-ledger-transactions.md) — payment/refund inserts plus the bill aggregate (`paidAmount`/`refundedAmount`/`status`) recompute must run inside one DB transaction or concurrent writes will desync the ledger.

@@ -26,6 +26,8 @@ import Drugs from "@/pages/drugs";
 import Billing from "@/pages/billing";
 import BillingNew from "@/pages/billing-new";
 import BillDetail from "@/pages/bill-detail";
+import CashierSessions from "@/pages/cashier-sessions";
+import BillingReports from "@/pages/billing-reports";
 import Inventory from "@/pages/inventory";
 import Ot from "@/pages/ot";
 import Vaccinations from "@/pages/vaccinations";
@@ -84,6 +86,8 @@ function Router() {
             <Route path="/prescriptions" component={Prescriptions} />
             <Route path="/drugs" component={Drugs} />
             <Route path="/billing/new" component={BillingNew} />
+            <Route path="/billing/reports" component={BillingReports} />
+            <Route path="/billing/cashier" component={CashierSessions} />
             <Route path="/billing/:id" component={BillDetail} />
             <Route path="/billing" component={Billing} />
             <Route path="/inventory" component={Inventory} />

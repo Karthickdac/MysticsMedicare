@@ -13,15 +13,34 @@ export interface Bill {
   patientName: string;
   billNumber: string;
   subtotal: number;
+  discount: number;
   cgst: number;
   sgst: number;
   igst: number;
   total: number;
+  paidAmount: number;
+  refundedAmount: number;
+  balance: number;
   status: string;
+  gstMode: string;
   /** @nullable */
   paymentMethod?: string | null;
   /** @nullable */
   insuranceProvider?: string | null;
+  /** @nullable */
+  tpa?: string | null;
+  /** @nullable */
+  policyNumber?: string | null;
+  /** @nullable */
+  preAuthCode?: string | null;
+  claimStatus: string;
+  claimAmount: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  voidedAt?: string | null;
+  /** @nullable */
+  voidReason?: string | null;
   createdAt: string;
   /** @nullable */
   paidAt?: string | null;

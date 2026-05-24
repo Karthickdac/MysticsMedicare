@@ -5,6 +5,7 @@ import {
   IndianRupee, Package, Scissors, Syringe, FileSignature, ClipboardCheck,
   Video, MessageSquare, ListTree, UserCog, Settings, Bell, Search, Menu,
   LogOut, Sun, Moon, Stethoscope, Sparkles, Command as CommandIcon, ChevronDown,
+  Wallet, BarChart3,
 } from "lucide-react";
 
 import { useMe, useLogout, useGetDashboardSummary, useListBills, useListNotificationLog } from "@workspace/api-client-react";
@@ -87,6 +88,8 @@ const ALL_GROUPS: Group[] = [
     label: "Billing",
     items: [
       { icon: IndianRupee, label: "Billing", href: "/billing", roles: ["admin", "accountant", "cashier", "receptionist"] },
+      { icon: Wallet, label: "Cashier Drawer", href: "/billing/cashier", roles: ["admin", "accountant", "cashier"] },
+      { icon: BarChart3, label: "Billing Reports", href: "/billing/reports", roles: ["admin", "accountant"] },
     ],
   },
   {

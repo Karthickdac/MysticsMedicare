@@ -212,17 +212,92 @@ export const billsTable = pgTable("bills", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
   billNumber: varchar("bill_number", { length: 30 }).notNull().unique(),
+  // discount applied at line level is captured in items[]; this is the
+  // optional bill-level (e.g. "promo / concession") discount applied AFTER
+  // line totals — subtotal already nets line discounts; we then deduct
+  // billDiscount before computing GST.
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
+  discount: numeric("discount", { precision: 12, scale: 2 }).notNull().default("0"),
   cgst: numeric("cgst", { precision: 12, scale: 2 }).notNull().default("0"),
   sgst: numeric("sgst", { precision: 12, scale: 2 }).notNull().default("0"),
   igst: numeric("igst", { precision: 12, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  refundedAmount: numeric("refunded_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  // unpaid | partial | paid | refunded | void
   status: text("status").notNull().default("unpaid"),
+  gstMode: text("gst_mode").notNull().default("intra"),
   paymentMethod: text("payment_method"),
   insuranceProvider: text("insurance_provider"),
+  tpa: text("tpa"),
+  policyNumber: text("policy_number"),
+  preAuthCode: text("pre_auth_code"),
+  // none | submitted | approved | rejected | settled
+  claimStatus: text("claim_status").notNull().default("none"),
+  claimAmount: numeric("claim_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  notes: text("notes"),
+  voidedAt: timestamp("voided_at"),
+  voidReason: text("void_reason"),
+  voidedBy: text("voided_by"),
   items: jsonb("items").notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   paidAt: timestamp("paid_at"),
+});
+
+export const serviceCatalogTable = pgTable("service_catalog", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 30 }).notNull().unique(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  department: text("department"),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }).notNull().default("18"),
+  hsnSac: varchar("hsn_sac", { length: 12 }),
+  isPackage: boolean("is_package").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// One row per cashier-collected payment against a bill. Bills can have
+// many partial payments across modes (cash/card/UPI/insurance/cheque/netbanking).
+export const billPaymentsTable = pgTable("bill_payments", {
+  id: serial("id").primaryKey(),
+  billId: integer("bill_id").notNull().references(() => billsTable.id, { onDelete: "cascade" }),
+  receiptNumber: varchar("receipt_number", { length: 30 }).notNull().unique(),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  mode: text("mode").notNull(), // cash|card|upi|insurance|cheque|netbanking
+  reference: text("reference"),
+  receivedBy: text("received_by"),
+  cashierSessionId: integer("cashier_session_id"),
+  notes: text("notes"),
+  receivedAt: timestamp("received_at").notNull().defaultNow(),
+});
+
+export const billRefundsTable = pgTable("bill_refunds", {
+  id: serial("id").primaryKey(),
+  billId: integer("bill_id").notNull().references(() => billsTable.id, { onDelete: "cascade" }),
+  paymentId: integer("payment_id").references(() => billPaymentsTable.id),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  mode: text("mode").notNull(),
+  reason: text("reason").notNull(),
+  approvedBy: text("approved_by"),
+  refundedAt: timestamp("refunded_at").notNull().defaultNow(),
+});
+
+// Cashier shift / day-end reconciliation. open one per cashier; closing
+// captures counted cash and any variance vs system-recorded cash collections.
+export const cashierSessionsTable = pgTable("cashier_sessions", {
+  id: serial("id").primaryKey(),
+  cashierUserId: integer("cashier_user_id").notNull().references(() => usersTable.id),
+  cashierName: text("cashier_name").notNull(),
+  openingCash: numeric("opening_cash", { precision: 12, scale: 2 }).notNull().default("0"),
+  closingCash: numeric("closing_cash", { precision: 12, scale: 2 }),
+  expectedCash: numeric("expected_cash", { precision: 12, scale: 2 }),
+  variance: numeric("variance", { precision: 12, scale: 2 }),
+  status: text("status").notNull().default("open"), // open | closed
+  notes: text("notes"),
+  openedAt: timestamp("opened_at").notNull().defaultNow(),
+  closedAt: timestamp("closed_at"),
 });
 
 export const inventoryTable = pgTable("inventory_items", {

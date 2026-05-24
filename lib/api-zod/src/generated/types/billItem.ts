@@ -7,8 +7,14 @@
  */
 
 export interface BillItem {
+  serviceCode?: string;
   description: string;
   quantity: number;
   unitPrice: number;
+  discount?: number;
+  gstRate?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
   amount: number;
 }

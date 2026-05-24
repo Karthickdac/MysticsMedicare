@@ -10,6 +10,11 @@ import type { BillItem } from './billItem';
 export interface BillInput {
   patientId: number;
   gstMode?: string;
+  discount?: number;
   insuranceProvider?: string;
+  tpa?: string;
+  policyNumber?: string;
+  preAuthCode?: string;
+  notes?: string;
   items: BillItem[];
 }

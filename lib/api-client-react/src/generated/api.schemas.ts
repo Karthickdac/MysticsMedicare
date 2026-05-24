@@ -489,9 +489,15 @@ export interface DrugInput {
 }
 
 export interface BillItem {
+  serviceCode?: string;
   description: string;
   quantity: number;
   unitPrice: number;
+  discount?: number;
+  gstRate?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
   amount: number;
 }
 
@@ -501,15 +507,34 @@ export interface Bill {
   patientName: string;
   billNumber: string;
   subtotal: number;
+  discount: number;
   cgst: number;
   sgst: number;
   igst: number;
   total: number;
+  paidAmount: number;
+  refundedAmount: number;
+  balance: number;
   status: string;
+  gstMode: string;
   /** @nullable */
   paymentMethod?: string | null;
   /** @nullable */
   insuranceProvider?: string | null;
+  /** @nullable */
+  tpa?: string | null;
+  /** @nullable */
+  policyNumber?: string | null;
+  /** @nullable */
+  preAuthCode?: string | null;
+  claimStatus: string;
+  claimAmount: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  voidedAt?: string | null;
+  /** @nullable */
+  voidReason?: string | null;
   createdAt: string;
   /** @nullable */
   paidAt?: string | null;
@@ -519,8 +544,181 @@ export interface Bill {
 export interface BillInput {
   patientId: number;
   gstMode?: string;
+  discount?: number;
   insuranceProvider?: string;
+  tpa?: string;
+  policyNumber?: string;
+  preAuthCode?: string;
+  notes?: string;
   items: BillItem[];
+}
+
+export interface Payment {
+  id: number;
+  billId: number;
+  receiptNumber: string;
+  amount: number;
+  mode: string;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  receivedBy?: string | null;
+  /** @nullable */
+  cashierSessionId?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  receivedAt: string;
+}
+
+export interface PaymentInput {
+  amount: number;
+  mode: string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface Refund {
+  id: number;
+  billId: number;
+  /** @nullable */
+  paymentId?: number | null;
+  amount: number;
+  mode: string;
+  reason: string;
+  /** @nullable */
+  approvedBy?: string | null;
+  refundedAt: string;
+}
+
+export interface RefundInput {
+  paymentId?: number;
+  amount: number;
+  mode: string;
+  reason: string;
+}
+
+export interface VoidInput {
+  reason: string;
+}
+
+export interface ClaimUpdateInput {
+  claimStatus: string;
+  claimAmount?: number;
+  tpa?: string;
+  policyNumber?: string;
+  preAuthCode?: string;
+}
+
+export interface BillFull {
+  bill: Bill;
+  payments: Payment[];
+  refunds: Refund[];
+}
+
+export interface ServiceCatalogItem {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  /** @nullable */
+  department?: string | null;
+  unitPrice: number;
+  gstRate: number;
+  /** @nullable */
+  hsnSac?: string | null;
+  isPackage: boolean;
+  isActive: boolean;
+}
+
+export interface ServiceCatalogInput {
+  code: string;
+  name: string;
+  category: string;
+  department?: string;
+  unitPrice: number;
+  gstRate?: number;
+  hsnSac?: string;
+  isPackage?: boolean;
+  isActive?: boolean;
+}
+
+export interface ServiceCatalogUpdate {
+  name?: string;
+  category?: string;
+  department?: string;
+  unitPrice?: number;
+  gstRate?: number;
+  hsnSac?: string;
+  isPackage?: boolean;
+  isActive?: boolean;
+}
+
+export type CashierSessionCollectionsByModeItem = {
+  mode: string;
+  amount: number;
+  count: number;
+};
+
+export interface CashierSession {
+  id: number;
+  cashierUserId: number;
+  cashierName: string;
+  openingCash: number;
+  /** @nullable */
+  closingCash?: number | null;
+  /** @nullable */
+  expectedCash?: number | null;
+  /** @nullable */
+  variance?: number | null;
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  openedAt: string;
+  /** @nullable */
+  closedAt?: string | null;
+  collectionsByMode?: CashierSessionCollectionsByModeItem[];
+  refundsTotal?: number;
+}
+
+export interface OpenSessionInput {
+  openingCash: number;
+  notes?: string;
+}
+
+export interface CloseSessionInput {
+  closingCash: number;
+  notes?: string;
+}
+
+export interface CollectionsReportRow {
+  date: string;
+  mode: string;
+  amount: number;
+  count: number;
+}
+
+export interface Gstr1Row {
+  billNumber: string;
+  date: string;
+  patientName: string;
+  subtotal: number;
+  discount: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  total: number;
+  gstMode: string;
+}
+
+export interface OutstandingRow {
+  billNumber: string;
+  date: string;
+  patientName: string;
+  total: number;
+  paidAmount: number;
+  balance: number;
+  ageDays: number;
+  status: string;
 }
 
 export interface InventoryItem {
@@ -972,6 +1170,26 @@ status?: string;
 export type ListBillsParams = {
 patientId?: number;
 status?: string;
+};
+
+export type ListServiceCatalogParams = {
+category?: string;
+search?: string;
+includeInactive?: boolean;
+};
+
+export type ListCashierSessionsParams = {
+status?: string;
+};
+
+export type GetCollectionsReportParams = {
+from?: string;
+to?: string;
+};
+
+export type GetGstr1ReportParams = {
+from?: string;
+to?: string;
 };
 
 export type ListVitalsParams = {

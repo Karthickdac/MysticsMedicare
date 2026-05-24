@@ -799,19 +799,38 @@ export const ListBillsResponseItem = zod.object({
   "patientName": zod.string(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
+  "discount": zod.number(),
   "cgst": zod.number(),
   "sgst": zod.number(),
   "igst": zod.number(),
   "total": zod.number(),
+  "paidAmount": zod.number(),
+  "refundedAmount": zod.number(),
+  "balance": zod.number(),
   "status": zod.string(),
+  "gstMode": zod.string(),
   "paymentMethod": zod.string().nullish(),
   "insuranceProvider": zod.string().nullish(),
+  "tpa": zod.string().nullish(),
+  "policyNumber": zod.string().nullish(),
+  "preAuthCode": zod.string().nullish(),
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number(),
+  "notes": zod.string().nullish(),
+  "voidedAt": zod.string().nullish(),
+  "voidReason": zod.string().nullish(),
   "createdAt": zod.string(),
   "paidAt": zod.string().nullish(),
   "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
   "amount": zod.number()
 }))
 })
@@ -821,11 +840,22 @@ export const ListBillsResponse = zod.array(ListBillsResponseItem)
 export const CreateBillBody = zod.object({
   "patientId": zod.number(),
   "gstMode": zod.string().optional(),
+  "discount": zod.number().optional(),
   "insuranceProvider": zod.string().optional(),
+  "tpa": zod.string().optional(),
+  "policyNumber": zod.string().optional(),
+  "preAuthCode": zod.string().optional(),
+  "notes": zod.string().optional(),
   "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
   "amount": zod.number()
 }))
 })
@@ -841,19 +871,38 @@ export const GetBillResponse = zod.object({
   "patientName": zod.string(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
+  "discount": zod.number(),
   "cgst": zod.number(),
   "sgst": zod.number(),
   "igst": zod.number(),
   "total": zod.number(),
+  "paidAmount": zod.number(),
+  "refundedAmount": zod.number(),
+  "balance": zod.number(),
   "status": zod.string(),
+  "gstMode": zod.string(),
   "paymentMethod": zod.string().nullish(),
   "insuranceProvider": zod.string().nullish(),
+  "tpa": zod.string().nullish(),
+  "policyNumber": zod.string().nullish(),
+  "preAuthCode": zod.string().nullish(),
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number(),
+  "notes": zod.string().nullish(),
+  "voidedAt": zod.string().nullish(),
+  "voidReason": zod.string().nullish(),
   "createdAt": zod.string(),
   "paidAt": zod.string().nullish(),
   "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
   "amount": zod.number()
 }))
 })
@@ -869,22 +918,458 @@ export const PayBillResponse = zod.object({
   "patientName": zod.string(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
+  "discount": zod.number(),
   "cgst": zod.number(),
   "sgst": zod.number(),
   "igst": zod.number(),
   "total": zod.number(),
+  "paidAmount": zod.number(),
+  "refundedAmount": zod.number(),
+  "balance": zod.number(),
   "status": zod.string(),
+  "gstMode": zod.string(),
   "paymentMethod": zod.string().nullish(),
   "insuranceProvider": zod.string().nullish(),
+  "tpa": zod.string().nullish(),
+  "policyNumber": zod.string().nullish(),
+  "preAuthCode": zod.string().nullish(),
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number(),
+  "notes": zod.string().nullish(),
+  "voidedAt": zod.string().nullish(),
+  "voidReason": zod.string().nullish(),
   "createdAt": zod.string(),
   "paidAt": zod.string().nullish(),
   "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
   "amount": zod.number()
 }))
 })
+
+
+export const GetBillFullParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetBillFullResponse = zod.object({
+  "bill": zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "billNumber": zod.string(),
+  "subtotal": zod.number(),
+  "discount": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "total": zod.number(),
+  "paidAmount": zod.number(),
+  "refundedAmount": zod.number(),
+  "balance": zod.number(),
+  "status": zod.string(),
+  "gstMode": zod.string(),
+  "paymentMethod": zod.string().nullish(),
+  "insuranceProvider": zod.string().nullish(),
+  "tpa": zod.string().nullish(),
+  "policyNumber": zod.string().nullish(),
+  "preAuthCode": zod.string().nullish(),
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number(),
+  "notes": zod.string().nullish(),
+  "voidedAt": zod.string().nullish(),
+  "voidReason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "paidAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
+  "amount": zod.number()
+}))
+}),
+  "payments": zod.array(zod.object({
+  "id": zod.number(),
+  "billId": zod.number(),
+  "receiptNumber": zod.string(),
+  "amount": zod.number(),
+  "mode": zod.string(),
+  "reference": zod.string().nullish(),
+  "receivedBy": zod.string().nullish(),
+  "cashierSessionId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "receivedAt": zod.string()
+})),
+  "refunds": zod.array(zod.object({
+  "id": zod.number(),
+  "billId": zod.number(),
+  "paymentId": zod.number().nullish(),
+  "amount": zod.number(),
+  "mode": zod.string(),
+  "reason": zod.string(),
+  "approvedBy": zod.string().nullish(),
+  "refundedAt": zod.string()
+}))
+})
+
+
+export const ListBillPaymentsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListBillPaymentsResponseItem = zod.object({
+  "id": zod.number(),
+  "billId": zod.number(),
+  "receiptNumber": zod.string(),
+  "amount": zod.number(),
+  "mode": zod.string(),
+  "reference": zod.string().nullish(),
+  "receivedBy": zod.string().nullish(),
+  "cashierSessionId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "receivedAt": zod.string()
+})
+export const ListBillPaymentsResponse = zod.array(ListBillPaymentsResponseItem)
+
+
+export const RecordPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordPaymentBody = zod.object({
+  "amount": zod.number(),
+  "mode": zod.string(),
+  "reference": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+
+export const RecordRefundParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordRefundBody = zod.object({
+  "paymentId": zod.number().optional(),
+  "amount": zod.number(),
+  "mode": zod.string(),
+  "reason": zod.string()
+})
+
+
+export const VoidBillParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const VoidBillBody = zod.object({
+  "reason": zod.string()
+})
+
+export const VoidBillResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "billNumber": zod.string(),
+  "subtotal": zod.number(),
+  "discount": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "total": zod.number(),
+  "paidAmount": zod.number(),
+  "refundedAmount": zod.number(),
+  "balance": zod.number(),
+  "status": zod.string(),
+  "gstMode": zod.string(),
+  "paymentMethod": zod.string().nullish(),
+  "insuranceProvider": zod.string().nullish(),
+  "tpa": zod.string().nullish(),
+  "policyNumber": zod.string().nullish(),
+  "preAuthCode": zod.string().nullish(),
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number(),
+  "notes": zod.string().nullish(),
+  "voidedAt": zod.string().nullish(),
+  "voidReason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "paidAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
+  "amount": zod.number()
+}))
+})
+
+
+export const UpdateBillClaimParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBillClaimBody = zod.object({
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number().optional(),
+  "tpa": zod.string().optional(),
+  "policyNumber": zod.string().optional(),
+  "preAuthCode": zod.string().optional()
+})
+
+export const UpdateBillClaimResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "billNumber": zod.string(),
+  "subtotal": zod.number(),
+  "discount": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "total": zod.number(),
+  "paidAmount": zod.number(),
+  "refundedAmount": zod.number(),
+  "balance": zod.number(),
+  "status": zod.string(),
+  "gstMode": zod.string(),
+  "paymentMethod": zod.string().nullish(),
+  "insuranceProvider": zod.string().nullish(),
+  "tpa": zod.string().nullish(),
+  "policyNumber": zod.string().nullish(),
+  "preAuthCode": zod.string().nullish(),
+  "claimStatus": zod.string(),
+  "claimAmount": zod.number(),
+  "notes": zod.string().nullish(),
+  "voidedAt": zod.string().nullish(),
+  "voidReason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "paidAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "serviceCode": zod.string().optional(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "cgst": zod.number().optional(),
+  "sgst": zod.number().optional(),
+  "igst": zod.number().optional(),
+  "amount": zod.number()
+}))
+})
+
+
+export const ListServiceCatalogQueryParams = zod.object({
+  "category": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional(),
+  "includeInactive": zod.coerce.boolean().optional()
+})
+
+export const ListServiceCatalogResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "department": zod.string().nullish(),
+  "unitPrice": zod.number(),
+  "gstRate": zod.number(),
+  "hsnSac": zod.string().nullish(),
+  "isPackage": zod.boolean(),
+  "isActive": zod.boolean()
+})
+export const ListServiceCatalogResponse = zod.array(ListServiceCatalogResponseItem)
+
+
+export const CreateServiceCatalogItemBody = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "department": zod.string().optional(),
+  "unitPrice": zod.number(),
+  "gstRate": zod.number().optional(),
+  "hsnSac": zod.string().optional(),
+  "isPackage": zod.boolean().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+
+export const UpdateServiceCatalogItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateServiceCatalogItemBody = zod.object({
+  "name": zod.string().optional(),
+  "category": zod.string().optional(),
+  "department": zod.string().optional(),
+  "unitPrice": zod.number().optional(),
+  "gstRate": zod.number().optional(),
+  "hsnSac": zod.string().optional(),
+  "isPackage": zod.boolean().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateServiceCatalogItemResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "department": zod.string().nullish(),
+  "unitPrice": zod.number(),
+  "gstRate": zod.number(),
+  "hsnSac": zod.string().nullish(),
+  "isPackage": zod.boolean(),
+  "isActive": zod.boolean()
+})
+
+
+export const ListCashierSessionsQueryParams = zod.object({
+  "status": zod.coerce.string().optional()
+})
+
+export const ListCashierSessionsResponseItem = zod.object({
+  "id": zod.number(),
+  "cashierUserId": zod.number(),
+  "cashierName": zod.string(),
+  "openingCash": zod.number(),
+  "closingCash": zod.number().nullish(),
+  "expectedCash": zod.number().nullish(),
+  "variance": zod.number().nullish(),
+  "status": zod.string(),
+  "notes": zod.string().nullish(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string().nullish(),
+  "collectionsByMode": zod.array(zod.object({
+  "mode": zod.string(),
+  "amount": zod.number(),
+  "count": zod.number()
+})).optional(),
+  "refundsTotal": zod.number().optional()
+})
+export const ListCashierSessionsResponse = zod.array(ListCashierSessionsResponseItem)
+
+
+export const OpenCashierSessionBody = zod.object({
+  "openingCash": zod.number(),
+  "notes": zod.string().optional()
+})
+
+
+export const GetCashierSessionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCashierSessionResponse = zod.object({
+  "id": zod.number(),
+  "cashierUserId": zod.number(),
+  "cashierName": zod.string(),
+  "openingCash": zod.number(),
+  "closingCash": zod.number().nullish(),
+  "expectedCash": zod.number().nullish(),
+  "variance": zod.number().nullish(),
+  "status": zod.string(),
+  "notes": zod.string().nullish(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string().nullish(),
+  "collectionsByMode": zod.array(zod.object({
+  "mode": zod.string(),
+  "amount": zod.number(),
+  "count": zod.number()
+})).optional(),
+  "refundsTotal": zod.number().optional()
+})
+
+
+export const CloseCashierSessionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CloseCashierSessionBody = zod.object({
+  "closingCash": zod.number(),
+  "notes": zod.string().optional()
+})
+
+export const CloseCashierSessionResponse = zod.object({
+  "id": zod.number(),
+  "cashierUserId": zod.number(),
+  "cashierName": zod.string(),
+  "openingCash": zod.number(),
+  "closingCash": zod.number().nullish(),
+  "expectedCash": zod.number().nullish(),
+  "variance": zod.number().nullish(),
+  "status": zod.string(),
+  "notes": zod.string().nullish(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string().nullish(),
+  "collectionsByMode": zod.array(zod.object({
+  "mode": zod.string(),
+  "amount": zod.number(),
+  "count": zod.number()
+})).optional(),
+  "refundsTotal": zod.number().optional()
+})
+
+
+export const GetCollectionsReportQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetCollectionsReportResponseItem = zod.object({
+  "date": zod.string(),
+  "mode": zod.string(),
+  "amount": zod.number(),
+  "count": zod.number()
+})
+export const GetCollectionsReportResponse = zod.array(GetCollectionsReportResponseItem)
+
+
+export const GetGstr1ReportQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetGstr1ReportResponseItem = zod.object({
+  "billNumber": zod.string(),
+  "date": zod.string(),
+  "patientName": zod.string(),
+  "subtotal": zod.number(),
+  "discount": zod.number(),
+  "cgst": zod.number(),
+  "sgst": zod.number(),
+  "igst": zod.number(),
+  "total": zod.number(),
+  "gstMode": zod.string()
+})
+export const GetGstr1ReportResponse = zod.array(GetGstr1ReportResponseItem)
+
+
+export const GetOutstandingReportResponseItem = zod.object({
+  "billNumber": zod.string(),
+  "date": zod.string(),
+  "patientName": zod.string(),
+  "total": zod.number(),
+  "paidAmount": zod.number(),
+  "balance": zod.number(),
+  "ageDays": zod.number(),
+  "status": zod.string()
+})
+export const GetOutstandingReportResponse = zod.array(GetOutstandingReportResponseItem)
 
 
 export const ListInventoryResponseItem = zod.object({

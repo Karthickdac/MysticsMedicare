@@ -1,279 +1,331 @@
-import { z } from "zod";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useCreateBill, useListPatients } from "@workspace/api-client-react";
+import {
+  useCreateBill,
+  useListPatients,
+  useListServiceCatalog,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, Receipt } from "lucide-react";
+import { Trash2, Plus, Receipt, Package, Search } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-const itemSchema = z.object({
-  description: z.string().min(1, "Required"),
-  quantity: z.coerce.number().min(1),
-  unitPrice: z.coerce.number().min(0),
-});
+interface Line {
+  serviceCode?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  gstRate: number;
+  isPackage?: boolean;
+}
 
-const formSchema = z.object({
-  patientId: z.coerce.number().min(1, "Select patient"),
-  gstMode: z.string(),
-  insuranceProvider: z.string().optional(),
-  items: z.array(itemSchema).min(1, "At least one item is required")
-});
-
-type FormValues = z.infer<typeof formSchema>;
+function inr(n: number) {
+  return `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function BillingNew() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateBill();
-  const { data: patients, isLoading: patientsLoading } = useListPatients({});
+  const { data: patients } = useListPatients({});
+  const { data: catalog } = useListServiceCatalog({});
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      patientId: 0,
-      gstMode: "intra",
-      insuranceProvider: "",
-      items: [{ description: "Consultation Fee", quantity: 1, unitPrice: 500 }],
-    },
-  });
+  const [patientId, setPatientId] = useState<number>(0);
+  const [gstMode, setGstMode] = useState<"intra" | "inter">("intra");
+  const [billDiscount, setBillDiscount] = useState<number>(0);
+  const [insuranceProvider, setInsuranceProvider] = useState("");
+  const [tpa, setTpa] = useState("");
+  const [policyNumber, setPolicyNumber] = useState("");
+  const [preAuthCode, setPreAuthCode] = useState("");
+  const [notes, setNotes] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [lines, setLines] = useState<Line[]>([
+    { description: "Consultation Fee", quantity: 1, unitPrice: 500, discount: 0, gstRate: 0 },
+  ]);
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
+  const totals = useMemo(() => {
+    const enriched = lines.map((l) => ({
+      ...l,
+      amount: Math.max(0, l.quantity * l.unitPrice - l.discount),
+    }));
+    const grossSub = enriched.reduce((s, l) => s + l.amount, 0);
+    const disc = Math.min(Math.max(billDiscount, 0), grossSub);
+    const taxableSub = grossSub - disc;
+    const scale = grossSub > 0 ? taxableSub / grossSub : 0;
+    let cgst = 0, sgst = 0, igst = 0;
+    for (const l of enriched) {
+      const taxable = l.amount * scale;
+      const rate = (l.gstRate ?? 0) / 100;
+      if (gstMode === "intra") {
+        cgst += (taxable * rate) / 2;
+        sgst += (taxable * rate) / 2;
+      } else {
+        igst += taxable * rate;
+      }
+    }
+    const total = taxableSub + cgst + sgst + igst;
+    return { enriched, grossSub, disc, taxableSub, cgst, sgst, igst, total };
+  }, [lines, billDiscount, gstMode]);
 
-  const watchItems = form.watch("items");
-  const watchGstMode = form.watch("gstMode");
+  function update(i: number, patch: Partial<Line>) {
+    setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }
+  function removeLine(i: number) {
+    setLines((ls) => ls.filter((_, idx) => idx !== i));
+  }
+  function addFromCatalog(s: { code: string; name: string; unitPrice: number; gstRate: number; isPackage?: boolean }) {
+    setLines((ls) => [
+      ...ls,
+      {
+        serviceCode: s.code,
+        description: s.name,
+        quantity: 1,
+        unitPrice: Number(s.unitPrice),
+        discount: 0,
+        gstRate: Number(s.gstRate),
+        isPackage: s.isPackage,
+      },
+    ]);
+    setCatalogOpen(false);
+  }
+  function addBlank() {
+    setLines((ls) => [...ls, { description: "", quantity: 1, unitPrice: 0, discount: 0, gstRate: 18 }]);
+  }
 
-  const subtotal = watchItems.reduce((acc, item) => acc + ((item.quantity || 0) * (item.unitPrice || 0)), 0);
-  const isIntra = watchGstMode === "intra";
-  const cgst = isIntra ? subtotal * 0.09 : 0;
-  const sgst = isIntra ? subtotal * 0.09 : 0;
-  const igst = !isIntra ? subtotal * 0.18 : 0;
-  const total = subtotal + cgst + sgst + igst;
-
-  const onSubmit = (data: FormValues) => {
-    // API schema expects amounts to be pre-calculated in items
-    const payload = {
-      ...data,
-      items: data.items.map(item => ({
-        ...item,
-        amount: item.quantity * item.unitPrice
-      }))
-    };
-
+  function submit() {
+    if (!patientId) { toast({ title: "Select a patient", variant: "destructive" }); return; }
+    if (lines.length === 0) { toast({ title: "Add at least one item", variant: "destructive" }); return; }
+    if (lines.some((l) => !l.description.trim())) {
+      toast({ title: "Every line needs a description", variant: "destructive" });
+      return;
+    }
     createMutation.mutate(
-      { data: payload },
+      {
+        data: {
+          patientId,
+          gstMode,
+          discount: totals.disc,
+          insuranceProvider: insuranceProvider || undefined,
+          tpa: tpa || undefined,
+          policyNumber: policyNumber || undefined,
+          preAuthCode: preAuthCode || undefined,
+          notes: notes || undefined,
+          items: totals.enriched.map((l) => ({
+            serviceCode: l.serviceCode,
+            description: l.description,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            discount: l.discount,
+            gstRate: l.gstRate,
+            amount: l.amount,
+          })),
+        },
+      },
       {
         onSuccess: (res) => {
-          toast({ title: "Bill created" });
+          toast({ title: `Invoice ${res.billNumber} created` });
           setLocation(`/billing/${res.id}`);
         },
-        onError: (err) => {
-          toast({ title: "Error", description: err.message, variant: "destructive" });
-        }
-      }
+        onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+      },
     );
-  };
+  }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
           <Receipt className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Create Invoice</h1>
-          <p className="text-muted-foreground">Generate a new GST-compliant bill.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Create Invoice</h1>
+          <p className="text-muted-foreground text-sm">GST-compliant cashier billing with service catalog.</p>
         </div>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Billing Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="patientId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Patient *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select patient" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {patients?.map(p => (
-                            <SelectItem key={p.id} value={p.id.toString()}>{p.name} ({p.uhid})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+      <Card>
+        <CardHeader className="pb-4"><CardTitle className="text-lg">Billing Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label>Patient *</Label>
+              <Select value={patientId ? String(patientId) : ""} onValueChange={(v) => setPatientId(Number(v))}>
+                <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
+                <SelectContent>
+                  {patients?.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name} ({p.uhid})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Tax Configuration</Label>
+              <RadioGroup value={gstMode} onValueChange={(v) => setGstMode(v as "intra" | "inter")} className="flex gap-4 mt-2">
+                <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="intra" />Intra-state (CGST+SGST)</label>
+                <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="inter" />Inter-state (IGST)</label>
+              </RadioGroup>
+            </div>
+            <div>
+              <Label>Insurance Provider</Label>
+              <Input value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)} placeholder="e.g. Star Health" />
+            </div>
+            <div>
+              <Label>TPA</Label>
+              <Input value={tpa} onChange={(e) => setTpa(e.target.value)} placeholder="e.g. MediAssist" />
+            </div>
+            <div>
+              <Label>Policy Number</Label>
+              <Input value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="POL-…" />
+            </div>
+            <div>
+              <Label>Pre-Auth Code</Label>
+              <Input value={preAuthCode} onChange={(e) => setPreAuthCode(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional internal notes" />
+          </div>
+        </CardContent>
+      </Card>
 
-                <FormField
-                  control={form.control}
-                  name="insuranceProvider"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Insurance / TPA (Optional)</FormLabel>
-                      <FormControl><Input placeholder="e.g. HDFC Ergo" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="gstMode"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel>Tax Configuration</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col space-y-1"
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-lg">Line Items</CardTitle>
+          <div className="flex gap-2">
+            <Popover open={catalogOpen} onOpenChange={setCatalogOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  <Search className="w-4 h-4 mr-2" /> Add from catalog
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[420px] p-0" align="end">
+                <Command>
+                  <CommandInput placeholder="Search service / package / code…" />
+                  <CommandList>
+                    <CommandEmpty>No matching services.</CommandEmpty>
+                    <CommandGroup heading="Catalog">
+                      {(catalog ?? []).map((s) => (
+                        <CommandItem
+                          key={s.id}
+                          value={`${s.code} ${s.name} ${s.category}`}
+                          onSelect={() => addFromCatalog(s)}
                         >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="intra" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Intra-state (CGST 9% + SGST 9%)
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="inter" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Inter-state (IGST 18%)
-                            </FormLabel>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">Line Items</CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ description: "", quantity: 1, unitPrice: 0 })}>
-                <Plus className="w-4 h-4 mr-2" /> Add Item
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="flex items-start gap-3 p-3 bg-muted/30 border border-border rounded-md">
-                    <div className="flex-1 space-y-3">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.description`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="sr-only">Description</FormLabel>
-                            <FormControl><Input placeholder="Service / Item Description" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="flex gap-3">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Qty</FormLabel>
-                              <FormControl><Input type="number" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.unitPrice`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Unit Rate (₹)</FormLabel>
-                              <FormControl><Input type="number" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="flex-1 flex flex-col justify-end pb-2">
-                          <span className="text-sm font-medium text-right">
-                            ₹{((watchItems[index]?.quantity || 0) * (watchItems[index]?.unitPrice || 0)).toLocaleString('en-IN')}
-                          </span>
-                        </div>
-                      </div>
+                          {s.isPackage ? <Package className="w-4 h-4 mr-2 text-amber-600" /> : <Receipt className="w-4 h-4 mr-2 text-muted-foreground" />}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{s.name}</div>
+                            <div className="text-[11px] text-muted-foreground">{s.code} • {s.category} • GST {Number(s.gstRate)}%</div>
+                          </div>
+                          <div className="font-mono text-sm ml-2">{inr(Number(s.unitPrice))}</div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Button type="button" variant="outline" size="sm" onClick={addBlank}>
+              <Plus className="w-4 h-4 mr-2" /> Blank line
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {lines.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-4">No items added yet.</div>
+            )}
+            {lines.map((l, i) => {
+              const amount = Math.max(0, l.quantity * l.unitPrice - l.discount);
+              return (
+                <div key={i} className="grid grid-cols-12 gap-2 items-end p-2 bg-muted/30 rounded-md">
+                  <div className="col-span-12 md:col-span-4">
+                    <Label className="text-[10px] uppercase">Description</Label>
+                    <div className="flex items-center gap-2">
+                      <Input value={l.description} onChange={(e) => update(i, { description: e.target.value })} />
+                      {l.isPackage && <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-700">PKG</Badge>}
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive mt-1 shrink-0" onClick={() => remove(index)}>
+                  </div>
+                  <div className="col-span-3 md:col-span-1">
+                    <Label className="text-[10px] uppercase">Qty</Label>
+                    <Input type="number" min={1} value={l.quantity} onChange={(e) => update(i, { quantity: Number(e.target.value) || 0 })} />
+                  </div>
+                  <div className="col-span-3 md:col-span-2">
+                    <Label className="text-[10px] uppercase">Rate ₹</Label>
+                    <Input type="number" min={0} value={l.unitPrice} onChange={(e) => update(i, { unitPrice: Number(e.target.value) || 0 })} />
+                  </div>
+                  <div className="col-span-3 md:col-span-2">
+                    <Label className="text-[10px] uppercase">Discount ₹</Label>
+                    <Input type="number" min={0} value={l.discount} onChange={(e) => update(i, { discount: Number(e.target.value) || 0 })} />
+                  </div>
+                  <div className="col-span-3 md:col-span-1">
+                    <Label className="text-[10px] uppercase">GST %</Label>
+                    <Input type="number" min={0} max={28} value={l.gstRate} onChange={(e) => update(i, { gstRate: Number(e.target.value) || 0 })} />
+                  </div>
+                  <div className="col-span-9 md:col-span-1 text-right">
+                    <Label className="text-[10px] uppercase">Amount</Label>
+                    <div className="text-sm font-semibold pt-2">{inr(amount)}</div>
+                  </div>
+                  <div className="col-span-3 md:col-span-1 flex justify-end">
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeLine(i)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="bg-muted/10 border-t border-border flex justify-end p-6">
-              <div className="w-64 space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
-                {isIntra ? (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">CGST (9%)</span>
-                      <span>₹{cgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">SGST (9%)</span>
-                      <span>₹{sgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">IGST (18%)</span>
-                    <span>₹{igst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-3 border-t border-border font-bold text-lg">
-                  <span>Total</span>
-                  <span className="text-primary">₹{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            </CardFooter>
-          </Card>
-
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setLocation("/billing")}>Cancel</Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Generating..." : "Generate Invoice"}
-            </Button>
+              );
+            })}
           </div>
-        </form>
-      </Form>
+        </CardContent>
+        <CardFooter className="bg-muted/10 border-t border-border flex flex-col md:flex-row justify-between gap-4 p-6">
+          <div className="w-full md:w-64 space-y-2">
+            <Label className="text-xs">Bill-level Discount (₹)</Label>
+            <Input type="number" min={0} value={billDiscount} onChange={(e) => setBillDiscount(Number(e.target.value) || 0)} />
+            <p className="text-[11px] text-muted-foreground">Applied to subtotal before GST.</p>
+          </div>
+          <div className="w-full md:w-72 space-y-2 text-sm">
+            <Row label="Subtotal" value={inr(totals.grossSub)} />
+            {totals.disc > 0 && <Row label="Bill Discount" value={"− " + inr(totals.disc)} muted />}
+            {totals.cgst > 0 && <Row label="CGST" value={inr(totals.cgst)} muted />}
+            {totals.sgst > 0 && <Row label="SGST" value={inr(totals.sgst)} muted />}
+            {totals.igst > 0 && <Row label="IGST" value={inr(totals.igst)} muted />}
+            <div className="flex justify-between pt-2 border-t border-border font-bold text-lg">
+              <span>Total</span>
+              <span className="text-primary">{inr(totals.total)}</span>
+            </div>
+          </div>
+        </CardFooter>
+      </Card>
+
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => setLocation("/billing")}>Cancel</Button>
+        <Button onClick={submit} disabled={createMutation.isPending}>
+          {createMutation.isPending ? "Generating…" : "Generate Invoice"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="flex justify-between">
+      <span className={muted ? "text-muted-foreground" : ""}>{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
 }

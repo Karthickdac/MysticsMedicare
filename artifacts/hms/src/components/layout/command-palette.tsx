@@ -14,7 +14,7 @@ import {
   Activity, Users, Calendar, Clock, BedDouble, TestTube, Cross,
   ShieldPlus, IndianRupee, Package, Scissors, Syringe, FileSignature,
   ClipboardCheck, Video, MessageSquare, ListTree, UserCog, Settings,
-  Bell, UserPlus, FilePlus2, Stethoscope, CalendarPlus,
+  Bell, UserPlus, FilePlus2, Stethoscope, CalendarPlus, Wallet, BarChart3,
 } from "lucide-react";
 
 type NavCmd = {
@@ -38,6 +38,8 @@ const NAV: NavCmd[] = [
   { label: "Pharmacy", href: "/pharmacy", icon: ShieldPlus, section: "Navigate", roles: ["admin", "pharmacist", "doctor"] },
   { label: "Prescriptions", href: "/prescriptions", icon: ClipboardCheck, section: "Navigate", roles: ["admin", "doctor", "pharmacist", "nurse"] },
   { label: "Billing", href: "/billing", icon: IndianRupee, section: "Navigate", keywords: "invoice gst", roles: ["admin", "accountant", "cashier", "receptionist"] },
+  { label: "Cashier Drawer", href: "/billing/cashier", icon: Wallet, section: "Navigate", keywords: "cash session shift close", roles: ["admin", "accountant", "cashier"] },
+  { label: "Billing Reports", href: "/billing/reports", icon: BarChart3, section: "Navigate", keywords: "gstr1 collections outstanding csv", roles: ["admin", "accountant"] },
   { label: "Inventory", href: "/inventory", icon: Package, section: "Navigate", roles: ["admin", "pharmacist"] },
   { label: "OT Bookings", href: "/ot", icon: Scissors, section: "Navigate", keywords: "operation theatre surgery", roles: ["admin", "doctor", "nurse"] },
   { label: "Vaccinations", href: "/vaccinations", icon: Syringe, section: "Navigate", roles: ["admin", "doctor", "nurse"] },

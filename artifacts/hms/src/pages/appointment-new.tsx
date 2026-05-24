@@ -48,6 +48,12 @@ export default function AppointmentNew() {
     [staff],
   );
 
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of doctors) if (d.department) set.add(d.department);
+    return Array.from(set).sort();
+  }, [doctors]);
+
   // Prefill from query string so other pages can deep-link a follow-up booking
   // (e.g. encounter-detail's "Schedule follow-up" button passes patientId &
   // doctorId & reason). Default the visit time +7 days when prefilled.
@@ -74,16 +80,25 @@ export default function AppointmentNew() {
     },
   });
 
-  function onDoctorChange(id: string) {
-    form.setValue("doctorId", Number(id));
-    const doc = doctors.find((d) => d.id === Number(id));
-    if (doc?.department) form.setValue("department", doc.department);
+  const selectedDepartment = form.watch("department");
+  const selectedDoctorId = form.watch("doctorId");
+  const doctorsInDepartment = useMemo(
+    () => (selectedDepartment ? doctors.filter((d) => d.department === selectedDepartment) : []),
+    [doctors, selectedDepartment],
+  );
+
+  function onDepartmentChange(dept: string) {
+    form.setValue("department", dept);
+    // Clear doctor selection if current pick isn't in the new department.
+    const current = doctors.find((d) => d.id === form.getValues("doctorId"));
+    if (!current || current.department !== dept) {
+      form.setValue("doctorId", 0);
+    }
   }
 
   // When deep-linked with ?doctorId=… the doctors list usually loads *after*
-  // the form initializes, so onDoctorChange never fires. Auto-derive the
-  // department once the roster lands to keep follow-up bookings valid without
-  // manual touch.
+  // the form initializes. Auto-derive the department from the prefilled doctor
+  // so the dependent doctor dropdown shows the right options.
   useEffect(() => {
     const docId = form.getValues("doctorId");
     if (!docId || form.getValues("department")) return;
@@ -162,22 +177,22 @@ export default function AppointmentNew() {
 
                 <FormField
                   control={form.control}
-                  name="doctorId"
+                  name="department"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Doctor *</FormLabel>
+                      <FormLabel>Department *</FormLabel>
                       <Select
-                        onValueChange={onDoctorChange}
-                        defaultValue={field.value ? String(field.value) : undefined}
+                        onValueChange={onDepartmentChange}
+                        value={field.value || undefined}
                       >
                         <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger>
+                          <SelectTrigger>
+                            <SelectValue placeholder={departments.length === 0 ? "No departments available" : "Select department"} />
+                          </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {doctors.map((d) => (
-                            <SelectItem key={d.id} value={String(d.id)}>
-                              {d.name} · {d.department}
-                            </SelectItem>
+                          {departments.map((d) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -188,11 +203,30 @@ export default function AppointmentNew() {
 
                 <FormField
                   control={form.control}
-                  name="department"
+                  name="doctorId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Department *</FormLabel>
-                      <FormControl><Input placeholder="e.g. Cardiology" {...field} /></FormControl>
+                      <FormLabel>Doctor *</FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(Number(v))}
+                        value={selectedDoctorId ? String(selectedDoctorId) : undefined}
+                        disabled={!selectedDepartment}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !selectedDepartment ? "Select a department first" :
+                              doctorsInDepartment.length === 0 ? "No doctors in this department" :
+                              "Select doctor"
+                            } />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {doctorsInDepartment.map((d) => (
+                            <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

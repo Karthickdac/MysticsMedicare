@@ -723,6 +723,248 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Bill" }
+  /bills/{id}/full:
+    get:
+      operationId: getBillFull
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Bill with payments and refunds
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillFull" }
+  /bills/{id}/payments:
+    get:
+      operationId: listBillPayments
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Payment" }
+    post:
+      operationId: recordPayment
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentInput" }
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+  /bills/{id}/refunds:
+    post:
+      operationId: recordRefund
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefundInput" }
+      responses:
+        "201":
+          description: Refund recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refund" }
+  /bills/{id}/void:
+    post:
+      operationId: voidBill
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoidInput" }
+      responses:
+        "200":
+          description: Voided
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Bill" }
+  /bills/{id}/claim:
+    post:
+      operationId: updateBillClaim
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimUpdateInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Bill" }
+
+  /service-catalog:
+    get:
+      operationId: listServiceCatalog
+      tags: [billing]
+      parameters:
+        - { in: query, name: category, schema: { type: string } }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: includeInactive, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ServiceCatalogItem" }
+    post:
+      operationId: createServiceCatalogItem
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceCatalogInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceCatalogItem" }
+  /service-catalog/{id}:
+    patch:
+      operationId: updateServiceCatalogItem
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceCatalogUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceCatalogItem" }
+
+  /cashier/sessions:
+    get:
+      operationId: listCashierSessions
+      tags: [billing]
+      parameters:
+        - { in: query, name: status, schema: { type: string } }
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CashierSession" }
+    post:
+      operationId: openCashierSession
+      tags: [billing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OpenSessionInput" }
+      responses:
+        "201":
+          description: Opened
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CashierSession" }
+  /cashier/sessions/{id}:
+    get:
+      operationId: getCashierSession
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CashierSession" }
+  /cashier/sessions/{id}/close:
+    post:
+      operationId: closeCashierSession
+      tags: [billing]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CloseSessionInput" }
+      responses:
+        "200":
+          description: Closed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CashierSession" }
+
+  /reports/collections:
+    get:
+      operationId: getCollectionsReport
+      tags: [billing]
+      parameters:
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CollectionsReportRow" }
+  /reports/gstr1:
+    get:
+      operationId: getGstr1Report
+      tags: [billing]
+      parameters:
+        - { in: query, name: from, schema: { type: string } }
+        - { in: query, name: to, schema: { type: string } }
+      responses:
+        "200":
+          description: GSTR-1
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Gstr1Row" }
+  /reports/outstanding:
+    get:
+      operationId: getOutstandingReport
+      tags: [billing]
+      responses:
+        "200":
+          description: Outstanding
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OutstandingRow" }
 
   /inventory:
     get:
@@ -1776,20 +2018,33 @@ components:
 
     Bill:
       type: object
-      required: [id, patientId, patientName, billNumber, subtotal, cgst, sgst, igst, total, status, createdAt, items]
+      required: [id, patientId, patientName, billNumber, subtotal, discount, cgst, sgst, igst, total, paidAmount, refundedAmount, balance, status, gstMode, claimStatus, claimAmount, createdAt, items]
       properties:
         id: { type: integer }
         patientId: { type: integer }
         patientName: { type: string }
         billNumber: { type: string }
         subtotal: { type: number }
+        discount: { type: number }
         cgst: { type: number }
         sgst: { type: number }
         igst: { type: number }
         total: { type: number }
+        paidAmount: { type: number }
+        refundedAmount: { type: number }
+        balance: { type: number }
         status: { type: string }
+        gstMode: { type: string }
         paymentMethod: { type: ["string", "null"] }
         insuranceProvider: { type: ["string", "null"] }
+        tpa: { type: ["string", "null"] }
+        policyNumber: { type: ["string", "null"] }
+        preAuthCode: { type: ["string", "null"] }
+        claimStatus: { type: string }
+        claimAmount: { type: number }
+        notes: { type: ["string", "null"] }
+        voidedAt: { type: ["string", "null"] }
+        voidReason: { type: ["string", "null"] }
         createdAt: { type: string }
         paidAt: { type: ["string", "null"] }
         items:
@@ -1799,9 +2054,15 @@ components:
       type: object
       required: [description, quantity, unitPrice, amount]
       properties:
+        serviceCode: { type: string }
         description: { type: string }
-        quantity: { type: integer }
+        quantity: { type: number }
         unitPrice: { type: number }
+        discount: { type: number }
+        gstRate: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
         amount: { type: number }
     BillInput:
       type: object
@@ -1809,10 +2070,191 @@ components:
       properties:
         patientId: { type: integer }
         gstMode: { type: string }
+        discount: { type: number }
         insuranceProvider: { type: string }
+        tpa: { type: string }
+        policyNumber: { type: string }
+        preAuthCode: { type: string }
+        notes: { type: string }
         items:
           type: array
           items: { $ref: "#/components/schemas/BillItem" }
+    Payment:
+      type: object
+      required: [id, billId, receiptNumber, amount, mode, receivedAt]
+      properties:
+        id: { type: integer }
+        billId: { type: integer }
+        receiptNumber: { type: string }
+        amount: { type: number }
+        mode: { type: string }
+        reference: { type: ["string", "null"] }
+        receivedBy: { type: ["string", "null"] }
+        cashierSessionId: { type: ["integer", "null"] }
+        notes: { type: ["string", "null"] }
+        receivedAt: { type: string }
+    PaymentInput:
+      type: object
+      required: [amount, mode]
+      properties:
+        amount: { type: number }
+        mode: { type: string }
+        reference: { type: string }
+        notes: { type: string }
+    Refund:
+      type: object
+      required: [id, billId, amount, mode, reason, refundedAt]
+      properties:
+        id: { type: integer }
+        billId: { type: integer }
+        paymentId: { type: ["integer", "null"] }
+        amount: { type: number }
+        mode: { type: string }
+        reason: { type: string }
+        approvedBy: { type: ["string", "null"] }
+        refundedAt: { type: string }
+    RefundInput:
+      type: object
+      required: [amount, reason, mode]
+      properties:
+        paymentId: { type: integer }
+        amount: { type: number }
+        mode: { type: string }
+        reason: { type: string }
+    VoidInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+    ClaimUpdateInput:
+      type: object
+      required: [claimStatus]
+      properties:
+        claimStatus: { type: string }
+        claimAmount: { type: number }
+        tpa: { type: string }
+        policyNumber: { type: string }
+        preAuthCode: { type: string }
+    BillFull:
+      type: object
+      required: [bill, payments, refunds]
+      properties:
+        bill: { $ref: "#/components/schemas/Bill" }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/Payment" }
+        refunds:
+          type: array
+          items: { $ref: "#/components/schemas/Refund" }
+    ServiceCatalogItem:
+      type: object
+      required: [id, code, name, category, unitPrice, gstRate, isPackage, isActive]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
+        department: { type: ["string", "null"] }
+        unitPrice: { type: number }
+        gstRate: { type: number }
+        hsnSac: { type: ["string", "null"] }
+        isPackage: { type: boolean }
+        isActive: { type: boolean }
+    ServiceCatalogInput:
+      type: object
+      required: [code, name, category, unitPrice]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
+        department: { type: string }
+        unitPrice: { type: number }
+        gstRate: { type: number }
+        hsnSac: { type: string }
+        isPackage: { type: boolean }
+        isActive: { type: boolean }
+    ServiceCatalogUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        category: { type: string }
+        department: { type: string }
+        unitPrice: { type: number }
+        gstRate: { type: number }
+        hsnSac: { type: string }
+        isPackage: { type: boolean }
+        isActive: { type: boolean }
+    CashierSession:
+      type: object
+      required: [id, cashierUserId, cashierName, openingCash, status, openedAt]
+      properties:
+        id: { type: integer }
+        cashierUserId: { type: integer }
+        cashierName: { type: string }
+        openingCash: { type: number }
+        closingCash: { type: ["number", "null"] }
+        expectedCash: { type: ["number", "null"] }
+        variance: { type: ["number", "null"] }
+        status: { type: string }
+        notes: { type: ["string", "null"] }
+        openedAt: { type: string }
+        closedAt: { type: ["string", "null"] }
+        collectionsByMode:
+          type: array
+          items:
+            type: object
+            required: [mode, amount, count]
+            properties:
+              mode: { type: string }
+              amount: { type: number }
+              count: { type: integer }
+        refundsTotal: { type: number }
+    OpenSessionInput:
+      type: object
+      required: [openingCash]
+      properties:
+        openingCash: { type: number }
+        notes: { type: string }
+    CloseSessionInput:
+      type: object
+      required: [closingCash]
+      properties:
+        closingCash: { type: number }
+        notes: { type: string }
+    CollectionsReportRow:
+      type: object
+      required: [date, mode, amount, count]
+      properties:
+        date: { type: string }
+        mode: { type: string }
+        amount: { type: number }
+        count: { type: integer }
+    Gstr1Row:
+      type: object
+      required: [billNumber, date, patientName, subtotal, discount, cgst, sgst, igst, total, gstMode]
+      properties:
+        billNumber: { type: string }
+        date: { type: string }
+        patientName: { type: string }
+        subtotal: { type: number }
+        discount: { type: number }
+        cgst: { type: number }
+        sgst: { type: number }
+        igst: { type: number }
+        total: { type: number }
+        gstMode: { type: string }
+    OutstandingRow:
+      type: object
+      required: [billNumber, date, patientName, total, paidAmount, balance, ageDays, status]
+      properties:
+        billNumber: { type: string }
+        date: { type: string }
+        patientName: { type: string }
+        total: { type: number }
+        paidAmount: { type: number }
+        balance: { type: number }
+        ageDays: { type: integer }
+        status: { type: string }
 
     InventoryItem:
       type: object
