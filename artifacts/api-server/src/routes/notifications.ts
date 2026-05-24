@@ -9,8 +9,10 @@ import {
 } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { NOTIFICATION_EVENTS, renderTemplate, sendNotification } from "../lib/notifications";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
+const adminOnly = requireRole("admin");
 
 function shapeTemplate(t: typeof notificationTemplatesTable.$inferSelect) {
   return {
@@ -44,7 +46,7 @@ function shapeLog(l: typeof notificationLogTable.$inferSelect, p?: typeof patien
   };
 }
 
-router.get("/notifications/templates", async (req, res) => {
+router.get("/notifications/templates", adminOnly, async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
   if (req.query.eventKey) conds.push(eq(notificationTemplatesTable.eventKey, String(req.query.eventKey)));
   if (req.query.channel) conds.push(eq(notificationTemplatesTable.channel, String(req.query.channel)));
@@ -56,7 +58,7 @@ router.get("/notifications/templates", async (req, res) => {
   res.json(rows.map(shapeTemplate));
 });
 
-router.post("/notifications/templates", async (req, res) => {
+router.post("/notifications/templates", adminOnly, async (req, res) => {
   const parsed = CreateNotificationTemplateBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -74,14 +76,14 @@ router.post("/notifications/templates", async (req, res) => {
   res.status(201).json(shapeTemplate(row));
 });
 
-router.get("/notifications/templates/:id", async (req, res) => {
+router.get("/notifications/templates/:id", adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.select().from(notificationTemplatesTable).where(eq(notificationTemplatesTable.id, id));
   if (!row) return res.status(404).json({ error: "Not found" });
   res.json(shapeTemplate(row));
 });
 
-router.patch("/notifications/templates/:id", async (req, res) => {
+router.patch("/notifications/templates/:id", adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateNotificationTemplateBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -94,7 +96,7 @@ router.patch("/notifications/templates/:id", async (req, res) => {
   res.json(shapeTemplate(row));
 });
 
-router.delete("/notifications/templates/:id", async (req, res) => {
+router.delete("/notifications/templates/:id", adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(notificationTemplatesTable).where(eq(notificationTemplatesTable.id, id));
   res.status(204).send();
@@ -105,10 +107,10 @@ async function previewHandler(req: import("express").Request, res: import("expre
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   res.json({ rendered: renderTemplate(parsed.data.bodyTemplate, parsed.data.variables) });
 }
-router.post("/notifications/templates/preview", previewHandler);
-router.post("/notifications/test-template", previewHandler);
+router.post("/notifications/templates/preview", adminOnly, previewHandler);
+router.post("/notifications/test-template", adminOnly, previewHandler);
 
-router.post("/notifications/send", async (req, res) => {
+router.post("/notifications/send", adminOnly, async (req, res) => {
   const parsed = SendNotificationBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const log = await sendNotification(parsed.data);
@@ -116,7 +118,7 @@ router.post("/notifications/send", async (req, res) => {
   res.status(201).json(shapeLog(log, p));
 });
 
-router.get("/notifications/log", async (req, res) => {
+router.get("/notifications/log", adminOnly, async (req, res) => {
   const { gte, lte } = await import("drizzle-orm");
   const conds = [] as unknown[];
   if (req.query.patientId) conds.push(eq(notificationLogTable.patientId, Number(req.query.patientId)));
@@ -138,7 +140,7 @@ router.get("/notifications/log", async (req, res) => {
   res.json(rows.map((r) => shapeLog(r.l, r.p)));
 });
 
-router.get("/notifications/log/:id", async (req, res) => {
+router.get("/notifications/log/:id", adminOnly, async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({ l: notificationLogTable, p: patientsTable })

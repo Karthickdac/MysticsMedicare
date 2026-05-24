@@ -19,6 +19,8 @@ import {
   queueTokensTable,
   billsTable,
   notificationTemplatesTable,
+  notificationLogTable,
+  videoRecordingsTable,
 } from "@workspace/db";
 import { NOTIFICATION_EVENTS } from "../lib/notifications";
 import { hashPassword } from "../lib/auth";
@@ -26,7 +28,9 @@ import { hashPassword } from "../lib/auth";
 async function main() {
   console.log("Seeding database...");
 
+  await db.delete(notificationLogTable);
   await db.delete(notificationTemplatesTable);
+  await db.delete(videoRecordingsTable);
   await db.delete(queueTokensTable);
   await db.delete(rosterShiftsTable);
   await db.delete(checkupPackagesTable);
@@ -424,6 +428,27 @@ async function main() {
   }
   await db.insert(notificationTemplatesTable).values(tpls);
   console.log(`✓ ${tpls.length} notification templates`);
+
+  // ============= VIDEO RECORDINGS (OPD/IPD samples) =============
+  const videoRows = [];
+  for (let i = 0; i < 8; i++) {
+    const enc = encRows[i % encRows.length];
+    videoRows.push({
+      patientId: enc.patientId,
+      encounterId: enc.id,
+      encounterType: enc.type,
+      title: `${enc.type.toUpperCase()} consultation recording #${i + 1}`,
+      description: "Consent given by patient; reviewed by attending physician.",
+      fileUrl: `/objects/uploads/seed-video-${i + 1}.webm`,
+      mimeType: "video/webm",
+      durationSeconds: (180 + Math.floor(Math.random() * 600)).toString(),
+      fileSize: 1024 * 1024 * (5 + Math.floor(Math.random() * 40)),
+      recordedBy: "Dr. Arjun Mehta",
+      thumbnailUrl: null,
+    });
+  }
+  await db.insert(videoRecordingsTable).values(videoRows);
+  console.log(`✓ ${videoRows.length} video recordings`);
 
   console.log("\nSeeding complete!\nLogin credentials:");
   for (const u of userRows) console.log(`  ${u.email} / ${u.password}`);

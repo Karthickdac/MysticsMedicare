@@ -177,7 +177,7 @@ export default function Inventory() {
                 </TableRow>
               ) : (
                 items?.map(item => {
-                  const isLowStock = item.reorderLevel !== null && item.quantity <= item.reorderLevel;
+                  const isLowStock = item.reorderLevel != null && item.quantity <= item.reorderLevel;
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">{item.sku || "-"}</TableCell>

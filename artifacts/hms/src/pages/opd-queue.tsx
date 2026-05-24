@@ -12,9 +12,9 @@ export default function OpdQueue() {
   const callMutation = useCallNextToken();
   const queryClient = useQueryClient();
 
-  const handleCallNext = (tokenId: number) => {
+  const handleCallNext = (_tokenId: number) => {
     callMutation.mutate(
-      { id: tokenId },
+      undefined,
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetOpdQueueQueryKey() });

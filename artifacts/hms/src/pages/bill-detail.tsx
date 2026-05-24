@@ -27,7 +27,7 @@ export default function BillDetail() {
 
   const handleMarkPaid = () => {
     payMutation.mutate(
-      { id: billId, data: { paymentMethod: "cash" } },
+      { id: billId },
       {
         onSuccess: () => {
           toast({ title: "Payment recorded" });
