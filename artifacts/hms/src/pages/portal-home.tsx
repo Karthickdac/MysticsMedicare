@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import {
   Calendar, Stethoscope, Receipt, ArrowRight, FileText, Bell, AlertCircle, Plus, X, Pencil, FlaskConical, Scan, Download, Share2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   PortalShell, useApi, portalApi, fmtDateTime, fmtDate, formatINR,
-  formatWorkingHoursHint, formatHolidayHint, closedReasonFor,
+  formatWorkingHoursHint, formatHolidayHint, closedReasonFor, makeClosedDayMatcher,
 } from "./portal-shell";
 import type { PortalMe, PublicHospitalSettings } from "./portal-shell";
 
@@ -369,6 +370,7 @@ function RescheduleDialog({ appt, onClose, onDone }: { appt: Appt | null; onClos
   const hoursHint = formatWorkingHoursHint(settings?.workingHours);
   const holidayHint = formatHolidayHint(settings?.holidays);
   const closedReason = closedReasonFor(settings, date);
+  const closedMatcher = useMemo(() => makeClosedDayMatcher(settings), [settings]);
 
   useEffect(() => {
     if (appt) {
@@ -405,8 +407,14 @@ function RescheduleDialog({ appt, onClose, onDone }: { appt: Appt | null; onClos
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="reschedule-date">Date</Label>
+              <DatePicker
+                id="reschedule-date"
+                value={date}
+                onChange={setDate}
+                disabled={closedMatcher}
+                ariaLabel="Pick a new date"
+              />
             </div>
             <div>
               <Label>Time</Label>
@@ -455,6 +463,8 @@ export function PortalBook() {
   const hoursHint = formatWorkingHoursHint(settings?.workingHours);
   const holidayHint = formatHolidayHint(settings?.holidays);
   const clientClosedReason = closedReasonFor(settings, date);
+  const closedMatcher = useMemo(() => makeClosedDayMatcher(settings), [settings]);
+  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
 
   const chosenDoctor = doctors?.find((d) => String(d.id) === doctorId);
   const department = chosenDoctor?.department ?? "";
@@ -516,8 +526,15 @@ export function PortalBook() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Date</Label>
-                  <Input type="date" value={date} min={new Date().toISOString().slice(0, 10)} onChange={(e) => { setDate(e.target.value); setTime(""); }} />
+                  <Label htmlFor="book-date">Date</Label>
+                  <DatePicker
+                    id="book-date"
+                    value={date}
+                    onChange={(d) => { setDate(d); setTime(""); }}
+                    disabled={closedMatcher}
+                    minDate={today}
+                    ariaLabel="Pick an appointment date"
+                  />
                 </div>
                 <div>
                   <Label>Time</Label>

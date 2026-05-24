@@ -9,6 +9,8 @@ import {
   useListStaff,
   useGetPublicHospitalSettings,
 } from "@workspace/api-client-react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { makeClosedDayMatcher, type PublicHospitalSettings } from "./portal-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -64,6 +66,12 @@ export default function AppointmentNew() {
     if (hs.length === 0) return null;
     return hs.slice(0, 5).map((h) => `${h.date}${h.label ? ` (${h.label})` : ""}`).join(", ");
   }, [settings]);
+
+  const closedMatcher = useMemo(
+    () => makeClosedDayMatcher(settings as PublicHospitalSettings | undefined),
+    [settings],
+  );
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
 
   const doctors = useMemo(
     () => (staff ?? []).filter((s) => s.role === "doctor" && s.status !== "inactive"),
@@ -257,23 +265,43 @@ export default function AppointmentNew() {
                 <FormField
                   control={form.control}
                   name="scheduledAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date & time *</FormLabel>
-                      <FormControl><Input type="datetime-local" {...field} /></FormControl>
-                      {workingHoursHint && (
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                          Hours: {workingHoursHint}
-                        </p>
-                      )}
-                      {holidayHint && (
-                        <p className="text-[11px] text-muted-foreground">
-                          Upcoming holidays: {holidayHint}
-                        </p>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const [datePart, timePart] = (field.value ?? "").split("T");
+                    const setBoth = (d: string, t: string) =>
+                      field.onChange(d ? `${d}T${t || "09:00"}` : "");
+                    return (
+                      <FormItem>
+                        <FormLabel>Date & time *</FormLabel>
+                        <div className="grid grid-cols-2 gap-2">
+                          <FormControl>
+                            <DatePicker
+                              value={datePart ?? ""}
+                              onChange={(d) => setBoth(d, timePart ?? "")}
+                              disabled={closedMatcher}
+                              minDate={today}
+                              ariaLabel="Pick appointment date"
+                            />
+                          </FormControl>
+                          <Input
+                            type="time"
+                            value={timePart ?? ""}
+                            onChange={(e) => setBoth(datePart ?? "", e.target.value)}
+                          />
+                        </div>
+                        {workingHoursHint && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Hours: {workingHoursHint}
+                          </p>
+                        )}
+                        {holidayHint && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Upcoming holidays: {holidayHint}
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
 

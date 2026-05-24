@@ -66,6 +66,26 @@ export function formatHolidayHint(
   return hs.slice(0, 5).map((h) => `${h.date}${h.label ? ` (${h.label})` : ""}`).join(", ");
 }
 
+// Returns a predicate that matches dates the hospital is closed on (holiday
+// or a DOW marked closed in workingHours). Designed to be passed straight
+// to react-day-picker's `disabled` prop so closed days render greyed-out
+// inside the calendar instead of only failing after the user picks them.
+export function makeClosedDayMatcher(
+  settings: PublicHospitalSettings | null | undefined,
+): (date: Date) => boolean {
+  const closedDows = new Set<number>();
+  const wh = settings?.workingHours ?? {};
+  DAY_KEYS.forEach((k, i) => { if (wh[k]?.closed) closedDows.add(i); });
+  const holidaySet = new Set((settings?.holidays ?? []).map((h) => h.date));
+  return (date: Date) => {
+    if (closedDows.has(date.getDay())) return true;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return holidaySet.has(`${y}-${m}-${d}`);
+  };
+}
+
 // Returns a reason string if the hospital is closed on the given YYYY-MM-DD,
 // otherwise null. Used to short-circuit submit before round-tripping to the
 // server (which returns a generic 400 on closed days).
