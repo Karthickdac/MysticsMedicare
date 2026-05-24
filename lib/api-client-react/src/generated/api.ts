@@ -42,6 +42,7 @@ import type {
   EncounterInput,
   EncounterUpdate,
   ErrorEnvelope,
+  GetOpdQueueParams,
   HealthStatus,
   InventoryItem,
   InventoryItemInput,
@@ -75,6 +76,7 @@ import type {
   PatientUpdate,
   Prescription,
   PrescriptionInput,
+  QueueStats,
   QueueToken,
   RadiologyOrder,
   RadiologyOrderInput,
@@ -4042,17 +4044,24 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateRosterShiftMutationOptions(options));
     }
 
-export const getGetOpdQueueUrl = () => {
+export const getGetOpdQueueUrl = (params?: GetOpdQueueParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/queue/opd`
+  return stringifiedParams.length > 0 ? `/api/queue/opd?${stringifiedParams}` : `/api/queue/opd`
 }
 
-export const getOpdQueue = async ( options?: RequestInit): Promise<QueueToken[]> => {
+export const getOpdQueue = async (params?: GetOpdQueueParams, options?: RequestInit): Promise<QueueToken[]> => {
 
-  return customFetch<QueueToken[]>(getGetOpdQueueUrl(),
+  return customFetch<QueueToken[]>(getGetOpdQueueUrl(params),
   {
     ...options,
     method: 'GET'
@@ -4065,23 +4074,23 @@ export const getOpdQueue = async ( options?: RequestInit): Promise<QueueToken[]>
 
 
 
-export const getGetOpdQueueQueryKey = () => {
+export const getGetOpdQueueQueryKey = (params?: GetOpdQueueParams,) => {
     return [
-    `/api/queue/opd`
+    `/api/queue/opd`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetOpdQueueQueryOptions = <TData = Awaited<ReturnType<typeof getOpdQueue>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpdQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetOpdQueueQueryOptions = <TData = Awaited<ReturnType<typeof getOpdQueue>>, TError = ErrorType<unknown>>(params?: GetOpdQueueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpdQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetOpdQueueQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetOpdQueueQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpdQueue>>> = ({ signal }) => getOpdQueue({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpdQueue>>> = ({ signal }) => getOpdQueue(params, { signal, ...requestOptions });
 
 
 
@@ -4096,11 +4105,11 @@ export type GetOpdQueueQueryError = ErrorType<unknown>
 
 
 export function useGetOpdQueue<TData = Awaited<ReturnType<typeof getOpdQueue>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpdQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetOpdQueueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpdQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetOpdQueueQueryOptions(options)
+  const queryOptions = getGetOpdQueueQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -4112,6 +4121,143 @@ export function useGetOpdQueue<TData = Awaited<ReturnType<typeof getOpdQueue>>, 
 
 
 
+
+export const getGetOpdQueueStatsUrl = () => {
+
+
+
+
+  return `/api/queue/opd/stats`
+}
+
+export const getOpdQueueStats = async ( options?: RequestInit): Promise<QueueStats> => {
+
+  return customFetch<QueueStats>(getGetOpdQueueStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOpdQueueStatsQueryKey = () => {
+    return [
+    `/api/queue/opd/stats`
+    ] as const;
+    }
+
+
+export const getGetOpdQueueStatsQueryOptions = <TData = Awaited<ReturnType<typeof getOpdQueueStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpdQueueStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpdQueueStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpdQueueStats>>> = ({ signal }) => getOpdQueueStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpdQueueStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOpdQueueStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getOpdQueueStats>>>
+export type GetOpdQueueStatsQueryError = ErrorType<unknown>
+
+
+
+export function useGetOpdQueueStats<TData = Awaited<ReturnType<typeof getOpdQueueStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpdQueueStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOpdQueueStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getTokenActionUrl = (id: number,
+    action: 'call' | 'recall' | 'skip' | 'complete',) => {
+
+
+
+
+  return `/api/queue/opd/${id}/${action}`
+}
+
+export const tokenAction = async (id: number,
+    action: 'call' | 'recall' | 'skip' | 'complete', options?: RequestInit): Promise<QueueToken> => {
+
+  return customFetch<QueueToken>(getTokenActionUrl(id,action),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTokenActionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tokenAction>>, TError,{id: number;action: 'call' | 'recall' | 'skip' | 'complete'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tokenAction>>, TError,{id: number;action: 'call' | 'recall' | 'skip' | 'complete'}, TContext> => {
+
+const mutationKey = ['tokenAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tokenAction>>, {id: number;action: 'call' | 'recall' | 'skip' | 'complete'}> = (props) => {
+          const {id,action} = props ?? {};
+
+          return  tokenAction(id,action,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TokenActionMutationResult = NonNullable<Awaited<ReturnType<typeof tokenAction>>>
+
+    export type TokenActionMutationError = ErrorType<unknown>
+
+    export const useTokenAction = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tokenAction>>, TError,{id: number;action: 'call' | 'recall' | 'skip' | 'complete'}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tokenAction>>,
+        TError,
+        {id: number;action: 'call' | 'recall' | 'skip' | 'complete'},
+        TContext
+      > => {
+      return useMutation(getTokenActionMutationOptions(options));
+    }
 
 export const getCallNextTokenUrl = () => {
 

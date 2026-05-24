@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, queueTokensTable, patientsTable } from "@workspace/db";
-import { asc, eq, and } from "drizzle-orm";
+import { asc, eq, and, gte } from "drizzle-orm";
 import { isoDate, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
@@ -51,14 +51,54 @@ router.get("/queue/opd/:id/position", async (req, res) => {
   res.json({ tokenId: id, tokenNumber: target.tokenNumber, status: target.status, ahead, position: ahead + 1, totalWaiting: waiting.length });
 });
 
-router.get("/queue/opd", async (_req, res) => {
+router.get("/queue/opd", async (req, res) => {
+  const where = req.query.department
+    ? eq(queueTokensTable.department, String(req.query.department))
+    : undefined;
   const rows = await db
     .select({ q: queueTokensTable, p: patientsTable })
     .from(queueTokensTable)
     .innerJoin(patientsTable, eq(queueTokensTable.patientId, patientsTable.id))
+    .where(where)
     .orderBy(asc(queueTokensTable.tokenNumber))
     .limit(200);
   res.json(rows.map((r) => shape(r.q, r.p)));
+});
+
+// Aggregate live queue stats: per-department average wait (called - createdAt
+// over today's served tokens) and per-doctor counters of waiting/served. Used
+// by the OPD board KPI strip — kept as a separate endpoint so the queue list
+// stays cheap to poll.
+router.get("/queue/opd/stats", async (_req, res) => {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todays = await db
+    .select()
+    .from(queueTokensTable)
+    .where(gte(queueTokensTable.createdAt, today));
+
+  const byDept: Record<string, { waiting: number; called: number; completed: number; avgWaitSeconds: number | null }> = {};
+  const byDoctor: Record<string, { waiting: number; servedToday: number }> = {};
+  for (const t of todays) {
+    const dept = (byDept[t.department] ??= { waiting: 0, called: 0, completed: 0, avgWaitSeconds: null });
+    if (t.status === "waiting") dept.waiting++;
+    else if (t.status === "called") dept.called++;
+    else if (t.status === "completed") dept.completed++;
+    const doctor = (byDoctor[t.doctorName ?? "Unassigned"] ??= { waiting: 0, servedToday: 0 });
+    if (t.status === "waiting") doctor.waiting++;
+    else if (t.status === "called" || t.status === "completed") doctor.servedToday++;
+  }
+  // Average wait per department from tokens that were actually called today.
+  for (const dept of Object.keys(byDept)) {
+    const called = todays.filter((t) => t.department === dept && t.calledAt);
+    if (called.length) {
+      const totalMs = called.reduce((s, t) => s + (t.calledAt!.getTime() - t.createdAt.getTime()), 0);
+      byDept[dept]!.avgWaitSeconds = Math.round(totalMs / called.length / 1000);
+    }
+  }
+  res.json({
+    departments: Object.entries(byDept).map(([department, v]) => ({ department, ...v })),
+    doctors: Object.entries(byDoctor).map(([doctorName, v]) => ({ doctorName, ...v })),
+  });
 });
 
 router.post("/queue/opd/next", requireRole("admin", "doctor", "nurse", "receptionist"), async (_req, res) => {
@@ -81,6 +121,55 @@ router.post("/queue/opd/next", requireRole("admin", "doctor", "nurse", "receptio
     patientId: row.patientId,
     variables: { tokenNumber: row.tokenNumber, department: row.department },
   });
+  res.json(shape(row, p!));
+});
+
+// Per-token actions used by the live OPD board:
+//   call     → call this specific token (out-of-order ok), notify patient
+//   recall   → re-call (no status change; just re-notify)
+//   skip     → mark as no_show (skipped), advance
+//   complete → close out a called token after consultation
+// All four are POST /queue/opd/:id/{action}. Each returns the updated token
+// in the same QueueToken shape as GET /queue/opd.
+router.post("/queue/opd/:id/:action", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
+  const id = Number(req.params.id);
+  const action = String(req.params.action);
+  if (!["call", "recall", "skip", "complete"].includes(action)) {
+    return res.status(400).json({ error: "Unknown action" });
+  }
+  const [existing] = await db.select().from(queueTokensTable).where(eq(queueTokensTable.id, id));
+  if (!existing) return res.status(404).json({ error: "Token not found" });
+
+  const patch: Partial<typeof queueTokensTable.$inferInsert> = {};
+  let notify = false;
+  switch (action) {
+    case "call":
+      patch.status = "called";
+      patch.calledAt = new Date();
+      notify = true;
+      break;
+    case "recall":
+      notify = true;
+      break;
+    case "skip":
+      patch.status = "skipped";
+      break;
+    case "complete":
+      patch.status = "completed";
+      break;
+  }
+  const [row] = Object.keys(patch).length
+    ? await db.update(queueTokensTable).set(patch).where(eq(queueTokensTable.id, id)).returning()
+    : [existing];
+  const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
+  if (notify) {
+    await sendNotification({
+      eventKey: "opd_queue_called",
+      channel: "both",
+      patientId: row.patientId,
+      variables: { tokenNumber: row.tokenNumber, department: row.department },
+    });
+  }
   res.json(shape(row, p!));
 });
 

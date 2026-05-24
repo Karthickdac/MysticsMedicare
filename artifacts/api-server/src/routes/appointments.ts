@@ -1,10 +1,16 @@
 import { Router, type IRouter } from "express";
 import { db, appointmentsTable, patientsTable, staffTable } from "@workspace/db";
-import { desc, eq, and, gte, lt } from "drizzle-orm";
+import { desc, eq, and, gte, lt, ne, sql } from "drizzle-orm";
 import { CreateAppointmentBody, UpdateAppointmentBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
+
+// Roles allowed to mark a visit as completed / no_show. Reschedule and cancel
+// are still open to receptionist/admin. UI hides these actions, but the
+// authorization boundary must also live here — never trust the client.
+const CLINICAL_STATUS = new Set(["completed", "no_show", "in_progress"]);
+const CLINICAL_ROLES = new Set(["admin", "doctor", "nurse"]);
 
 const router: IRouter = Router();
 
@@ -24,9 +30,32 @@ async function shapeJoin(rows: Array<{ a: typeof appointmentsTable.$inferSelect;
   }));
 }
 
+// Reject overlapping bookings for the same doctor within ±SLOT_MINUTES of the
+// proposed scheduledAt. Cancelled and no_show appointments are ignored so
+// freeing a slot makes it bookable again. `ignoreId` lets reschedules exempt
+// the appointment that is currently being moved.
+const SLOT_MINUTES = 15;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function hasSlotConflict(tx: Tx, doctorId: number, scheduledAt: Date, ignoreId?: number) {
+  const lo = new Date(scheduledAt.getTime() - SLOT_MINUTES * 60_000);
+  const hi = new Date(scheduledAt.getTime() + SLOT_MINUTES * 60_000);
+  const conds = [
+    eq(appointmentsTable.doctorId, doctorId),
+    gte(appointmentsTable.scheduledAt, lo),
+    lt(appointmentsTable.scheduledAt, hi),
+    ne(appointmentsTable.status, "cancelled"),
+    ne(appointmentsTable.status, "no_show"),
+  ];
+  if (ignoreId) conds.push(ne(appointmentsTable.id, ignoreId));
+  const rows = await tx.select({ id: appointmentsTable.id }).from(appointmentsTable).where(and(...conds)).limit(1);
+  return rows.length > 0;
+}
+
 router.get("/appointments", async (req, res) => {
   const conds = [] as ReturnType<typeof eq>[];
   if (req.query.patientId) conds.push(eq(appointmentsTable.patientId, Number(req.query.patientId)));
+  if (req.query.doctorId) conds.push(eq(appointmentsTable.doctorId, Number(req.query.doctorId)));
+  if (req.query.department) conds.push(eq(appointmentsTable.department, String(req.query.department)));
   if (req.query.status) conds.push(eq(appointmentsTable.status, String(req.query.status)));
   if (req.query.date) {
     const d = new Date(String(req.query.date));
@@ -50,16 +79,36 @@ router.get("/appointments", async (req, res) => {
 router.post("/appointments", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [row] = await db
-    .insert(appointmentsTable)
-    .values({
-      patientId: parsed.data.patientId,
-      doctorId: parsed.data.doctorId,
-      department: parsed.data.department,
-      scheduledAt: new Date(parsed.data.scheduledAt),
-      reason: parsed.data.reason,
-    })
-    .returning();
+  const when = new Date(parsed.data.scheduledAt);
+  // Serialize concurrent bookings for the same doctor via a transaction-scoped
+  // advisory lock so the conflict-check + insert is atomic. Without this two
+  // requests can both pass the check and both insert into the same 15-min slot.
+  let row: typeof appointmentsTable.$inferSelect | undefined;
+  try {
+    row = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${parsed.data.doctorId})`);
+      if (await hasSlotConflict(tx, parsed.data.doctorId, when)) {
+        throw new Error("__SLOT_CONFLICT__");
+      }
+      const [inserted] = await tx
+        .insert(appointmentsTable)
+        .values({
+          patientId: parsed.data.patientId,
+          doctorId: parsed.data.doctorId,
+          department: parsed.data.department,
+          scheduledAt: when,
+          reason: parsed.data.reason,
+        })
+        .returning();
+      return inserted;
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "__SLOT_CONFLICT__") {
+      return res.status(409).json({ error: "Doctor already has an appointment within 15 minutes of this slot" });
+    }
+    throw e;
+  }
+  if (!row) return res.status(500).json({ error: "Insert failed" });
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   const [s] = await db.select().from(staffTable).where(eq(staffTable.id, row.doctorId));
   await sendNotification({
@@ -95,14 +144,73 @@ router.patch("/appointments/:id", requireRole("admin", "doctor", "nurse", "recep
   const id = Number(req.params.id);
   const parsed = UpdateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+  const [existing] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id));
+  if (!existing) return res.status(404).json({ error: "Not found" });
+
+  // Restrict clinical-only status transitions at the API boundary. Receptionists
+  // can reschedule or cancel, but not mark "completed" / "no_show".
+  if (parsed.data.status && CLINICAL_STATUS.has(parsed.data.status)) {
+    const userRole = (req as { user?: { role?: string } }).user?.role;
+    if (!userRole || !CLINICAL_ROLES.has(userRole)) {
+      return res.status(403).json({ error: `Only clinical staff can set status "${parsed.data.status}"` });
+    }
+  }
+
   const data: Partial<typeof appointmentsTable.$inferInsert> = {};
   if (parsed.data.status) data.status = parsed.data.status;
   if (parsed.data.reason !== undefined) data.reason = parsed.data.reason;
-  if (parsed.data.scheduledAt) data.scheduledAt = new Date(parsed.data.scheduledAt);
-  const [row] = await db.update(appointmentsTable).set(data).where(eq(appointmentsTable.id, id)).returning();
+
+  let row: typeof appointmentsTable.$inferSelect | undefined;
+  try {
+    row = await db.transaction(async (tx) => {
+      if (parsed.data.scheduledAt) {
+        const when = new Date(parsed.data.scheduledAt);
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${existing.doctorId})`);
+        if (await hasSlotConflict(tx, existing.doctorId, when, id)) {
+          throw new Error("__SLOT_CONFLICT__");
+        }
+        data.scheduledAt = when;
+      }
+      const [updated] = await tx.update(appointmentsTable).set(data).where(eq(appointmentsTable.id, id)).returning();
+      return updated;
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "__SLOT_CONFLICT__") {
+      return res.status(409).json({ error: "Doctor already has an appointment within 15 minutes of this slot" });
+    }
+    throw e;
+  }
   if (!row) return res.status(404).json({ error: "Not found" });
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   const [s] = await db.select().from(staffTable).where(eq(staffTable.id, row.doctorId));
+
+  // Side-effects: notify on reschedule / cancellation / no-show. Completion
+  // does not fire a patient SMS (avoids spam after the visit).
+  const rescheduled = !!parsed.data.scheduledAt && existing.scheduledAt.getTime() !== row.scheduledAt.getTime();
+  const statusChanged = !!parsed.data.status && existing.status !== row.status;
+  if (rescheduled) {
+    await sendNotification({
+      eventKey: "appointment_rescheduled",
+      channel: "both",
+      patientId: row.patientId,
+      variables: { patientName: p?.name, doctorName: s?.name, scheduledAt: requiredIso(row.scheduledAt) },
+    });
+  } else if (statusChanged && row.status === "cancelled") {
+    await sendNotification({
+      eventKey: "appointment_cancelled",
+      channel: "both",
+      patientId: row.patientId,
+      variables: { patientName: p?.name, scheduledAt: requiredIso(row.scheduledAt) },
+    });
+  } else if (statusChanged && row.status === "no_show") {
+    await sendNotification({
+      eventKey: "appointment_no_show",
+      channel: "sms",
+      patientId: row.patientId,
+      variables: { patientName: p?.name, scheduledAt: requiredIso(row.scheduledAt) },
+    });
+  }
+
   const [shaped] = await shapeJoin([{ a: row, p: p!, s: s! }]);
   res.json(shaped);
 });

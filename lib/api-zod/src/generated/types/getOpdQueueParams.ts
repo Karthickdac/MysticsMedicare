@@ -6,10 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListAppointmentsParams = {
-patientId?: number;
-doctorId?: number;
+export type GetOpdQueueParams = {
 department?: string;
-date?: string;
-status?: string;
 };

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,14 +48,29 @@ export default function AppointmentNew() {
     [staff],
   );
 
+  // Prefill from query string so other pages can deep-link a follow-up booking
+  // (e.g. encounter-detail's "Schedule follow-up" button passes patientId &
+  // doctorId & reason). Default the visit time +7 days when prefilled.
+  const prefill = useMemo(() => {
+    if (typeof window === "undefined") return {} as Record<string, string>;
+    const q = new URLSearchParams(window.location.search);
+    return {
+      patientId: q.get("patientId") ?? "",
+      doctorId: q.get("doctorId") ?? "",
+      department: q.get("department") ?? "",
+      reason: q.get("reason") ?? "",
+      followUp: q.get("followUp") ?? "",
+    };
+  }, []);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      patientId: 0,
-      doctorId: 0,
-      department: "",
-      scheduledAt: toLocalIso(new Date(Date.now() + 60 * 60 * 1000)),
-      reason: "",
+      patientId: prefill.patientId ? Number(prefill.patientId) : 0,
+      doctorId: prefill.doctorId ? Number(prefill.doctorId) : 0,
+      department: prefill.department || "",
+      scheduledAt: toLocalIso(new Date(Date.now() + (prefill.followUp ? 7 * 24 : 1) * 60 * 60 * 1000)),
+      reason: prefill.reason || "",
     },
   });
 
@@ -64,6 +79,17 @@ export default function AppointmentNew() {
     const doc = doctors.find((d) => d.id === Number(id));
     if (doc?.department) form.setValue("department", doc.department);
   }
+
+  // When deep-linked with ?doctorId=… the doctors list usually loads *after*
+  // the form initializes, so onDoctorChange never fires. Auto-derive the
+  // department once the roster lands to keep follow-up bookings valid without
+  // manual touch.
+  useEffect(() => {
+    const docId = form.getValues("doctorId");
+    if (!docId || form.getValues("department")) return;
+    const doc = doctors.find((d) => d.id === docId);
+    if (doc?.department) form.setValue("department", doc.department);
+  }, [doctors, form]);
 
   const onSubmit = (data: FormValues) => {
     createMutation.mutate(

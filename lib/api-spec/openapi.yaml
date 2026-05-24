@@ -180,6 +180,8 @@ paths:
       tags: [appointments]
       parameters:
         - { in: query, name: patientId, schema: { type: integer } }
+        - { in: query, name: doctorId, schema: { type: integer } }
+        - { in: query, name: department, schema: { type: string } }
         - { in: query, name: date, schema: { type: string } }
         - { in: query, name: status, schema: { type: string } }
       responses:
@@ -814,6 +816,8 @@ paths:
     get:
       operationId: getOpdQueue
       tags: [queue]
+      parameters:
+        - { in: query, name: department, schema: { type: string } }
       responses:
         "200":
           description: OPD queue
@@ -822,6 +826,32 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/QueueToken" }
+  /queue/opd/stats:
+    get:
+      operationId: getOpdQueueStats
+      tags: [queue]
+      responses:
+        "200":
+          description: Live queue stats
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueueStats" }
+  /queue/opd/{id}/{action}:
+    post:
+      operationId: tokenAction
+      tags: [queue]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+        - in: path
+          name: action
+          required: true
+          schema: { type: string, enum: [call, recall, skip, complete] }
+      responses:
+        "200":
+          description: Token updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueueToken" }
   /queue/opd/next:
     post:
       operationId: callNextToken
@@ -1704,6 +1734,30 @@ components:
         status: { type: string }
         createdAt: { type: string }
         calledAt: { type: ["string", "null"] }
+    QueueStats:
+      type: object
+      required: [departments, doctors]
+      properties:
+        departments:
+          type: array
+          items:
+            type: object
+            required: [department, waiting, called, completed]
+            properties:
+              department: { type: string }
+              waiting: { type: integer }
+              called: { type: integer }
+              completed: { type: integer }
+              avgWaitSeconds: { type: ["integer", "null"] }
+        doctors:
+          type: array
+          items:
+            type: object
+            required: [doctorName, waiting, servedToday]
+            properties:
+              doctorName: { type: string }
+              waiting: { type: integer }
+              servedToday: { type: integer }
 
     VideoRecording:
       type: object

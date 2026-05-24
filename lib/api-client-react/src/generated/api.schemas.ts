@@ -610,6 +610,26 @@ export interface QueueToken {
   calledAt?: string | null;
 }
 
+export type QueueStatsDepartmentsItem = {
+  department: string;
+  waiting: number;
+  called: number;
+  completed: number;
+  /** @nullable */
+  avgWaitSeconds?: number | null;
+};
+
+export type QueueStatsDoctorsItem = {
+  doctorName: string;
+  waiting: number;
+  servedToday: number;
+};
+
+export interface QueueStats {
+  departments: QueueStatsDepartmentsItem[];
+  doctors: QueueStatsDoctorsItem[];
+}
+
 export interface VideoRecording {
   id: number;
   patientId: number;
@@ -749,6 +769,8 @@ search?: string;
 
 export type ListAppointmentsParams = {
 patientId?: number;
+doctorId?: number;
+department?: string;
 date?: string;
 status?: string;
 };
@@ -787,6 +809,10 @@ patientId?: number;
 
 export type ListConsentFormsParams = {
 patientId?: number;
+};
+
+export type GetOpdQueueParams = {
+department?: string;
 };
 
 export type ListVideosParams = {

@@ -189,6 +189,8 @@ export const DeletePatientParams = zod.object({
 
 export const ListAppointmentsQueryParams = zod.object({
   "patientId": zod.coerce.number().optional(),
+  "doctorId": zod.coerce.number().optional(),
+  "department": zod.coerce.string().optional(),
   "date": zod.coerce.string().optional(),
   "status": zod.coerce.string().optional()
 })
@@ -937,6 +939,10 @@ export const CreateRosterShiftBody = zod.object({
 })
 
 
+export const GetOpdQueueQueryParams = zod.object({
+  "department": zod.coerce.string().optional()
+})
+
 export const GetOpdQueueResponseItem = zod.object({
   "id": zod.number(),
   "tokenNumber": zod.number(),
@@ -949,6 +955,40 @@ export const GetOpdQueueResponseItem = zod.object({
   "calledAt": zod.string().nullish()
 })
 export const GetOpdQueueResponse = zod.array(GetOpdQueueResponseItem)
+
+
+export const GetOpdQueueStatsResponse = zod.object({
+  "departments": zod.array(zod.object({
+  "department": zod.string(),
+  "waiting": zod.number(),
+  "called": zod.number(),
+  "completed": zod.number(),
+  "avgWaitSeconds": zod.number().nullish()
+})),
+  "doctors": zod.array(zod.object({
+  "doctorName": zod.string(),
+  "waiting": zod.number(),
+  "servedToday": zod.number()
+}))
+})
+
+
+export const TokenActionParams = zod.object({
+  "id": zod.coerce.number(),
+  "action": zod.enum(['call', 'recall', 'skip', 'complete'])
+})
+
+export const TokenActionResponse = zod.object({
+  "id": zod.number(),
+  "tokenNumber": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "department": zod.string(),
+  "doctorName": zod.string().nullish(),
+  "status": zod.string(),
+  "createdAt": zod.string(),
+  "calledAt": zod.string().nullish()
+})
 
 
 export const CallNextTokenResponse = zod.object({
