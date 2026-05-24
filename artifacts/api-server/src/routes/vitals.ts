@@ -3,6 +3,7 @@ import { db, vitalsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { RecordVitalsBody } from "@workspace/api-zod";
 import { num, requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -28,7 +29,7 @@ router.get("/vitals", async (req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/vitals", async (req, res) => {
+router.post("/vitals", requireRole("admin", "doctor", "nurse"), async (req, res) => {
   const parsed = RecordVitalsBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db

@@ -3,6 +3,7 @@ import { db, radiologyTable, patientsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { CreateRadiologyOrderBody, RecordRadiologyReportBody } from "@workspace/api-zod";
 import { isoDate, requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,7 @@ router.get("/radiology", async (req, res) => {
   res.json(rows.map((x) => shape(x.r, x.p)));
 });
 
-router.post("/radiology", async (req, res) => {
+router.post("/radiology", requireRole("admin", "doctor"), async (req, res) => {
   const parsed = CreateRadiologyOrderBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(radiologyTable).values(parsed.data).returning();
@@ -43,7 +44,7 @@ router.post("/radiology", async (req, res) => {
   res.status(201).json(shape(row, p!));
 });
 
-router.post("/radiology/:id/report", async (req, res) => {
+router.post("/radiology/:id/report", requireRole("admin", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = RecordRadiologyReportBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

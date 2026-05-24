@@ -3,6 +3,7 @@ import { db, prescriptionsTable, patientsTable } from "@workspace/db";
 import { desc, eq, and } from "drizzle-orm";
 import { CreatePrescriptionBody } from "@workspace/api-zod";
 import { isoDate, requiredIso } from "../lib/format";
+import { sendNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -44,7 +45,31 @@ router.post("/prescriptions", requireRole("admin", "doctor"), async (req, res) =
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(prescriptionsTable).values(parsed.data).returning();
   const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
+  await sendNotification({
+    eventKey: "medication_scheduled",
+    channel: "whatsapp",
+    patientId: row.patientId,
+    variables: { patientName: pt?.name, drug: row.drug, scheduledAt: requiredIso(row.createdAt) },
+  });
   res.status(201).json(shape(row, pt!));
+});
+
+router.post("/prescriptions/:id/remind", requireRole("admin", "doctor", "nurse"), async (req, res) => {
+  const id = Number(req.params.id);
+  const [r] = await db
+    .select({ p: prescriptionsTable, pt: patientsTable })
+    .from(prescriptionsTable)
+    .innerJoin(patientsTable, eq(prescriptionsTable.patientId, patientsTable.id))
+    .where(eq(prescriptionsTable.id, id))
+    .limit(1);
+  if (!r) return res.status(404).json({ error: "Not found" });
+  await sendNotification({
+    eventKey: "medication_reminder",
+    channel: "whatsapp",
+    patientId: r.p.patientId,
+    variables: { patientName: r.pt.name, drug: r.p.drug, doseTime: new Date().toISOString() },
+  });
+  res.json({ ok: true });
 });
 
 export default router;

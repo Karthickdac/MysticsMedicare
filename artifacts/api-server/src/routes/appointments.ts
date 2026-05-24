@@ -4,6 +4,7 @@ import { desc, eq, and, gte, lt } from "drizzle-orm";
 import { CreateAppointmentBody, UpdateAppointmentBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -46,7 +47,7 @@ router.get("/appointments", async (req, res) => {
   res.json(await shapeJoin(rows));
 });
 
-router.post("/appointments", async (req, res) => {
+router.post("/appointments", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -71,7 +72,26 @@ router.post("/appointments", async (req, res) => {
   res.status(201).json(shaped);
 });
 
-router.patch("/appointments/:id", async (req, res) => {
+router.post("/appointments/:id/remind", async (req, res) => {
+  const id = Number(req.params.id);
+  const [r] = await db
+    .select({ a: appointmentsTable, p: patientsTable, s: staffTable })
+    .from(appointmentsTable)
+    .innerJoin(patientsTable, eq(appointmentsTable.patientId, patientsTable.id))
+    .innerJoin(staffTable, eq(appointmentsTable.doctorId, staffTable.id))
+    .where(eq(appointmentsTable.id, id))
+    .limit(1);
+  if (!r) return res.status(404).json({ error: "Not found" });
+  await sendNotification({
+    eventKey: "appointment_reminder",
+    channel: "whatsapp",
+    patientId: r.a.patientId,
+    variables: { patientName: r.p.name, doctorName: r.s.name, scheduledAt: requiredIso(r.a.scheduledAt) },
+  });
+  res.json({ ok: true });
+});
+
+router.patch("/appointments/:id", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -87,7 +107,7 @@ router.patch("/appointments/:id", async (req, res) => {
   res.json(shaped);
 });
 
-router.delete("/appointments/:id", async (req, res) => {
+router.delete("/appointments/:id", requireRole("admin", "doctor", "receptionist"), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.update(appointmentsTable).set({ status: "cancelled" }).where(eq(appointmentsTable.id, id)).returning();
   if (row) {

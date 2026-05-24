@@ -3,6 +3,7 @@ import { db, queueTokensTable, patientsTable } from "@workspace/db";
 import { asc, eq, and } from "drizzle-orm";
 import { isoDate, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -20,7 +21,7 @@ function shape(q: typeof queueTokensTable.$inferSelect, p: typeof patientsTable.
   };
 }
 
-router.post("/queue/opd/check-in", async (req, res) => {
+router.post("/queue/opd/check-in", requireRole("admin", "receptionist", "nurse"), async (req, res) => {
   const patientId = Number(req.body?.patientId);
   const department = String(req.body?.department ?? "OPD");
   const doctorName = req.body?.doctorName ? String(req.body.doctorName) : null;
@@ -60,7 +61,7 @@ router.get("/queue/opd", async (_req, res) => {
   res.json(rows.map((r) => shape(r.q, r.p)));
 });
 
-router.post("/queue/opd/next", async (_req, res) => {
+router.post("/queue/opd/next", requireRole("admin", "doctor", "nurse", "receptionist"), async (_req, res) => {
   const [next] = await db
     .select()
     .from(queueTokensTable)

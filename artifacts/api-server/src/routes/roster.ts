@@ -3,6 +3,7 @@ import { db, rosterShiftsTable, staffTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { CreateRosterShiftBody } from "@workspace/api-zod";
 import { dateOnly, requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -29,7 +30,7 @@ router.get("/roster", async (_req, res) => {
   res.json(rows.map((x) => shape(x.r, x.s)));
 });
 
-router.post("/roster", async (req, res) => {
+router.post("/roster", requireRole("admin"), async (req, res) => {
   const parsed = CreateRosterShiftBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db.insert(rosterShiftsTable).values(parsed.data).returning();

@@ -3,6 +3,8 @@ import { db, consentFormsTable, patientsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { CreateConsentFormBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
+import { sendNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -32,7 +34,7 @@ router.get("/consent", async (req, res) => {
   res.json(rows.map((r) => shape(r.c, r.p)));
 });
 
-router.post("/consent", async (req, res) => {
+router.post("/consent", requireRole("admin", "doctor", "nurse"), async (req, res) => {
   const parsed = CreateConsentFormBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -40,6 +42,12 @@ router.post("/consent", async (req, res) => {
     .values({ ...parsed.data, signedAt: new Date(parsed.data.signedAt) })
     .returning();
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
+  await sendNotification({
+    eventKey: "consent_request",
+    channel: "whatsapp",
+    patientId: row.patientId,
+    variables: { patientName: p?.name, consentType: row.type },
+  });
   res.status(201).json(shape(row, p!));
 });
 

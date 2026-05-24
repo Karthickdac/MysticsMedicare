@@ -3,6 +3,8 @@ import { db, vaccinationsTable, patientsTable } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { RecordVaccinationBody } from "@workspace/api-zod";
 import { dateOnly, requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
+import { sendNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -33,7 +35,7 @@ router.get("/vaccinations", async (req, res) => {
   res.json(rows.map((r) => shape(r.v, r.p)));
 });
 
-router.post("/vaccinations", async (req, res) => {
+router.post("/vaccinations", requireRole("admin", "doctor", "nurse"), async (req, res) => {
   const parsed = RecordVaccinationBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -41,6 +43,14 @@ router.post("/vaccinations", async (req, res) => {
     .values({ ...parsed.data, administeredAt: new Date(parsed.data.administeredAt) })
     .returning();
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
+  if (row.nextDueDate) {
+    await sendNotification({
+      eventKey: "vaccination_reminder",
+      channel: "whatsapp",
+      patientId: row.patientId,
+      variables: { patientName: p?.name, vaccineName: row.vaccineName, nextDueDate: dateOnly(row.nextDueDate) },
+    });
+  }
   res.status(201).json(shape(row, p!));
 });
 

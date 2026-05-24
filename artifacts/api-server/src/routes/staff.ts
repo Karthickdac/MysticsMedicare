@@ -3,6 +3,7 @@ import { db, staffTable } from "@workspace/db";
 import { asc, eq, sql } from "drizzle-orm";
 import { CreateStaffBody, UpdateStaffBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -27,7 +28,7 @@ router.get("/staff", async (_req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/staff", async (req, res) => {
+router.post("/staff", requireRole("admin"), async (req, res) => {
   const parsed = CreateStaffBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const r = await db.execute<{ next: string }>(
@@ -38,7 +39,7 @@ router.post("/staff", async (req, res) => {
   res.status(201).json(shape(row));
 });
 
-router.patch("/staff/:id", async (req, res) => {
+router.patch("/staff/:id", requireRole("admin"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateStaffBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

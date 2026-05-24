@@ -3,6 +3,8 @@ import { db, encountersTable, patientsTable, staffTable } from "@workspace/db";
 import { desc, eq, and } from "drizzle-orm";
 import { CreateEncounterBody, UpdateEncounterBody } from "@workspace/api-zod";
 import { requiredIso, isoDate } from "../lib/format";
+import { requireRole } from "../lib/auth";
+import { sendNotification } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -40,7 +42,7 @@ router.get("/encounters", async (req, res) => {
   res.json(rows.map((r) => shape(r.e, r.p, r.s)));
 });
 
-router.post("/encounters", async (req, res) => {
+router.post("/encounters", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
   const parsed = CreateEncounterBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -73,7 +75,7 @@ router.get("/encounters/:id", async (req, res) => {
   res.json(shape(r.e, r.p, r.s));
 });
 
-router.patch("/encounters/:id", async (req, res) => {
+router.patch("/encounters/:id", requireRole("admin", "doctor", "nurse"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateEncounterBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -87,6 +89,14 @@ router.patch("/encounters/:id", async (req, res) => {
   if (!row) return res.status(404).json({ error: "Not found" });
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
   const [s] = await db.select().from(staffTable).where(eq(staffTable.id, row.doctorId));
+  if (data.status === "discharged" || data.endedAt) {
+    await sendNotification({
+      eventKey: "discharge_summary_ready",
+      channel: "whatsapp",
+      patientId: row.patientId,
+      variables: { patientName: p?.name, summaryUrl: `/api/pdf/discharge-summary/${row.id}` },
+    });
+  }
   res.json(shape(row, p!, s!));
 });
 

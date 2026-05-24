@@ -38,63 +38,70 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
 function AppSidebar() {
   const [location] = useLocation();
+  const { data: session } = useMe();
+  const role = (session?.role as string | undefined) ?? "";
 
-  const navGroups = [
+  type Item = { icon: React.ComponentType<{ className?: string }>; label: string; href: string; roles?: string[] };
+  type Group = { label: string; items: Item[] };
+  const allGroups: Group[] = [
     {
       label: "Clinical",
       items: [
         { icon: Activity, label: "Dashboard", href: "/" },
-        { icon: Users, label: "Patients", href: "/patients" },
-        { icon: Calendar, label: "Appointments", href: "/appointments" },
-        { icon: Clock, label: "OPD Queue", href: "/opd" },
-        { icon: BedDouble, label: "IPD Wards", href: "/ipd" },
+        { icon: Users, label: "Patients", href: "/patients", roles: ["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"] },
+        { icon: Calendar, label: "Appointments", href: "/appointments", roles: ["admin", "doctor", "nurse", "receptionist"] },
+        { icon: Clock, label: "OPD Queue", href: "/opd", roles: ["admin", "doctor", "nurse", "receptionist"] },
+        { icon: BedDouble, label: "IPD Wards", href: "/ipd", roles: ["admin", "doctor", "nurse"] },
       ],
     },
     {
       label: "Diagnostics & Pharmacy",
       items: [
-        { icon: TestTube, label: "Laboratory", href: "/lab" },
-        { icon: Cross, label: "Radiology", href: "/radiology" },
-        { icon: ShieldPlus, label: "Pharmacy", href: "/pharmacy" },
-        { icon: ClipboardCheck, label: "Prescriptions", href: "/prescriptions" },
+        { icon: TestTube, label: "Laboratory", href: "/lab", roles: ["admin", "doctor", "labtech", "nurse"] },
+        { icon: Cross, label: "Radiology", href: "/radiology", roles: ["admin", "doctor", "nurse"] },
+        { icon: ShieldPlus, label: "Pharmacy", href: "/pharmacy", roles: ["admin", "pharmacist", "doctor"] },
+        { icon: ClipboardCheck, label: "Prescriptions", href: "/prescriptions", roles: ["admin", "doctor", "pharmacist", "nurse"] },
       ],
     },
     {
       label: "Operations",
       items: [
-        { icon: Scissors, label: "OT Bookings", href: "/ot" },
-        { icon: BedDouble, label: "Bed Manager", href: "/beds" },
-        { icon: Syringe, label: "Vaccinations", href: "/vaccinations" },
-        { icon: FileSignature, label: "Consent Forms", href: "/consent" },
-        { icon: Activity, label: "Checkups", href: "/checkups" },
-        { icon: Video, label: "Video Library", href: "/videos" },
+        { icon: Scissors, label: "OT Bookings", href: "/ot", roles: ["admin", "doctor", "nurse"] },
+        { icon: BedDouble, label: "Bed Manager", href: "/beds", roles: ["admin", "nurse", "doctor", "receptionist"] },
+        { icon: Syringe, label: "Vaccinations", href: "/vaccinations", roles: ["admin", "doctor", "nurse"] },
+        { icon: FileSignature, label: "Consent Forms", href: "/consent", roles: ["admin", "doctor", "nurse"] },
+        { icon: Activity, label: "Checkups", href: "/checkups", roles: ["admin", "doctor", "nurse"] },
+        { icon: Video, label: "Video Library", href: "/videos", roles: ["admin", "doctor", "nurse"] },
       ],
     },
     {
       label: "Inventory & Billing",
       items: [
-        { icon: IndianRupee, label: "Billing", href: "/billing" },
-        { icon: Package, label: "Inventory", href: "/inventory" },
-        { icon: ShieldPlus, label: "Drug Library", href: "/drugs" },
+        { icon: IndianRupee, label: "Billing", href: "/billing", roles: ["admin", "accountant", "receptionist"] },
+        { icon: Package, label: "Inventory", href: "/inventory", roles: ["admin", "pharmacist"] },
+        { icon: ShieldPlus, label: "Drug Library", href: "/drugs", roles: ["admin", "pharmacist", "doctor"] },
       ],
     },
     {
       label: "People",
       items: [
-        { icon: UserCog, label: "Staff Directory", href: "/staff" },
-        { icon: Calendar, label: "Duty Roster", href: "/roster" },
+        { icon: UserCog, label: "Staff Directory", href: "/staff", roles: ["admin"] },
+        { icon: Calendar, label: "Duty Roster", href: "/roster", roles: ["admin", "nurse", "doctor"] },
       ],
     },
     {
       label: "System",
       items: [
-        { icon: MessageSquare, label: "Notifications", href: "/notifications/templates" },
-        { icon: Bell, label: "Notification Log", href: "/notifications/log" },
-        { icon: ListTree, label: "Audit Log", href: "/audit" },
+        { icon: MessageSquare, label: "Notifications", href: "/notifications/templates", roles: ["admin"] },
+        { icon: Bell, label: "Notification Log", href: "/notifications/log", roles: ["admin"] },
+        { icon: ListTree, label: "Audit Log", href: "/audit", roles: ["admin"] },
         { icon: Settings, label: "Settings", href: "/settings" },
       ],
     },
   ];
+  const navGroups = allGroups
+    .map((g) => ({ ...g, items: g.items.filter((it) => !it.roles || it.roles.includes(role)) }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <Sidebar variant="sidebar" className="border-r border-border">

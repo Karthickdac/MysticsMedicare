@@ -3,6 +3,7 @@ import { db, inventoryTable } from "@workspace/db";
 import { asc } from "drizzle-orm";
 import { CreateInventoryItemBody } from "@workspace/api-zod";
 import { dateOnly, num, requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -27,7 +28,7 @@ router.get("/inventory", async (_req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/inventory", async (req, res) => {
+router.post("/inventory", requireRole("admin", "pharmacist"), async (req, res) => {
   const parsed = CreateInventoryItemBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
