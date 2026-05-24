@@ -1462,6 +1462,54 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/RadiologyOrder" }
+  /portal/lab-reports/{id}/pdf:
+    get:
+      operationId: getPortalLabReportPdf
+      tags: [portal]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: PDF report
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+  /portal/lab-reports/{id}/acknowledge:
+    post:
+      operationId: acknowledgePortalLabReport
+      tags: [portal]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LabOrder" }
+  /portal/radiology-reports/{id}/pdf:
+    get:
+      operationId: getPortalRadiologyReportPdf
+      tags: [portal]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: PDF report
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+  /portal/radiology-reports/{id}/acknowledge:
+    post:
+      operationId: acknowledgePortalRadiologyReport
+      tags: [portal]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RadiologyOrder" }
 
   /ot/bookings:
     get:
@@ -2384,6 +2432,7 @@ components:
         reportPdfUrl: { type: ["string", "null"] }
         dispatchedAt: { type: ["string", "null"] }
         dispatchedVia: { type: ["string", "null"] }
+        patientAcknowledgedAt: { type: ["string", "null"] }
         createdAt: { type: string }
         completedAt: { type: ["string", "null"] }
     LabOrderInput:
@@ -3150,6 +3199,7 @@ components:
         reportPdfUrl: { type: ["string", "null"] }
         dispatchedAt: { type: ["string", "null"] }
         dispatchedVia: { type: ["string", "null"] }
+        patientAcknowledgedAt: { type: ["string", "null"] }
         createdAt: { type: string }
         completedAt: { type: ["string", "null"] }
     RadiologyOrderInput:

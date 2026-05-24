@@ -272,10 +272,12 @@ router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
 
 // Lab report PDF: structured header, sample/collection block, parameter
 // grid with reference range + flag column, and a signature footer.
-router.get("/pdf/lab-report/:orderId", async (req, res) => {
-  const id = Number(req.params.orderId);
+// Exported so the patient portal can stream the same artifact under its
+// own auth (requirePatient + ownership check) — keeps a single rendering
+// pipeline whether staff or patient is viewing.
+export async function renderLabReportPdf(res: Response, id: number): Promise<void> {
   const [o] = await db.select().from(labOrdersTable).where(eq(labOrdersTable.id, id));
-  if (!o) return res.status(404).json({ error: "Lab order not found" });
+  if (!o) { res.status(404).json({ error: "Lab order not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
   const doc = startPdf(res, `lab-${id}.pdf`);
   doc.fontSize(16).text("LABORATORY REPORT", { align: "center" });
@@ -354,13 +356,16 @@ router.get("/pdf/lab-report/:orderId", async (req, res) => {
   doc.text("This is a computer-generated report. Reference ranges are age/sex-adjusted where applicable.", 50, doc.y + 10, { width: 500 });
   doc.fillColor("#000");
   doc.end();
+}
+
+router.get("/pdf/lab-report/:orderId", async (req, res) => {
+  await renderLabReportPdf(res, Number(req.params.orderId));
 });
 
 // Radiology report PDF.
-router.get("/pdf/radiology-report/:orderId", async (req, res) => {
-  const id = Number(req.params.orderId);
+export async function renderRadiologyReportPdf(res: Response, id: number): Promise<void> {
   const [o] = await db.select().from(radiologyTable).where(eq(radiologyTable.id, id));
-  if (!o) return res.status(404).json({ error: "Radiology order not found" });
+  if (!o) { res.status(404).json({ error: "Radiology order not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, o.patientId));
   const doc = startPdf(res, `radiology-${id}.pdf`);
   doc.fontSize(16).text("RADIOLOGY REPORT", { align: "center" });
@@ -407,6 +412,10 @@ router.get("/pdf/radiology-report/:orderId", async (req, res) => {
   doc.text(`Verified by: ${o.verifiedBy ?? "— (pending verification)"} on ${verifiedAt}`, 50);
   doc.fillColor("#000");
   doc.end();
+}
+
+router.get("/pdf/radiology-report/:orderId", async (req, res) => {
+  await renderRadiologyReportPdf(res, Number(req.params.orderId));
 });
 
 router.get("/pdf/prescription/:prescriptionId", async (req, res) => {

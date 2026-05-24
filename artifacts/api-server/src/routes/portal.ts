@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, patientsTable, appointmentsTable, billsTable, staffTable, labOrdersTable, radiologyTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { renderLabReportPdf, renderRadiologyReportPdf } from "./pdf";
 import {
   issuePatientCookie,
   clearPatientCookie,
@@ -115,13 +115,43 @@ router.get("/portal/lab-reports", requirePatient, async (req, res) => {
       attachmentUrl: l.attachmentUrl,
       verifiedBy: l.verifiedBy,
       verifiedAt: l.verifiedAt ? l.verifiedAt.toISOString() : null,
-      reportPdfUrl: l.reportPdfUrl,
+      // Portal-scoped URL so patients can open it with their session.
+      reportPdfUrl: `/api/portal/lab-reports/${l.id}/pdf`,
       dispatchedAt: l.dispatchedAt ? l.dispatchedAt.toISOString() : null,
       dispatchedVia: l.dispatchedVia,
+      patientAcknowledgedAt: l.patientAcknowledgedAt ? l.patientAcknowledgedAt.toISOString() : null,
       createdAt: l.createdAt.toISOString(),
       completedAt: l.completedAt ? l.completedAt.toISOString() : null,
     })),
   );
+});
+
+// Stream the lab report PDF to the authenticated patient, but only after
+// confirming the order belongs to them (otherwise any patient could read
+// any report by guessing an ID).
+router.get("/portal/lab-reports/:id/pdf", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const id = Number(req.params.id);
+  const [o] = await db.select().from(labOrdersTable).where(eq(labOrdersTable.id, id));
+  if (!o || o.patientId !== pid) return res.status(404).json({ error: "Not found" });
+  if (o.status !== "verified" && o.status !== "dispatched") {
+    return res.status(403).json({ error: "Report not yet released" });
+  }
+  await renderLabReportPdf(res, id);
+});
+
+// Patient confirms they have received/read the report. Idempotent — the
+// timestamp is only set the first time.
+router.post("/portal/lab-reports/:id/acknowledge", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const id = Number(req.params.id);
+  const [row] = await db
+    .update(labOrdersTable)
+    .set({ patientAcknowledgedAt: sql`COALESCE(${labOrdersTable.patientAcknowledgedAt}, NOW())` })
+    .where(and(eq(labOrdersTable.id, id), eq(labOrdersTable.patientId, pid), inArray(labOrdersTable.status, ["verified", "dispatched"])))
+    .returning();
+  if (!row) return res.status(404).json({ error: "Not found" });
+  res.json({ id: row.id, patientAcknowledgedAt: row.patientAcknowledgedAt?.toISOString() ?? null });
 });
 
 router.get("/portal/radiology-reports", requirePatient, async (req, res) => {
@@ -153,13 +183,37 @@ router.get("/portal/radiology-reports", requirePatient, async (req, res) => {
       capturedAt: r.capturedAt ? r.capturedAt.toISOString() : null,
       verifiedBy: r.verifiedBy,
       verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : null,
-      reportPdfUrl: r.reportPdfUrl,
+      reportPdfUrl: `/api/portal/radiology-reports/${r.id}/pdf`,
       dispatchedAt: r.dispatchedAt ? r.dispatchedAt.toISOString() : null,
       dispatchedVia: r.dispatchedVia,
+      patientAcknowledgedAt: r.patientAcknowledgedAt ? r.patientAcknowledgedAt.toISOString() : null,
       createdAt: r.createdAt.toISOString(),
       completedAt: r.completedAt ? r.completedAt.toISOString() : null,
     })),
   );
+});
+
+router.get("/portal/radiology-reports/:id/pdf", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const id = Number(req.params.id);
+  const [o] = await db.select().from(radiologyTable).where(eq(radiologyTable.id, id));
+  if (!o || o.patientId !== pid) return res.status(404).json({ error: "Not found" });
+  if (o.status !== "verified" && o.status !== "dispatched") {
+    return res.status(403).json({ error: "Report not yet released" });
+  }
+  await renderRadiologyReportPdf(res, id);
+});
+
+router.post("/portal/radiology-reports/:id/acknowledge", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const id = Number(req.params.id);
+  const [row] = await db
+    .update(radiologyTable)
+    .set({ patientAcknowledgedAt: sql`COALESCE(${radiologyTable.patientAcknowledgedAt}, NOW())` })
+    .where(and(eq(radiologyTable.id, id), eq(radiologyTable.patientId, pid), inArray(radiologyTable.status, ["verified", "dispatched"])))
+    .returning();
+  if (!row) return res.status(404).json({ error: "Not found" });
+  res.json({ id: row.id, patientAcknowledgedAt: row.patientAcknowledgedAt?.toISOString() ?? null });
 });
 
 export default router;

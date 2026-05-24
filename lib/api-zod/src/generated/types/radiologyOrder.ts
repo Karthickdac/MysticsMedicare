@@ -44,6 +44,8 @@ export interface RadiologyOrder {
   dispatchedAt?: string | null;
   /** @nullable */
   dispatchedVia?: string | null;
+  /** @nullable */
+  patientAcknowledgedAt?: string | null;
   createdAt: string;
   /** @nullable */
   completedAt?: string | null;

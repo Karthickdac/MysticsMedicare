@@ -8070,6 +8070,276 @@ export function useGetPortalRadiologyReports<TData = Awaited<ReturnType<typeof g
 
 
 
+export const getGetPortalLabReportPdfUrl = (id: number,) => {
+
+
+
+
+  return `/api/portal/lab-reports/${id}/pdf`
+}
+
+export const getPortalLabReportPdf = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetPortalLabReportPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalLabReportPdfQueryKey = (id: number,) => {
+    return [
+    `/api/portal/lab-reports/${id}/pdf`
+    ] as const;
+    }
+
+
+export const getGetPortalLabReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getPortalLabReportPdf>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalLabReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalLabReportPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalLabReportPdf>>> = ({ signal }) => getPortalLabReportPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalLabReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalLabReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalLabReportPdf>>>
+export type GetPortalLabReportPdfQueryError = ErrorType<unknown>
+
+
+
+export function useGetPortalLabReportPdf<TData = Awaited<ReturnType<typeof getPortalLabReportPdf>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalLabReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalLabReportPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAcknowledgePortalLabReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/portal/lab-reports/${id}/acknowledge`
+}
+
+export const acknowledgePortalLabReport = async (id: number, options?: RequestInit): Promise<LabOrder> => {
+
+  return customFetch<LabOrder>(getAcknowledgePortalLabReportUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAcknowledgePortalLabReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePortalLabReport>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgePortalLabReport>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acknowledgePortalLabReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgePortalLabReport>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acknowledgePortalLabReport(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgePortalLabReportMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgePortalLabReport>>>
+
+    export type AcknowledgePortalLabReportMutationError = ErrorType<unknown>
+
+    export const useAcknowledgePortalLabReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePortalLabReport>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgePortalLabReport>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcknowledgePortalLabReportMutationOptions(options));
+    }
+
+export const getGetPortalRadiologyReportPdfUrl = (id: number,) => {
+
+
+
+
+  return `/api/portal/radiology-reports/${id}/pdf`
+}
+
+export const getPortalRadiologyReportPdf = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetPortalRadiologyReportPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalRadiologyReportPdfQueryKey = (id: number,) => {
+    return [
+    `/api/portal/radiology-reports/${id}/pdf`
+    ] as const;
+    }
+
+
+export const getGetPortalRadiologyReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalRadiologyReportPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>> = ({ signal }) => getPortalRadiologyReportPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalRadiologyReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>>
+export type GetPortalRadiologyReportPdfQueryError = ErrorType<unknown>
+
+
+
+export function useGetPortalRadiologyReportPdf<TData = Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalRadiologyReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalRadiologyReportPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAcknowledgePortalRadiologyReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/portal/radiology-reports/${id}/acknowledge`
+}
+
+export const acknowledgePortalRadiologyReport = async (id: number, options?: RequestInit): Promise<RadiologyOrder> => {
+
+  return customFetch<RadiologyOrder>(getAcknowledgePortalRadiologyReportUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAcknowledgePortalRadiologyReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePortalRadiologyReport>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgePortalRadiologyReport>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acknowledgePortalRadiologyReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgePortalRadiologyReport>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acknowledgePortalRadiologyReport(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgePortalRadiologyReportMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgePortalRadiologyReport>>>
+
+    export type AcknowledgePortalRadiologyReportMutationError = ErrorType<unknown>
+
+    export const useAcknowledgePortalRadiologyReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePortalRadiologyReport>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgePortalRadiologyReport>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcknowledgePortalRadiologyReportMutationOptions(options));
+    }
+
 export const getListOtBookingsUrl = () => {
 
 

@@ -677,6 +677,7 @@ export const ListLabOrdersResponseItem = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -748,6 +749,7 @@ export const RecordLabResultResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -798,6 +800,7 @@ export const CollectLabSampleResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -846,6 +849,7 @@ export const RejectLabSampleResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -894,6 +898,7 @@ export const VerifyLabResultResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -942,6 +947,7 @@ export const DispatchLabReportResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2341,6 +2347,7 @@ export const ListRadiologyOrdersResponseItem = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2391,6 +2398,7 @@ export const RecordRadiologyReportResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2428,6 +2436,7 @@ export const ScheduleRadiologyResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2466,6 +2475,7 @@ export const CaptureRadiologyImagesResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2502,6 +2512,7 @@ export const VerifyRadiologyReportResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2538,6 +2549,7 @@ export const DispatchRadiologyReportResponse = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2647,6 +2659,7 @@ export const GetPortalLabReportsResponseItem = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
@@ -2676,10 +2689,99 @@ export const GetPortalRadiologyReportsResponseItem = zod.object({
   "reportPdfUrl": zod.string().nullish(),
   "dispatchedAt": zod.string().nullish(),
   "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish()
 })
 export const GetPortalRadiologyReportsResponse = zod.array(GetPortalRadiologyReportsResponseItem)
+
+
+export const GetPortalLabReportPdfParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const AcknowledgePortalLabReportParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcknowledgePortalLabReportResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "patientAge": zod.number().nullish(),
+  "patientSex": zod.string().nullish(),
+  "catalogId": zod.number().nullish(),
+  "testName": zod.string(),
+  "category": zod.string().nullish(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "result": zod.string().nullish(),
+  "normalRange": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "orderedBy": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "sampleId": zod.string().nullish(),
+  "barcode": zod.string().nullish(),
+  "collectedBy": zod.string().nullish(),
+  "collectedAt": zod.string().nullish(),
+  "rejectionReason": zod.string().nullish(),
+  "results": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish(),
+  "flag": zod.string().nullish().describe('N (normal), H (high), L (low), A (abnormal)'),
+  "refRange": zod.string().nullish(),
+  "comment": zod.string().nullish()
+})).optional(),
+  "attachmentUrl": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+export const GetPortalRadiologyReportPdfParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const AcknowledgePortalRadiologyReportParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcknowledgePortalRadiologyReportResponse = zod.object({
+  "id": zod.number(),
+  "patientId": zod.number(),
+  "patientName": zod.string(),
+  "catalogId": zod.number().nullish(),
+  "modality": zod.string(),
+  "bodyPart": zod.string(),
+  "priority": zod.string(),
+  "status": zod.string(),
+  "findings": zod.string().nullish(),
+  "impression": zod.string().nullish(),
+  "radiologist": zod.string().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "pacsUrl": zod.string().nullish(),
+  "billId": zod.number().nullish(),
+  "scheduledAt": zod.string().nullish(),
+  "technologist": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "verifiedBy": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish(),
+  "reportPdfUrl": zod.string().nullish(),
+  "dispatchedAt": zod.string().nullish(),
+  "dispatchedVia": zod.string().nullish(),
+  "patientAcknowledgedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
 
 
 export const ListOtBookingsResponseItem = zod.object({

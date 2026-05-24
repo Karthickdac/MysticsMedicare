@@ -219,6 +219,8 @@ export const labOrdersTable = pgTable("lab_orders", {
   reportPdfUrl: text("report_pdf_url"),
   dispatchedAt: timestamp("dispatched_at"),
   dispatchedVia: text("dispatched_via"),
+  // Patient acknowledged receipt of report via portal (closes the loop after dispatch).
+  patientAcknowledgedAt: timestamp("patient_acknowledged_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 });
@@ -557,6 +559,7 @@ export const radiologyTable = pgTable("radiology_orders", {
   reportPdfUrl: text("report_pdf_url"),
   dispatchedAt: timestamp("dispatched_at"),
   dispatchedVia: text("dispatched_via"),
+  patientAcknowledgedAt: timestamp("patient_acknowledged_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 });
