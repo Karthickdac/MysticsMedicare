@@ -39,6 +39,7 @@ export default function Dashboard() {
   const isCashier = role === "cashier" || role === "accountant";
   const isDoctor = role === "doctor";
   const isNurse = role === "nurse";
+  const isAdmin = role === "admin";
 
   // Real pending-bills count for cashier/accountant KPI (avoids using prescriptions as a proxy).
   // Only the cashier branch reads this; other roles get a cheap empty list call when they don't.
@@ -81,7 +82,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI grid (role-aware) */}
+      {/* KPI grid — role-tailored. Cashier sees money; Doctor sees their
+          clinical load; Admin sees hospital-wide ops & revenue;
+          Nurse/everyone-else falls back to a general operations view. */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {isCashier ? (
           <>
@@ -90,9 +93,29 @@ export default function Dashboard() {
             <StatCard label="Pending Bills" value={pendingBillsCount} icon={IndianRupee} tone="warning" loading={loadingPendingBills} hint="Unpaid invoices" />
             <StatCard label="Today's Patients" value={summary?.todayAppointments} icon={Users} tone="info" loading={loadingSummary} />
           </>
-        ) : (
+        ) : isDoctor ? (
+          <>
+            <StatCard label="My OPD Today" value={summary?.todayAppointments} icon={Calendar} tone="primary" loading={loadingSummary} hint="Scheduled visits" />
+            <StatCard label="Pending Prescriptions" value={summary?.pendingPrescriptions ?? 0} icon={Pill} tone="warning" loading={loadingSummary} hint="Awaiting dispense" />
+            <StatCard label="Pending Lab Reports" value={summary?.pendingLabOrders ?? 0} icon={TestTube} tone="info" loading={loadingSummary} hint="Awaiting result" />
+            <StatCard label="Critical Alerts" value={summary?.criticalAlerts ?? 0} icon={AlertTriangle} tone="destructive" loading={loadingSummary} hint="Needs attention" />
+          </>
+        ) : isAdmin ? (
           <>
             <StatCard label="Total Patients" value={summary?.totalPatients} icon={Users} tone="info" loading={loadingSummary} delta="+12% vs last month" trend="up" />
+            <StatCard label="Revenue This Month" value={inr(summary?.revenueMonth)} icon={TrendingUp} tone="success" loading={loadingSummary} hint="Hospital-wide" />
+            <StatCard
+              label="Bed Occupancy"
+              value={summary ? `${summary.occupiedBeds}/${summary.totalBeds}` : "–"}
+              icon={BedDouble}
+              tone="warning"
+              loading={loadingSummary}
+              hint={summary && summary.totalBeds > 0 ? `${Math.round((summary.occupiedBeds / summary.totalBeds) * 100)}% occupied` : undefined}
+            />
+            <StatCard label="Critical Alerts" value={summary?.criticalAlerts ?? 0} icon={AlertTriangle} tone="destructive" loading={loadingSummary} hint="Pending labs & meds" />
+          </>
+        ) : (
+          <>
             <StatCard label="Today's Appointments" value={summary?.todayAppointments} icon={Calendar} tone="primary" loading={loadingSummary} />
             <StatCard
               label="Bed Occupancy"
@@ -102,6 +125,7 @@ export default function Dashboard() {
               loading={loadingSummary}
               hint={summary && summary.totalBeds > 0 ? `${Math.round((summary.occupiedBeds / summary.totalBeds) * 100)}% occupied` : undefined}
             />
+            <StatCard label="Pending Labs" value={summary?.pendingLabOrders ?? 0} icon={TestTube} tone="info" loading={loadingSummary} />
             <StatCard label="Critical Alerts" value={summary?.criticalAlerts ?? 0} icon={AlertTriangle} tone="destructive" loading={loadingSummary} hint="Pending labs & meds" />
           </>
         )}

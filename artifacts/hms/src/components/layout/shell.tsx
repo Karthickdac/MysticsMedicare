@@ -7,8 +7,9 @@ import {
   LogOut, Sun, Moon, Stethoscope, Sparkles, Command as CommandIcon, ChevronDown,
 } from "lucide-react";
 
-import { useMe, useLogout, useGetDashboardSummary, useListBills } from "@workspace/api-client-react";
+import { useMe, useLogout, useGetDashboardSummary, useListBills, useListNotificationLog } from "@workspace/api-client-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -105,6 +106,83 @@ const ALL_GROUPS: Group[] = [
     ],
   },
 ];
+
+// Topbar notifications popover. Reads the latest notification log entries
+// (most-recent first) and surfaces them in a dropdown panel; clicking
+// "View all" deep-links to the full log page. The bell badge prefers the
+// `criticalAlerts` summary metric so cashier/admin see ops alerts even
+// when no SMS/email has fired yet.
+function NotificationsBell({ criticalAlerts }: { criticalAlerts?: number }) {
+  const [open, setOpen] = useState(false);
+  const { data: logs, isLoading } = useListNotificationLog(undefined, {
+    query: { enabled: open, queryKey: ["notification-log", "topbar"] as const },
+  });
+  const recent = (logs ?? []).slice(0, 6);
+  const badge = criticalAlerts ?? 0;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative text-muted-foreground"
+          aria-label={`Notifications${badge ? ` (${badge} unread)` : ""}`}
+        >
+          <Bell className="w-5 h-5" />
+          {badge > 0 && (
+            <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center ring-2 ring-card">
+              {badge}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[360px] p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/40">
+          <div className="text-sm font-semibold">Notifications</div>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Latest activity
+          </span>
+        </div>
+        <div className="max-h-[360px] overflow-y-auto scrollbar-thin divide-y divide-border">
+          {isLoading ? (
+            <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+          ) : recent.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              You're all caught up.
+            </div>
+          ) : (
+            recent.map((n) => (
+              <div key={n.id} className="px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                    {n.eventKey.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(n.sentAt).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="text-sm text-foreground mt-0.5 line-clamp-2">
+                  {n.renderedBody}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1 flex gap-2">
+                  <span>{n.channel.toUpperCase()}</span>
+                  <span>·</span>
+                  <span className={n.status === "failed" ? "text-destructive" : ""}>{n.status}</span>
+                  {n.patientName && (<><span>·</span><span>{n.patientName}</span></>)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="border-t border-border px-3 py-2 bg-muted/30 flex justify-end">
+          <Button asChild variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            <Link href="/notifications/log">View all</Link>
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -295,16 +373,8 @@ function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
         <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="text-muted-foreground">
           {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </Button>
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground" asChild>
-          <Link href="/notifications/log" aria-label="Notifications">
-            <Bell className="w-5 h-5" />
-            {!!summary?.criticalAlerts && (
-              <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center ring-2 ring-card">
-                {summary.criticalAlerts}
-              </span>
-            )}
-          </Link>
-        </Button>
+        <NotificationsBell criticalAlerts={summary?.criticalAlerts} />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full ml-1 p-0">

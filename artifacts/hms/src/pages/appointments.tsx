@@ -3,6 +3,7 @@ import { useListAppointments, type Appointment } from "@workspace/api-client-rea
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Plus, Stethoscope } from "lucide-react";
+import { Link } from "wouter";
 import { PageHeader } from "@/components/primitives/page-header";
 import { FilterBar } from "@/components/primitives/filter-bar";
 import { DataTable, type Column } from "@/components/primitives/data-table";
@@ -96,8 +97,8 @@ export default function Appointments() {
         description="Schedule, track and manage patient visits."
         icon={Calendar}
         actions={
-          <Button className="bg-brand-gradient text-white shadow-md hover:opacity-95">
-            <Plus className="w-4 h-4 mr-2" />New Appointment
+          <Button asChild className="bg-brand-gradient text-white shadow-md hover:opacity-95">
+            <Link href="/appointments/new"><Plus className="w-4 h-4 mr-2" />New Appointment</Link>
           </Button>
         }
       />

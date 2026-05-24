@@ -12,6 +12,7 @@ import Patients from "@/pages/patients";
 import PatientNew from "@/pages/patient-new";
 import PatientProfile from "@/pages/patient-profile";
 import Appointments from "@/pages/appointments";
+import AppointmentNew from "@/pages/appointment-new";
 import OpdQueue from "@/pages/opd-queue";
 import Ipd from "@/pages/ipd";
 import Beds from "@/pages/beds";
@@ -68,6 +69,7 @@ function Router() {
             <Route path="/patients/new" component={PatientNew} />
             <Route path="/patients/:id" component={PatientProfile} />
             <Route path="/patients" component={Patients} />
+            <Route path="/appointments/new" component={AppointmentNew} />
             <Route path="/appointments" component={Appointments} />
             <Route path="/opd" component={OpdQueue} />
             <Route path="/ipd" component={Ipd} />
