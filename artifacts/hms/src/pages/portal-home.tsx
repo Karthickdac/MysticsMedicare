@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/primitives/empty-state";
 import {
-  Calendar, Stethoscope, Receipt, ArrowRight, FileText, Bell, AlertCircle, Plus, X, Pencil, FlaskConical, Scan,
+  Calendar, Stethoscope, Receipt, ArrowRight, FileText, Bell, AlertCircle, Plus, X, Pencil, FlaskConical, Scan, Download, Share2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { PortalShell, useApi, portalApi, fmtDateTime, fmtDate, formatINR } from "./portal-shell";
 import type { PortalMe } from "./portal-shell";
 
@@ -43,6 +44,79 @@ function balanceOf(b: Bill): number {
   return Math.max(0, b.total - (b.paidAmount ?? 0) + (b.refundedAmount ?? 0));
 }
 
+// Download the comprehensive medical history PDF and (optionally) hand it to
+// the OS share sheet so the patient can pick WhatsApp directly on mobile.
+// On desktops without Web Share file support we fall back to: download the
+// file, then open WhatsApp's web compose with a prefilled message — the
+// patient attaches the just-downloaded file manually.
+function HistoryActions({ patientName }: { patientName: string }) {
+  const [busy, setBusy] = useState<null | "download" | "share">(null);
+
+  async function fetchPdf(): Promise<Blob> {
+    const r = await fetch("/api/portal/history/pdf", { credentials: "include" });
+    if (!r.ok) throw new Error(`Failed to generate history (${r.status})`);
+    return await r.blob();
+  }
+
+  function saveBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  }
+
+  async function onDownload() {
+    setBusy("download");
+    try {
+      const blob = await fetchPdf();
+      saveBlob(blob, `medical-history-${patientName.replace(/\s+/g, "-")}.pdf`);
+      toast.success("Medical history downloaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed");
+    } finally { setBusy(null); }
+  }
+
+  async function onShare() {
+    setBusy("share");
+    try {
+      const blob = await fetchPdf();
+      const file = new File([blob], `medical-history-${patientName.replace(/\s+/g, "-")}.pdf`, { type: "application/pdf" });
+      const navAny = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (navAny.canShare && navAny.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: "Medical History",
+          text: "My MediCare medical history report.",
+        });
+      } else {
+        // Fallback: save the file and open WhatsApp Web with a prefilled
+        // message so the patient can attach the just-saved file.
+        saveBlob(blob, file.name);
+        const msg = encodeURIComponent("Sharing my MediCare medical history. (File downloaded — please attach it to this chat.)");
+        window.open(`https://wa.me/?text=${msg}`, "_blank", "noopener");
+        toast.message("History downloaded — attach the file in the WhatsApp window that just opened.");
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      toast.error(e instanceof Error ? e.message : "Share failed");
+    } finally { setBusy(null); }
+  }
+
+  return (
+    <>
+      <Button variant="outline" onClick={onDownload} disabled={busy !== null} data-testid="button-download-history">
+        <Download className="w-4 h-4 mr-1.5" />
+        {busy === "download" ? "Preparing…" : "Download history"}
+      </Button>
+      <Button variant="outline" onClick={onShare} disabled={busy !== null} data-testid="button-share-history">
+        <Share2 className="w-4 h-4 mr-1.5" />
+        {busy === "share" ? "Preparing…" : "Share on WhatsApp"}
+      </Button>
+    </>
+  );
+}
+
 // ============================================================================
 // Home dashboard
 // ============================================================================
@@ -59,7 +133,8 @@ export function PortalHome() {
             </h1>
             <p className="text-sm text-muted-foreground">Your health at a glance.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <HistoryActions patientName={data?.me.name ?? "Patient"} />
             <Link href="/portal/book">
               <Button className="bg-brand-gradient text-white shadow-md">
                 <Plus className="w-4 h-4 mr-1.5" /> Book appointment

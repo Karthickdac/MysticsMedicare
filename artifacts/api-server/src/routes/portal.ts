@@ -26,6 +26,7 @@ import {
   renderDischargeSummaryPdf,
   renderVaccinationPdf,
   renderVitalPdf,
+  renderPatientHistoryPdf,
 } from "./pdf";
 import {
   issuePatientCookie,
@@ -598,6 +599,15 @@ router.get("/portal/vaccinations", requirePatient, async (req, res) => {
       nextDueDate: v.nextDueDate ?? null,
     })),
   );
+});
+
+// Comprehensive patient history PDF — single file with demographics,
+// appointments, encounters, prescriptions, labs, radiology (with embedded
+// images), vaccinations, vitals, and bills. Designed to be downloaded and
+// shared by the patient (e.g. via WhatsApp).
+router.get("/portal/history/pdf", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  await renderPatientHistoryPdf(res, pid);
 });
 
 router.get("/portal/vaccinations/:id/pdf", requirePatient, async (req, res) => {

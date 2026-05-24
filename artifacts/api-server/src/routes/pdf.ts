@@ -11,6 +11,7 @@ import {
   prescriptionsTable,
   vitalsTable,
   vaccinationsTable,
+  appointmentsTable,
   admissionsTable,
   marEntriesTable,
 } from "@workspace/db";
@@ -506,5 +507,229 @@ export async function renderVitalPdf(res: Response, id: number): Promise<void> {
 router.get("/pdf/vitals/:id", async (req, res) => {
   await renderVitalPdf(res, Number(req.params.id));
 });
+
+// ---------------------------------------------------------------------------
+// Comprehensive patient history PDF — single file containing demographics,
+// appointments, encounters, prescriptions, lab tests (with results), radiology
+// (with findings/impression and embedded images where available), vaccinations,
+// vitals, and bill summary. Streamed by the portal under requirePatient so the
+// patient can download or share their full medical record (e.g. via WhatsApp).
+// ---------------------------------------------------------------------------
+
+const IMAGE_FETCH_TIMEOUT_MS = 4_000;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // skip oversized assets to keep PDFs light
+
+async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    if (!resp.ok) return null;
+    const ct = resp.headers.get("content-type") ?? "";
+    // PDFKit's doc.image() only accepts JPEG and PNG. Skip anything else.
+    if (!/image\/(jpeg|jpg|png)/i.test(ct)) return null;
+    const ab = await resp.arrayBuffer();
+    if (ab.byteLength > MAX_IMAGE_BYTES) return null;
+    return Buffer.from(ab);
+  } catch {
+    return null;
+  }
+}
+
+export async function renderPatientHistoryPdf(res: Response, patientId: number): Promise<void> {
+  const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, patientId));
+  if (!p) { res.status(404).json({ error: "Patient not found" }); return; }
+
+  // Pull everything in parallel so we render quickly even for large histories.
+  const [appts, encs, rxs, labs, rads, vaccs, vits, bills] = await Promise.all([
+    db.select().from(appointmentsTable).where(eq(appointmentsTable.patientId, patientId))
+      .orderBy(desc(appointmentsTable.scheduledAt)).limit(200),
+    db.select().from(encountersTable).where(eq(encountersTable.patientId, patientId))
+      .orderBy(desc(encountersTable.startedAt)).limit(200),
+    db.select().from(prescriptionsTable).where(eq(prescriptionsTable.patientId, patientId))
+      .orderBy(desc(prescriptionsTable.createdAt)).limit(200),
+    db.select().from(labOrdersTable).where(eq(labOrdersTable.patientId, patientId))
+      .orderBy(desc(labOrdersTable.createdAt)).limit(200),
+    db.select().from(radiologyTable).where(eq(radiologyTable.patientId, patientId))
+      .orderBy(desc(radiologyTable.createdAt)).limit(100),
+    db.select().from(vaccinationsTable).where(eq(vaccinationsTable.patientId, patientId))
+      .orderBy(desc(vaccinationsTable.administeredAt)).limit(200),
+    db.select().from(vitalsTable).where(eq(vitalsTable.patientId, patientId))
+      .orderBy(desc(vitalsTable.recordedAt)).limit(100),
+    db.select().from(billsTable).where(eq(billsTable.patientId, patientId))
+      .orderBy(desc(billsTable.createdAt)).limit(100),
+  ]);
+
+  // Pre-fetch radiology image buffers in parallel before we start writing
+  // pages — keeps the stream linear and predictable.
+  const radImages = await Promise.all(
+    rads.map((r) => (r.imageUrl ? fetchImageBuffer(r.imageUrl) : Promise.resolve(null))),
+  );
+
+  const doc = startPdf(res, `patient-history-${p.uhid}.pdf`);
+
+  const section = (title: string) => {
+    if (doc.y > 720) doc.addPage();
+    doc.moveDown(0.5);
+    doc.fontSize(13).fillColor("#0f766e").text(title, { underline: true });
+    doc.moveDown(0.3).fillColor("#000").fontSize(10);
+  };
+  const line = (s: string) => doc.fontSize(10).text(s);
+  const dash = "—";
+
+  // Header
+  doc.fontSize(18).text("PATIENT MEDICAL HISTORY", { align: "center" });
+  doc.fontSize(9).fillColor("#666").text(`Generated ${new Date().toLocaleString("en-IN")}`, { align: "center" });
+  doc.fillColor("#000").moveDown();
+
+  // Demographics
+  section("Patient Profile");
+  const age = p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : null;
+  line(`Name: ${p.name}`);
+  line(`MRN / UHID: ${p.uhid}`);
+  line(`Age / Gender: ${age ?? dash} / ${p.gender}`);
+  line(`Date of Birth: ${p.dob ? new Date(p.dob).toLocaleDateString("en-IN") : dash}`);
+  line(`Phone: ${p.phone}`);
+  if (p.email) line(`Email: ${p.email}`);
+  if (p.address) line(`Address: ${p.address}`);
+  if (p.bloodGroup) line(`Blood Group: ${p.bloodGroup}`);
+  if (p.allergies) line(`Allergies: ${p.allergies}`);
+  if (p.emergencyContact) line(`Emergency Contact: ${p.emergencyContact}`);
+  if (p.insuranceProvider) line(`Insurance: ${p.insuranceProvider}${p.insuranceNumber ? ` (${p.insuranceNumber})` : ""}`);
+
+  // Appointments
+  section(`Appointments (${appts.length})`);
+  if (appts.length === 0) line(dash);
+  for (const a of appts) {
+    line(`• ${new Date(a.scheduledAt).toLocaleString("en-IN")} · ${a.department} · ${a.status}${a.reason ? ` · ${a.reason}` : ""}`);
+  }
+
+  // Encounters
+  section(`Clinical Encounters (${encs.length})`);
+  if (encs.length === 0) line(dash);
+  for (const e of encs) {
+    if (doc.y > 740) doc.addPage();
+    doc.fontSize(11).fillColor("#111").text(
+      `${new Date(e.startedAt).toLocaleString("en-IN")} — ${e.type.toUpperCase()} (${e.status})`,
+    );
+    doc.fontSize(10).fillColor("#000");
+    if (e.chiefComplaint) line(`  Complaint: ${e.chiefComplaint}`);
+    if (e.diagnosis) line(`  Diagnosis: ${e.diagnosis}`);
+    if (e.notes) line(`  Notes: ${e.notes}`);
+    if (e.endedAt) line(`  Ended: ${new Date(e.endedAt).toLocaleString("en-IN")}`);
+    doc.moveDown(0.2);
+  }
+
+  // Medications
+  section(`Medications & Prescriptions (${rxs.length})`);
+  if (rxs.length === 0) line(dash);
+  for (const r of rxs) {
+    const meta = [
+      r.frequency,
+      r.duration ? `× ${r.duration}` : null,
+      r.prescribedBy ? `Dr. ${r.prescribedBy}` : null,
+      new Date(r.createdAt).toLocaleDateString("en-IN"),
+      r.status,
+    ].filter(Boolean).join(" · ");
+    line(`• ${r.drug} ${r.dosage}  ${meta ? `— ${meta}` : ""}`);
+    if (r.instructions) line(`    Instructions: ${r.instructions}`);
+  }
+
+  // Lab tests
+  section(`Laboratory Tests (${labs.length})`);
+  if (labs.length === 0) line(dash);
+  for (const l of labs) {
+    if (doc.y > 740) doc.addPage();
+    doc.fontSize(11).fillColor("#111").text(
+      `${l.testName} — ${l.status}  (${new Date(l.createdAt).toLocaleDateString("en-IN")})`,
+    );
+    doc.fontSize(10).fillColor("#000");
+    const arr = Array.isArray(l.resultsJson) ? l.resultsJson as Array<Record<string, unknown>> : [];
+    if (arr.length > 0) {
+      for (const row of arr) {
+        const name = String(row.name ?? "");
+        const value = String(row.value ?? "");
+        const unit = row.unit ? ` ${row.unit}` : "";
+        const flag = row.flag ? ` [${row.flag}]` : "";
+        const ref = row.refRange ? ` (ref ${row.refRange})` : "";
+        line(`  - ${name}: ${value}${unit}${flag}${ref}`);
+      }
+    } else if (l.result) {
+      line(`  Result: ${l.result}${l.normalRange ? `  (normal ${l.normalRange})` : ""}`);
+    }
+    if (l.notes) line(`  Notes: ${l.notes}`);
+    doc.moveDown(0.2);
+  }
+
+  // Radiology with embedded images
+  section(`Radiology Studies (${rads.length})`);
+  if (rads.length === 0) line(dash);
+  for (let i = 0; i < rads.length; i++) {
+    const r = rads[i]!;
+    if (doc.y > 600) doc.addPage();
+    doc.fontSize(11).fillColor("#111").text(
+      `${r.modality} ${r.bodyPart} — ${r.status}  (${new Date(r.createdAt).toLocaleDateString("en-IN")})`,
+    );
+    doc.fontSize(10).fillColor("#000");
+    if (r.findings) line(`  Findings: ${r.findings}`);
+    if (r.impression) line(`  Impression: ${r.impression}`);
+    if (r.radiologist) line(`  Radiologist: ${r.radiologist}`);
+    const img = radImages[i];
+    if (img) {
+      try {
+        if (doc.y > 500) doc.addPage();
+        doc.moveDown(0.3);
+        doc.image(img, { fit: [400, 300], align: "center" });
+        doc.moveDown(0.5);
+      } catch {
+        // Corrupt/unsupported image — skip silently.
+      }
+    }
+    doc.moveDown(0.2);
+  }
+
+  // Vaccinations
+  section(`Vaccinations (${vaccs.length})`);
+  if (vaccs.length === 0) line(dash);
+  for (const v of vaccs) {
+    const next = v.nextDueDate ? ` · next due ${new Date(v.nextDueDate).toLocaleDateString("en-IN")}` : "";
+    line(`• ${v.vaccineName} (Dose ${v.doseNumber}) — ${new Date(v.administeredAt).toLocaleDateString("en-IN")}${v.batchNumber ? ` · Batch ${v.batchNumber}` : ""}${next}`);
+  }
+
+  // Vitals
+  section(`Vitals History (${vits.length})`);
+  if (vits.length === 0) line(dash);
+  for (const v of vits) {
+    const parts = [
+      new Date(v.recordedAt).toLocaleString("en-IN"),
+      v.bp ? `BP ${v.bp}` : null,
+      v.pulse != null ? `HR ${v.pulse}` : null,
+      v.temperature != null ? `T ${v.temperature}°C` : null,
+      v.spo2 != null ? `SpO2 ${v.spo2}%` : null,
+      v.respiratoryRate != null ? `RR ${v.respiratoryRate}` : null,
+      v.weight != null ? `Wt ${v.weight}kg` : null,
+      v.height != null ? `Ht ${v.height}cm` : null,
+    ].filter(Boolean);
+    line(`• ${parts.join("  •  ")}`);
+  }
+
+  // Bills
+  section(`Bills Summary (${bills.length})`);
+  if (bills.length === 0) line(dash);
+  for (const b of bills) {
+    const balance = Math.max(0, Number(b.total) - Number(b.paidAmount) + Number(b.refundedAmount));
+    line(`• ${b.billNumber} · ${new Date(b.createdAt).toLocaleDateString("en-IN")} · ${b.status} · Total ${inr(b.total)} · Paid ${inr(b.paidAmount)}${balance > 0 ? ` · Balance ${inr(balance)}` : ""}`);
+  }
+
+  doc.moveDown(1.5);
+  doc.fontSize(8).fillColor("#666").text(
+    "This document is a computer-generated medical history extract from MediCare HMS Plus. " +
+    "Share only with healthcare providers you trust. Records are limited to the most recent " +
+    "entries per category.",
+    { align: "center" },
+  );
+  doc.end();
+}
 
 export default router;
