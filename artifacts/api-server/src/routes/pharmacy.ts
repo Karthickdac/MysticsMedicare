@@ -234,9 +234,9 @@ router.get("/pharmacy/alerts", async (_req, res) => {
 // ---------------------------------------------------------------------------
 // Purchase orders
 // ---------------------------------------------------------------------------
-async function loadPoItems(poIds: number[]) {
+async function loadPoItems(poIds: number[], executor: typeof db = db) {
   if (poIds.length === 0) return new Map<number, Array<{ id: number; drugId: number; drugName: string; qty: number; costPerUnit: number }>>();
-  const rows = await db
+  const rows = await executor
     .select({
       id: pharmacyPurchaseOrderItemsTable.id,
       poId: pharmacyPurchaseOrderItemsTable.poId,
@@ -317,7 +317,7 @@ router.post("/pharmacy/purchase-orders", requireRole("admin", "pharmacist"), asy
         .select({ name: pharmacySuppliersTable.name })
         .from(pharmacySuppliersTable)
         .where(eq(pharmacySuppliersTable.id, po.supplierId));
-      const itemMap = await loadPoItems([po.id]);
+      const itemMap = await loadPoItems([po.id], tx as unknown as typeof db);
       return shapePo(po, supplierName, itemMap.get(po.id) ?? []);
     });
     res.status(201).json(result);
@@ -330,9 +330,9 @@ router.post("/pharmacy/purchase-orders", requireRole("admin", "pharmacist"), asy
 // ---------------------------------------------------------------------------
 // GRN: receive stock, create batches, update PO status
 // ---------------------------------------------------------------------------
-async function loadGrnItems(grnIds: number[]) {
+async function loadGrnItems(grnIds: number[], executor: typeof db = db) {
   if (grnIds.length === 0) return new Map<number, Array<{ id: number; drugId: number; drugName: string; batchId: number | null; batchNo: string; expiry: string; qty: number; costPerUnit: number; mrp: number }>>();
-  const rows = await db
+  const rows = await executor
     .select({
       id: pharmacyGrnItemsTable.id, grnId: pharmacyGrnItemsTable.grnId,
       drugId: pharmacyGrnItemsTable.drugId, drugName: drugsTable.name,
@@ -461,7 +461,7 @@ router.post("/pharmacy/grns", requireRole("admin", "pharmacist"), async (req, re
         .select({ name: pharmacySuppliersTable.name })
         .from(pharmacySuppliersTable)
         .where(eq(pharmacySuppliersTable.id, grn.supplierId));
-      const map = await loadGrnItems([grn.id]);
+      const map = await loadGrnItems([grn.id], tx as unknown as typeof db);
       return shapeGrn(grn, supplierName, map.get(grn.id) ?? []);
     });
     res.status(201).json(result);
@@ -474,10 +474,10 @@ router.post("/pharmacy/grns", requireRole("admin", "pharmacist"), async (req, re
 // ---------------------------------------------------------------------------
 // Sales (Rx dispense + OTC) — decrements batches + creates Bill atomically
 // ---------------------------------------------------------------------------
-async function loadSaleItems(saleIds: number[]): Promise<Map<number, SaleItemRow[]>> {
+async function loadSaleItems(saleIds: number[], executor: typeof db = db): Promise<Map<number, SaleItemRow[]>> {
   const map = new Map<number, SaleItemRow[]>();
   if (saleIds.length === 0) return map;
-  const rows = await db
+  const rows = await executor
     .select({
       id: pharmacySaleItemsTable.id, saleId: pharmacySaleItemsTable.saleId,
       drugId: pharmacySaleItemsTable.drugId, drugName: drugsTable.name,
@@ -588,27 +588,56 @@ router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, r
         if (b.qtyOnHand < q) throw new HttpError(400, `Insufficient stock for batch ${b.batchNo}: have ${b.qtyOnHand}, need ${q}`);
       }
 
-      // FEFO enforcement: for each drug used, the chosen batch must be the
-      // earliest-expiry batch with stock on hand. Prevents clients from
-      // bypassing the UI's FEFO sort and leaving near-expiry stock to rot.
+      // FEFO enforcement: caller may split a drug across multiple batches, but
+      // earlier-expiry batches must be exhausted before any later batch is
+      // touched. Compute the canonical greedy allocation per drug and require
+      // the caller's per-batch quantities to match it exactly. Prevents
+      // clients from bypassing the UI's FEFO sort and leaving near-expiry
+      // stock to rot, while still permitting legitimate multi-batch lines.
       const drugIdsUsed = [...new Set(items.map((it) => it.drugId))];
       const allBatchesForDrugs = await tx
         .select()
         .from(pharmacyBatchesTable)
         .where(and(inArray(pharmacyBatchesTable.drugId, drugIdsUsed), gt(pharmacyBatchesTable.qtyOnHand, 0)));
-      const fefoByDrug = new Map<number, { id: number; batchNo: string; expiry: string }>();
+      const batchesByDrug = new Map<number, typeof allBatchesForDrugs>();
       for (const b of allBatchesForDrugs) {
-        const cur = fefoByDrug.get(b.drugId);
-        // Earliest expiry; tie-break by id ascending to be deterministic.
-        if (!cur || b.expiry < cur.expiry || (b.expiry === cur.expiry && b.id < cur.id)) {
-          fefoByDrug.set(b.drugId, { id: b.id, batchNo: b.batchNo, expiry: b.expiry });
-        }
+        const arr = batchesByDrug.get(b.drugId) ?? [];
+        arr.push(b);
+        batchesByDrug.set(b.drugId, arr);
       }
+      // Per-drug per-batch requested qty (sum within drug across line items).
+      const requestedPerDrugBatch = new Map<number, Map<number, number>>();
       for (const it of items) {
-        const expected = fefoByDrug.get(it.drugId);
-        if (expected && expected.id !== it.batchId) {
-          const drugName = drugMap.get(it.drugId)?.name ?? `drug ${it.drugId}`;
-          throw new HttpError(409, `FEFO violation: for ${drugName}, dispense batch ${expected.batchNo} (expires ${expected.expiry}) first.`);
+        const m = requestedPerDrugBatch.get(it.drugId) ?? new Map<number, number>();
+        m.set(it.batchId, (m.get(it.batchId) ?? 0) + it.qty);
+        requestedPerDrugBatch.set(it.drugId, m);
+      }
+      for (const [drugId, reqMap] of requestedPerDrugBatch) {
+        const batches = (batchesByDrug.get(drugId) ?? []).slice().sort((a, b) =>
+          a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : a.id - b.id,
+        );
+        let remaining = [...reqMap.values()].reduce((s, n) => s + n, 0);
+        const expected = new Map<number, number>();
+        for (const b of batches) {
+          if (remaining <= 0) break;
+          const take = Math.min(remaining, b.qtyOnHand);
+          if (take > 0) expected.set(b.id, take);
+          remaining -= take;
+        }
+        const drugName = drugMap.get(drugId)?.name ?? `drug ${drugId}`;
+        if (remaining > 0) {
+          throw new HttpError(400, `Insufficient stock for ${drugName}: short by ${remaining}`);
+        }
+        // Compare maps for exact match (size + each entry).
+        if (expected.size !== reqMap.size) {
+          const firstWrong = batches.find((b) => (expected.get(b.id) ?? 0) !== (reqMap.get(b.id) ?? 0));
+          throw new HttpError(409, `FEFO violation for ${drugName}: dispense earliest-expiry batches first${firstWrong ? ` (batch ${firstWrong.batchNo} expires ${firstWrong.expiry})` : ""}.`);
+        }
+        for (const [bid, q] of expected) {
+          if (reqMap.get(bid) !== q) {
+            const b = batches.find((x) => x.id === bid);
+            throw new HttpError(409, `FEFO violation for ${drugName}: batch ${b?.batchNo ?? bid} (expires ${b?.expiry ?? "?"}) needs ${q} unit(s), got ${reqMap.get(bid) ?? 0}.`);
+          }
         }
       }
 
@@ -736,7 +765,7 @@ router.post("/pharmacy/sales", requireRole("admin", "pharmacist"), async (req, r
         const [b] = await tx.select({ n: billsTable.billNumber }).from(billsTable).where(eq(billsTable.id, billId));
         billNumber = b?.n ?? null;
       }
-      const m = await loadSaleItems([sale.id]);
+      const m = await loadSaleItems([sale.id], tx as unknown as typeof db);
       return { sale, patientName, billNumber, items: m.get(sale.id) ?? [] };
     });
 
