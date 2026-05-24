@@ -185,6 +185,11 @@ function VaccinationsList() {
             <div className="font-semibold">{v.vaccineName}{v.doseNumber ? ` · Dose ${v.doseNumber}` : ""}</div>
             <div className="text-xs text-muted-foreground">Given {fmtDate(v.administeredAt)}{v.nextDueDate ? ` · Next due ${v.nextDueDate}` : ""}</div>
           </div>
+          <a href={`/api/portal/vaccinations/${v.id}/pdf`} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline" data-testid={`button-download-vaccination-${v.id}`}>
+              <FileText className="w-3.5 h-3.5 mr-1" />PDF
+            </Button>
+          </a>
         </div>
       ))}
     </ListCard>
@@ -206,6 +211,7 @@ function VitalsList() {
               <th className="text-left py-2 pr-3">SpO₂</th>
               <th className="text-left py-2 pr-3">RR</th>
               <th className="text-left py-2 pr-3">Wt/Ht</th>
+              <th className="text-right py-2 pr-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -218,6 +224,13 @@ function VitalsList() {
                 <td className="py-2 pr-3">{v.spo2 ?? "—"}</td>
                 <td className="py-2 pr-3">{v.respiratoryRate ?? "—"}</td>
                 <td className="py-2 pr-3">{v.weight ?? "—"}/{v.height ?? "—"}</td>
+                <td className="py-2 pr-3 text-right">
+                  <a href={`/api/portal/vitals/${v.id}/pdf`} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="ghost" data-testid={`button-download-vitals-${v.id}`}>
+                      <FileText className="w-3.5 h-3.5" />
+                    </Button>
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>

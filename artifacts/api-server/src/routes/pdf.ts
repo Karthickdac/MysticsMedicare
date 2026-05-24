@@ -10,6 +10,7 @@ import {
   radiologyTable,
   prescriptionsTable,
   vitalsTable,
+  vaccinationsTable,
   admissionsTable,
   marEntriesTable,
 } from "@workspace/db";
@@ -453,6 +454,57 @@ export async function renderPrescriptionPdf(res: Response, id: number): Promise<
 
 router.get("/pdf/prescription/:prescriptionId", async (req, res) => {
   await renderPrescriptionPdf(res, Number(req.params.prescriptionId));
+});
+
+export async function renderVaccinationPdf(res: Response, id: number): Promise<void> {
+  const [v] = await db.select().from(vaccinationsTable).where(eq(vaccinationsTable.id, id));
+  if (!v) { res.status(404).json({ error: "Vaccination record not found" }); return; }
+  const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, v.patientId));
+  const doc = startPdf(res, `vaccination-${id}.pdf`);
+  doc.fontSize(16).text("VACCINATION CERTIFICATE", { align: "center" }).moveDown();
+  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
+  doc.text(`Date Administered: ${new Date(v.administeredAt).toLocaleString("en-IN")}`);
+  doc.moveDown();
+  doc.fontSize(12).text("Vaccine", { underline: true });
+  doc.fontSize(11);
+  doc.text(`${v.vaccineName} — Dose ${v.doseNumber}`);
+  if (v.batchNumber) doc.text(`Batch No.: ${v.batchNumber}`);
+  if (v.administeredBy) doc.text(`Administered by: ${v.administeredBy}`);
+  if (v.nextDueDate) doc.text(`Next Due: ${new Date(v.nextDueDate).toLocaleDateString("en-IN")}`);
+  doc.end();
+}
+
+router.get("/pdf/vaccination/:id", async (req, res) => {
+  await renderVaccinationPdf(res, Number(req.params.id));
+});
+
+export async function renderVitalPdf(res: Response, id: number): Promise<void> {
+  const [v] = await db.select().from(vitalsTable).where(eq(vitalsTable.id, id));
+  if (!v) { res.status(404).json({ error: "Vitals record not found" }); return; }
+  const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, v.patientId));
+  const doc = startPdf(res, `vitals-${id}.pdf`);
+  doc.fontSize(16).text("VITALS RECORD", { align: "center" }).moveDown();
+  if (p) doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
+  doc.text(`Recorded At: ${new Date(v.recordedAt).toLocaleString("en-IN")}`);
+  if (v.recordedBy) doc.text(`Recorded By: ${v.recordedBy}`);
+  doc.moveDown();
+  doc.fontSize(12).text("Measurements", { underline: true });
+  doc.fontSize(11);
+  const lines: string[] = [];
+  if (v.bp) lines.push(`Blood Pressure: ${v.bp} mmHg`);
+  if (v.pulse != null) lines.push(`Pulse: ${v.pulse} bpm`);
+  if (v.temperature != null) lines.push(`Temperature: ${v.temperature} °C`);
+  if (v.spo2 != null) lines.push(`SpO2: ${v.spo2} %`);
+  if (v.respiratoryRate != null) lines.push(`Respiratory Rate: ${v.respiratoryRate} /min`);
+  if (v.weight != null) lines.push(`Weight: ${v.weight} kg`);
+  if (v.height != null) lines.push(`Height: ${v.height} cm`);
+  if (lines.length === 0) lines.push("(no measurements recorded)");
+  for (const l of lines) doc.text(l);
+  doc.end();
+}
+
+router.get("/pdf/vitals/:id", async (req, res) => {
+  await renderVitalPdf(res, Number(req.params.id));
 });
 
 export default router;

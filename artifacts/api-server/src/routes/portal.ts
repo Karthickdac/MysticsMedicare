@@ -24,6 +24,8 @@ import {
   renderReceiptPdf,
   renderPrescriptionPdf,
   renderDischargeSummaryPdf,
+  renderVaccinationPdf,
+  renderVitalPdf,
 } from "./pdf";
 import {
   issuePatientCookie,
@@ -596,6 +598,22 @@ router.get("/portal/vaccinations", requirePatient, async (req, res) => {
       nextDueDate: v.nextDueDate ?? null,
     })),
   );
+});
+
+router.get("/portal/vaccinations/:id/pdf", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const id = Number(req.params.id);
+  const [v] = await db.select().from(vaccinationsTable).where(eq(vaccinationsTable.id, id));
+  if (!v || v.patientId !== pid) return res.status(404).json({ error: "Not found" });
+  await renderVaccinationPdf(res, id);
+});
+
+router.get("/portal/vitals/:id/pdf", requirePatient, async (req, res) => {
+  const pid = (req as Request & { patientId: number }).patientId;
+  const id = Number(req.params.id);
+  const [v] = await db.select().from(vitalsTable).where(eq(vitalsTable.id, id));
+  if (!v || v.patientId !== pid) return res.status(404).json({ error: "Not found" });
+  await renderVitalPdf(res, id);
 });
 
 router.get("/portal/vitals", requirePatient, async (req, res) => {
