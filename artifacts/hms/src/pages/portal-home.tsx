@@ -14,8 +14,11 @@ import {
   Calendar, Stethoscope, Receipt, ArrowRight, FileText, Bell, AlertCircle, Plus, X, Pencil, FlaskConical, Scan, Download, Share2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PortalShell, useApi, portalApi, fmtDateTime, fmtDate, formatINR } from "./portal-shell";
-import type { PortalMe } from "./portal-shell";
+import {
+  PortalShell, useApi, portalApi, fmtDateTime, fmtDate, formatINR,
+  formatWorkingHoursHint, formatHolidayHint, closedReasonFor,
+} from "./portal-shell";
+import type { PortalMe, PublicHospitalSettings } from "./portal-shell";
 
 type Appt = {
   id: number; scheduledAt: string; department: string; status: string;
@@ -362,6 +365,10 @@ function RescheduleDialog({ appt, onClose, onDone }: { appt: Appt | null; onClos
   const [time, setTime] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { data: settings } = useApi<PublicHospitalSettings>(appt ? "/hospital-settings/public" : null, [appt?.id]);
+  const hoursHint = formatWorkingHoursHint(settings?.workingHours);
+  const holidayHint = formatHolidayHint(settings?.holidays);
+  const closedReason = closedReasonFor(settings, date);
 
   useEffect(() => {
     if (appt) {
@@ -375,6 +382,7 @@ function RescheduleDialog({ appt, onClose, onDone }: { appt: Appt | null; onClos
 
   async function submit() {
     if (!appt) return;
+    if (closedReason) { setErr(closedReason); return; }
     setErr(null); setBusy(true);
     try {
       const iso = new Date(`${date}T${time}:00`).toISOString();
@@ -405,11 +413,22 @@ function RescheduleDialog({ appt, onClose, onDone }: { appt: Appt | null; onClos
               <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
           </div>
+          {(hoursHint || holidayHint) && (
+            <div className="text-[11px] text-muted-foreground space-y-0.5">
+              {hoursHint && <p>Hours: {hoursHint}</p>}
+              {holidayHint && <p>Upcoming holidays: {holidayHint}</p>}
+            </div>
+          )}
+          {closedReason && !err && (
+            <div className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 px-3 py-2 rounded-md">
+              {closedReason}
+            </div>
+          )}
           {err && <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 px-3 py-2 rounded-md">{err}</div>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={busy || !date || !time}>{busy ? "Saving…" : "Confirm"}</Button>
+          <Button onClick={submit} disabled={busy || !date || !time || !!closedReason}>{busy ? "Saving…" : "Confirm"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -424,6 +443,7 @@ type Doctor = { id: number; name: string; department: string | null; specializat
 export function PortalBook() {
   const [, setLocation] = useLocation();
   const { data: doctors, loading } = useApi<Doctor[]>("/portal/doctors", []);
+  const { data: settings } = useApi<PublicHospitalSettings>("/hospital-settings/public", []);
   const [doctorId, setDoctorId] = useState<string>("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -432,6 +452,9 @@ export function PortalBook() {
   const [closedReason, setClosedReason] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const hoursHint = formatWorkingHoursHint(settings?.workingHours);
+  const holidayHint = formatHolidayHint(settings?.holidays);
+  const clientClosedReason = closedReasonFor(settings, date);
 
   const chosenDoctor = doctors?.find((d) => String(d.id) === doctorId);
   const department = chosenDoctor?.department ?? "";
@@ -498,8 +521,8 @@ export function PortalBook() {
                 </div>
                 <div>
                   <Label>Time</Label>
-                  <Select value={time} onValueChange={setTime} disabled={!doctorId || !date || !!closedReason || slots.length === 0}>
-                    <SelectTrigger><SelectValue placeholder={closedReason ?? "Pick a slot"} /></SelectTrigger>
+                  <Select value={time} onValueChange={setTime} disabled={!doctorId || !date || !!closedReason || !!clientClosedReason || slots.length === 0}>
+                    <SelectTrigger><SelectValue placeholder={clientClosedReason ?? closedReason ?? "Pick a slot"} /></SelectTrigger>
                     <SelectContent>
                       {slots.map((s) => (
                         <SelectItem key={s.time} value={s.time} disabled={s.taken}>
@@ -508,11 +531,18 @@ export function PortalBook() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {closedReason && (
-                    <p className="text-[11px] text-muted-foreground mt-1">{closedReason}</p>
+                  {(clientClosedReason || closedReason) && (
+                    <p className="text-[11px] text-muted-foreground mt-1">{clientClosedReason ?? closedReason}</p>
                   )}
                 </div>
               </div>
+
+              {(hoursHint || holidayHint) && (
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                  {hoursHint && <p>Hours: {hoursHint}</p>}
+                  {holidayHint && <p>Upcoming holidays: {holidayHint}</p>}
+                </div>
+              )}
 
               <div>
                 <Label>Reason for visit (optional)</Label>

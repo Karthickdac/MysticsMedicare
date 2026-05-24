@@ -158,6 +158,10 @@ const PUBLIC_PATHS = new Set<string>([
   "/portal/login",
   "/portal/logout",
   "/portal/me",
+  // Public hospital branding + working hours/holidays. Consumed by both
+  // staff (booking) and the patient portal (book + reschedule) so it must
+  // be reachable without a staff session.
+  "/hospital-settings/public",
 ]);
 const PUBLIC_PREFIXES = ["/storage/public-objects/", "/portal/"];
 

@@ -34,6 +34,58 @@ export function portalApi<T>(path: string, init?: RequestInit): Promise<T> {
   });
 }
 
+// Public hospital settings (working hours + holidays) + helpers for portal
+// booking flows. Mirrors the staff appointment-new page so the patient sees
+// the same constraints the server enforces.
+export type PublicHospitalSettings = {
+  name?: string;
+  workingHours?: Record<string, { open?: string; close?: string; closed?: boolean }> | null;
+  holidays?: Array<{ date: string; label?: string }> | null;
+};
+
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+export function formatWorkingHoursHint(
+  wh: PublicHospitalSettings["workingHours"] | undefined,
+): string | null {
+  if (!wh) return null;
+  return DAY_KEYS
+    .map((d, i) => {
+      const v = wh[d];
+      if (!v || v.closed) return `${DAY_LABELS[i]}: Closed`;
+      return `${DAY_LABELS[i]}: ${v.open ?? "—"}–${v.close ?? "—"}`;
+    })
+    .join("  •  ");
+}
+
+export function formatHolidayHint(
+  hs: PublicHospitalSettings["holidays"] | undefined,
+): string | null {
+  if (!hs || hs.length === 0) return null;
+  return hs.slice(0, 5).map((h) => `${h.date}${h.label ? ` (${h.label})` : ""}`).join(", ");
+}
+
+// Returns a reason string if the hospital is closed on the given YYYY-MM-DD,
+// otherwise null. Used to short-circuit submit before round-tripping to the
+// server (which returns a generic 400 on closed days).
+export function closedReasonFor(
+  settings: PublicHospitalSettings | null | undefined,
+  dateStr: string,
+): string | null {
+  if (!settings || !dateStr) return null;
+  const holiday = (settings.holidays ?? []).find((h) => h.date === dateStr);
+  if (holiday) return `Hospital closed on ${dateStr}${holiday.label ? ` (${holiday.label})` : ""}`;
+  const wh = settings.workingHours ?? undefined;
+  if (!wh) return null;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const dow = new Date(y, m - 1, d).getDay();
+  const cfg = wh[DAY_KEYS[dow]];
+  if (cfg?.closed) return `Hospital closed on ${DAY_LABELS[dow]}`;
+  return null;
+}
+
 export function useApi<T>(path: string | null, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(path !== null);
