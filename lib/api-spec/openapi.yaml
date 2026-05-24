@@ -1542,6 +1542,12 @@ components:
       properties:
         code: { type: string }
         ward: { type: string }
+        floor: { type: ["string", "null"] }
+        bedType: { type: ["string", "null"] }
+        genderPolicy: { type: ["string", "null"], enum: [male, female, any, null] }
+        ageMinYears: { type: ["integer", "null"] }
+        ageMaxYears: { type: ["integer", "null"] }
+        dailyRate: { type: ["string", "null"] }
     BedAssignmentInput:
       type: object
       required: [patientId]

@@ -1,7 +1,17 @@
 import { Router, type IRouter, type Response } from "express";
 import PDFDocument from "pdfkit";
-import { db, patientsTable, billsTable, encountersTable, labOrdersTable, prescriptionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  patientsTable,
+  billsTable,
+  encountersTable,
+  labOrdersTable,
+  prescriptionsTable,
+  vitalsTable,
+  admissionsTable,
+  marEntriesTable,
+} from "@workspace/db";
+import { and, desc, eq, gte } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -45,25 +55,108 @@ router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
   const [e] = await db.select().from(encountersTable).where(eq(encountersTable.id, id));
   if (!e) return res.status(404).json({ error: "Encounter not found" });
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, e.patientId));
+
+  // Stay window — vitals/labs after admit, prescriptions linked to encounter.
+  const stayStart = e.startedAt;
+  const [adm] = await db
+    .select()
+    .from(admissionsTable)
+    .where(eq(admissionsTable.encounterId, id))
+    .limit(1);
+
+  const vitals = await db
+    .select()
+    .from(vitalsTable)
+    .where(and(eq(vitalsTable.patientId, e.patientId), gte(vitalsTable.recordedAt, stayStart)))
+    .orderBy(desc(vitalsTable.recordedAt))
+    .limit(10);
+
+  const rx = await db
+    .select()
+    .from(prescriptionsTable)
+    .where(eq(prescriptionsTable.encounterId, id))
+    .orderBy(desc(prescriptionsTable.createdAt));
+
+  const labs = await db
+    .select()
+    .from(labOrdersTable)
+    .where(and(eq(labOrdersTable.patientId, e.patientId), gte(labOrdersTable.createdAt, stayStart)))
+    .orderBy(desc(labOrdersTable.createdAt))
+    .limit(20);
+
+  const marGiven = adm
+    ? await db
+        .select()
+        .from(marEntriesTable)
+        .where(and(eq(marEntriesTable.admissionId, adm.id), eq(marEntriesTable.status, "given")))
+    : [];
+
   const doc = startPdf(res, `discharge-${id}.pdf`);
   doc.fontSize(16).text("DISCHARGE SUMMARY", { align: "center" }).moveDown();
   if (p) {
     doc.fontSize(11).text(`Patient: ${p.name} (MRN: ${p.uhid})`);
     doc.text(`Age/Gender: ${p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : "-"} / ${p.gender}`);
+    doc.text(`Phone: ${p.phone}`);
   }
   doc.text(`Encounter ID: ${e.id}`);
   doc.text(`Type: ${e.type}`);
   doc.text(`Admitted: ${new Date(e.startedAt).toLocaleString("en-IN")}`);
   if (e.endedAt) doc.text(`Discharged: ${new Date(e.endedAt).toLocaleString("en-IN")}`);
   doc.moveDown();
+
   doc.fontSize(12).text("Chief Complaints", { underline: true });
   doc.fontSize(11).text(e.chiefComplaint ?? "-");
   doc.moveDown();
+
   doc.fontSize(12).text("Diagnosis", { underline: true });
   doc.fontSize(11).text(e.diagnosis ?? "-");
   doc.moveDown();
+
+  doc.fontSize(12).text("Vitals (recent)", { underline: true });
+  if (vitals.length === 0) {
+    doc.fontSize(11).text("-");
+  } else {
+    doc.fontSize(10);
+    for (const v of vitals) {
+      const parts = [
+        new Date(v.recordedAt).toLocaleString("en-IN"),
+        v.bp ? `BP ${v.bp}` : null,
+        v.pulse ? `HR ${v.pulse}` : null,
+        v.temperature ? `T ${v.temperature}°C` : null,
+        v.spo2 ? `SpO2 ${v.spo2}%` : null,
+        v.respiratoryRate ? `RR ${v.respiratoryRate}` : null,
+      ].filter(Boolean);
+      doc.text(parts.join("  •  "));
+    }
+  }
+  doc.moveDown().fontSize(11);
+
+  doc.fontSize(12).text("Medications", { underline: true });
+  if (rx.length === 0) {
+    doc.fontSize(11).text("-");
+  } else {
+    doc.fontSize(10);
+    for (const r of rx) {
+      const givenCount = marGiven.filter((m) => m.prescriptionId === r.id).length;
+      const tail = givenCount > 0 ? `  (${givenCount} dose${givenCount > 1 ? "s" : ""} given)` : "";
+      doc.text(`• ${r.drug} ${r.dosage}${r.frequency ? ` — ${r.frequency}` : ""}${r.duration ? ` × ${r.duration}` : ""}${tail}`);
+    }
+  }
+  doc.moveDown().fontSize(11);
+
+  doc.fontSize(12).text("Investigations", { underline: true });
+  if (labs.length === 0) {
+    doc.fontSize(11).text("-");
+  } else {
+    doc.fontSize(10);
+    for (const l of labs) {
+      doc.text(`• ${l.testName} — ${l.status}${l.result ? `: ${l.result}` : ""}`);
+    }
+  }
+  doc.moveDown().fontSize(11);
+
   doc.fontSize(12).text("Treatment Plan & Notes", { underline: true });
-  doc.fontSize(11).text(e.notes ?? "-");
+  doc.fontSize(11).text(e.notes ?? adm?.summary ?? "-");
   doc.end();
 });
 

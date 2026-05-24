@@ -4,6 +4,7 @@ import {
   admissionsTable,
   bedsTable,
   bedTransfersTable,
+  billsTable,
   encountersTable,
   marEntriesTable,
   nursingNotesTable,
@@ -27,6 +28,31 @@ import { sendNotification } from "../lib/notifications";
 import { isoDate, requiredIso } from "../lib/format";
 
 const router: IRouter = Router();
+
+// Compute integer age in years from a YYYY-MM-DD dob string.
+function yearsBetween(dobStr: string | null | undefined, now: Date): number | null {
+  if (!dobStr) return null;
+  const dob = new Date(dobStr);
+  if (Number.isNaN(dob.getTime())) return null;
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+  return age;
+}
+
+// Throws ADMIT_RULE codes if the bed's gender/age policy excludes the patient.
+function checkBedPolicy(bed: BedRow, patient: PatientRow | null | undefined): void {
+  if (!patient) return;
+  if (bed.genderPolicy && bed.genderPolicy !== "any") {
+    if (patient.gender && patient.gender.toLowerCase() !== bed.genderPolicy.toLowerCase()) {
+      throw new Error("BED_GENDER_MISMATCH");
+    }
+  }
+  const age = yearsBetween(patient.dob, new Date());
+  if (age == null) return;
+  if (bed.ageMinYears != null && age < bed.ageMinYears) throw new Error("BED_AGE_MISMATCH");
+  if (bed.ageMaxYears != null && age > bed.ageMaxYears) throw new Error("BED_AGE_MISMATCH");
+}
 
 type AdmissionRow = typeof admissionsTable.$inferSelect;
 type PatientRow = typeof patientsTable.$inferSelect;
@@ -104,13 +130,9 @@ router.post(
         if (!bed) throw new Error("BED_NOT_FOUND");
         if (bed.status !== "available") throw new Error("BED_UNAVAILABLE");
 
-        // Gender policy enforcement.
-        if (bed.genderPolicy && bed.genderPolicy !== "any") {
-          const [pt] = await tx.select().from(patientsTable).where(eq(patientsTable.id, body.patientId)).limit(1);
-          if (pt && pt.gender && pt.gender.toLowerCase() !== bed.genderPolicy.toLowerCase()) {
-            throw new Error("BED_GENDER_MISMATCH");
-          }
-        }
+        // Gender + age policy enforcement.
+        const [pt0] = await tx.select().from(patientsTable).where(eq(patientsTable.id, body.patientId)).limit(1);
+        checkBedPolicy(bed, pt0);
 
         const [enc] = await tx
           .insert(encountersTable)
@@ -162,6 +184,8 @@ router.post(
       if (code === "BED_UNAVAILABLE") return res.status(409).json({ error: "Bed is not available" });
       if (code === "BED_GENDER_MISMATCH")
         return res.status(409).json({ error: "Bed gender policy does not match patient" });
+      if (code === "BED_AGE_MISMATCH")
+        return res.status(409).json({ error: "Bed age policy does not match patient" });
       throw err;
     }
   },
@@ -199,12 +223,8 @@ router.post(
         if (!toBed) throw new Error("BED_NOT_FOUND");
         if (toBed.status !== "available") throw new Error("BED_UNAVAILABLE");
 
-        if (toBed.genderPolicy && toBed.genderPolicy !== "any") {
-          const [pt] = await tx.select().from(patientsTable).where(eq(patientsTable.id, adm.patientId)).limit(1);
-          if (pt && pt.gender && pt.gender.toLowerCase() !== toBed.genderPolicy.toLowerCase()) {
-            throw new Error("BED_GENDER_MISMATCH");
-          }
-        }
+        const [ptT] = await tx.select().from(patientsTable).where(eq(patientsTable.id, adm.patientId)).limit(1);
+        checkBedPolicy(toBed, ptT);
 
         const fromBedId = adm.bedId;
         if (fromBedId) {
@@ -252,6 +272,8 @@ router.post(
       if (code === "BED_UNAVAILABLE") return res.status(409).json({ error: "Target bed is not available" });
       if (code === "BED_GENDER_MISMATCH")
         return res.status(409).json({ error: "Bed gender policy does not match patient" });
+      if (code === "BED_AGE_MISMATCH")
+        return res.status(409).json({ error: "Bed age policy does not match patient" });
       throw err;
     }
   },
@@ -300,12 +322,56 @@ router.post(
           .set({ status: "discharged", endedAt: dischargedAt, notes: body.summary ?? undefined })
           .where(eq(encountersTable.id, adm.encounterId));
       }
+      // Capture the current bed's daily rate before we release it so the
+      // final bill below can charge for the IPD stay.
+      let dailyRate = 1000;
       if (adm.bedId) {
+        const [b] = await tx.select().from(bedsTable).where(eq(bedsTable.id, adm.bedId)).limit(1);
+        if (b?.dailyRate) dailyRate = Number(b.dailyRate);
         await tx
           .update(bedsTable)
           .set({ patientId: null, status: "cleaning", admittedAt: null })
           .where(eq(bedsTable.id, adm.bedId));
       }
+
+      // Idempotent final bill: deterministic billNumber (`DISCH-<admId>`)
+      // collides with the bills.bill_number UNIQUE constraint on retry, so
+      // we swallow that conflict — second discharge attempts won't double-bill.
+      const losMs = dischargedAt.getTime() - new Date(adm.admittedAt).getTime();
+      const losDays = Math.max(1, Math.ceil(losMs / (24 * 60 * 60 * 1000)));
+      const stayAmount = Number((losDays * dailyRate).toFixed(2));
+      const advance = Number(adm.advanceAmount ?? 0);
+      const subtotal = Math.max(0, stayAmount - advance);
+      const cgst = Number((subtotal * 0.09).toFixed(2));
+      const sgst = Number((subtotal * 0.09).toFixed(2));
+      const total = Number((subtotal + cgst + sgst).toFixed(2));
+      const items = [
+        {
+          description: `IPD stay (${losDays} day${losDays > 1 ? "s" : ""} × ₹${dailyRate}) — admission #${adm.id}`,
+          quantity: losDays,
+          unitPrice: dailyRate,
+          amount: stayAmount,
+        },
+        ...(advance > 0
+          ? [{ description: "Less: advance paid", quantity: 1, unitPrice: -advance, amount: -advance }]
+          : []),
+      ];
+      try {
+        await tx.insert(billsTable).values({
+          patientId: adm.patientId,
+          billNumber: `DISCH-${adm.id}`,
+          subtotal: subtotal.toFixed(2),
+          cgst: cgst.toFixed(2),
+          sgst: sgst.toFixed(2),
+          igst: "0.00",
+          total: total.toFixed(2),
+          items,
+        });
+      } catch (e) {
+        // Re-discharge or any unique-violation on billNumber → bill already exists.
+        if (!/duplicate key|unique/i.test((e as Error).message)) throw e;
+      }
+
       return updated;
     }).catch((err) => {
       const code = (err as Error).message;
@@ -618,7 +684,9 @@ router.post(
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     const [existing] = await db.select().from(bedsTable).where(eq(bedsTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.status === "occupied" && parsed.data.status !== "occupied") {
+    // The body enum excludes "occupied" — beds become occupied only via
+    // admit/transfer. Reject any housekeeping status change on an occupied bed.
+    if (existing.status === "occupied") {
       return res.status(409).json({ error: "Cannot change status of an occupied bed; discharge or transfer first" });
     }
     const [row] = await db

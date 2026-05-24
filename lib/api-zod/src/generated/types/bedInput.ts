@@ -5,8 +5,21 @@
  * MediCare HMS API
  * OpenAPI spec version: 0.1.0
  */
+import type { BedInputGenderPolicy } from './bedInputGenderPolicy';
 
 export interface BedInput {
   code: string;
   ward: string;
+  /** @nullable */
+  floor?: string | null;
+  /** @nullable */
+  bedType?: string | null;
+  /** @nullable */
+  genderPolicy?: BedInputGenderPolicy;
+  /** @nullable */
+  ageMinYears?: number | null;
+  /** @nullable */
+  ageMaxYears?: number | null;
+  /** @nullable */
+  dailyRate?: string | null;
 }

@@ -88,6 +88,11 @@ export const bedsTable = pgTable("beds", {
   floor: text("floor"),
   bedType: text("bed_type"),
   genderPolicy: text("gender_policy"),
+  // Age-band policy enforced on admit/transfer. NULL = no constraint on that
+  // bound (e.g. pediatric ward = ageMaxYears=12, geriatric = ageMinYears=60).
+  ageMinYears: integer("age_min_years"),
+  ageMaxYears: integer("age_max_years"),
+  dailyRate: numeric("daily_rate", { precision: 12, scale: 2 }).notNull().default("1000"),
   status: text("status").notNull().default("available"),
   patientId: integer("patient_id").references(() => patientsTable.id),
   admittedAt: timestamp("admitted_at"),

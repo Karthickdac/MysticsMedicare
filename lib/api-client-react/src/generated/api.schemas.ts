@@ -219,9 +219,33 @@ export interface Bed {
   createdAt: string;
 }
 
+/**
+ * @nullable
+ */
+export type BedInputGenderPolicy = typeof BedInputGenderPolicy[keyof typeof BedInputGenderPolicy] | null;
+
+
+export const BedInputGenderPolicy = {
+  male: 'male',
+  female: 'female',
+  any: 'any',
+} as const;
+
 export interface BedInput {
   code: string;
   ward: string;
+  /** @nullable */
+  floor?: string | null;
+  /** @nullable */
+  bedType?: string | null;
+  /** @nullable */
+  genderPolicy?: BedInputGenderPolicy;
+  /** @nullable */
+  ageMinYears?: number | null;
+  /** @nullable */
+  ageMaxYears?: number | null;
+  /** @nullable */
+  dailyRate?: string | null;
 }
 
 export interface BedAssignmentInput {

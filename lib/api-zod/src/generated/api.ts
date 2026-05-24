@@ -352,7 +352,13 @@ export const ListBedsResponse = zod.array(ListBedsResponseItem)
 
 export const CreateBedBody = zod.object({
   "code": zod.string(),
-  "ward": zod.string()
+  "ward": zod.string(),
+  "floor": zod.string().nullish(),
+  "bedType": zod.string().nullish(),
+  "genderPolicy": zod.union([zod.literal('male'),zod.literal('female'),zod.literal('any'),zod.literal(null)]).nullish(),
+  "ageMinYears": zod.number().nullish(),
+  "ageMaxYears": zod.number().nullish(),
+  "dailyRate": zod.string().nullish()
 })
 
 

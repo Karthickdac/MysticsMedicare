@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, bedsTable, patientsTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { db, bedsTable, patientsTable, admissionsTable } from "@workspace/db";
+import { eq, asc, and } from "drizzle-orm";
 import { CreateBedBody, AssignBedBody } from "@workspace/api-zod";
 import { isoDate, requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
@@ -33,7 +33,11 @@ import { requireRole } from "../lib/auth";
 router.post("/beds", requireRole("admin"), async (req, res) => {
   const parsed = CreateBedBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [row] = await db.insert(bedsTable).values(parsed.data).returning();
+  // Drop nulls so Drizzle uses column defaults (e.g. dailyRate NOT NULL default).
+  const values = Object.fromEntries(
+    Object.entries(parsed.data).filter(([, v]) => v !== null),
+  ) as unknown as typeof bedsTable.$inferInsert;
+  const [row] = await db.insert(bedsTable).values(values).returning();
   res.status(201).json(shape(row));
 });
 
@@ -69,6 +73,18 @@ router.post("/beds/:id/discharge", requireRole("admin", "nurse", "doctor"), asyn
   if (existing.patientId) {
     return res.status(409).json({
       error: "Bed has an active admission. Use POST /admissions/:id/discharge to close it.",
+    });
+  }
+  // Defense in depth: even if bed.patientId drifted, refuse to housekeep a
+  // bed that an admission still references as its current bed.
+  const [linkedAdm] = await db
+    .select({ id: admissionsTable.id })
+    .from(admissionsTable)
+    .where(and(eq(admissionsTable.bedId, id), eq(admissionsTable.status, "active")))
+    .limit(1);
+  if (linkedAdm) {
+    return res.status(409).json({
+      error: `Active admission #${linkedAdm.id} still references this bed. Discharge or transfer it first.`,
     });
   }
   const [row] = await db

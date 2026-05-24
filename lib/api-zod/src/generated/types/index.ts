@@ -19,6 +19,7 @@ export * from './auditEntry';
 export * from './bed';
 export * from './bedAssignmentInput';
 export * from './bedInput';
+export * from './bedInputGenderPolicy';
 export * from './bedStatusInput';
 export * from './bedStatusInputStatus';
 export * from './bill';
