@@ -4,10 +4,11 @@ import {
   Activity, Users, Calendar, Clock, BedDouble, TestTube, Cross, ShieldPlus,
   IndianRupee, Package, Scissors, Syringe, FileSignature, ClipboardCheck,
   Video, MessageSquare, ListTree, UserCog, Settings, Bell, Search, Menu,
-  LogOut, Sun, Moon, Stethoscope, Sparkles, Command as CommandIcon,
+  LogOut, Sun, Moon, Stethoscope, Sparkles, Command as CommandIcon, ChevronDown,
 } from "lucide-react";
 
-import { useMe, useLogout, useGetDashboardSummary } from "@workspace/api-client-react";
+import { useMe, useLogout, useGetDashboardSummary, useListBills } from "@workspace/api-client-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -139,6 +140,25 @@ function AppSidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
     })).filter((g) => g.items.length > 0);
   }, [filter, role]);
 
+  // Collapsed-group state persists per user in localStorage. Filter input
+  // auto-expands all groups so search results stay visible.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem("hms.sidebar.collapsed");
+      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const isFiltering = filter.trim().length > 0;
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem("hms.sidebar.collapsed", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border bg-sidebar-gradient">
       <SidebarHeader className="h-16 flex items-center px-4 border-b border-sidebar-border gap-2 bg-transparent">
@@ -176,29 +196,41 @@ function AppSidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
       </div>
 
       <SidebarContent className="scrollbar-thin">
-        {navGroups.map((group, i) => (
-          <SidebarGroup key={i}>
-            <SidebarGroupLabel className="text-[10px] font-bold tracking-[0.16em] uppercase text-sidebar-foreground/40 px-3">
-              {group.label}
-            </SidebarGroupLabel>
-            <SidebarMenu>
-              {group.items.map((item) => {
-                const active = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                      <Link href={item.href} className="flex items-center gap-3 relative">
-                        {active && <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full shadow-[0_0_8px_hsl(var(--sidebar-primary))]" />}
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
-        ))}
+        {navGroups.map((group) => {
+          const isOpen = isFiltering || !collapsedGroups[group.label];
+          return (
+            <SidebarGroup key={group.label}>
+              <Collapsible open={isOpen} onOpenChange={() => !isFiltering && toggleGroup(group.label)}>
+                <CollapsibleTrigger
+                  className="w-full flex items-center justify-between text-[10px] font-bold tracking-[0.16em] uppercase text-sidebar-foreground/40 hover:text-sidebar-foreground/70 px-3 py-1.5 transition-colors group/grouphdr"
+                  aria-label={`Toggle ${group.label} section`}
+                  disabled={isFiltering}
+                >
+                  <span>{group.label}</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => {
+                      const active = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
+                            <Link href={item.href} className="flex items-center gap-3 relative">
+                              {active && <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-5 bg-sidebar-primary rounded-r-full shadow-[0_0_8px_hsl(var(--sidebar-primary))]" />}
+                              <item.icon className="w-4 h-4" />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </CollapsibleContent>
+              </Collapsible>
+            </SidebarGroup>
+          );
+        })}
         {navGroups.length === 0 && (
           <div className="px-4 py-6 text-xs text-sidebar-foreground/40 text-center">No matching menu items.</div>
         )}
@@ -214,6 +246,17 @@ function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const [, setLocation] = useLocation();
   const logoutMutation = useLogout();
   const { data: summary } = useGetDashboardSummary();
+  const { data: pendingBills } = useListBills({ status: "pending" });
+  const pendingBillsCount = pendingBills?.length ?? 0;
+
+  // Environment badge — surfaces dev vs production at a glance so staff
+  // never confuse the staging console with the live hospital deployment.
+  const envMode = import.meta.env.MODE;
+  const envLabel = envMode === "production" ? "Prod" : envMode === "test" ? "Test" : "Dev";
+  const envTone =
+    envMode === "production"
+      ? "bg-success/10 text-success border-success/30"
+      : "bg-warning/15 text-warning border-warning/30";
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -242,12 +285,12 @@ function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
       <div className="hidden md:flex items-center gap-1.5 mr-3">
         <Pill icon={Calendar} tone="primary" label="OPD today" value={summary?.todayAppointments} />
         <Pill icon={BedDouble} tone="warning" label="Beds" value={summary ? `${summary.occupiedBeds}/${summary.totalBeds}` : undefined} />
-        <Pill icon={TestTube} tone="info" label="Pending labs" value={summary?.pendingLabOrders} />
+        <Pill icon={IndianRupee} tone="info" label="Pending bills" value={pendingBillsCount} />
       </div>
 
       <div className="flex items-center gap-1">
-        <Badge variant="outline" className="hidden lg:inline-flex bg-success/10 text-success border-success/30 font-medium text-[10px] tracking-wider uppercase">
-          Live
+        <Badge variant="outline" className={`hidden lg:inline-flex font-medium text-[10px] tracking-wider uppercase ${envTone}`}>
+          {envLabel}
         </Badge>
         <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="text-muted-foreground">
           {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}

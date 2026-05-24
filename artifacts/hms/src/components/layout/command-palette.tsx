@@ -14,7 +14,7 @@ import {
   Activity, Users, Calendar, Clock, BedDouble, TestTube, Cross,
   ShieldPlus, IndianRupee, Package, Scissors, Syringe, FileSignature,
   ClipboardCheck, Video, MessageSquare, ListTree, UserCog, Settings,
-  Bell, UserPlus, FilePlus2, Stethoscope,
+  Bell, UserPlus, FilePlus2, Stethoscope, CalendarPlus,
 } from "lucide-react";
 
 type NavCmd = {
@@ -55,6 +55,7 @@ const NAV: NavCmd[] = [
 
 const ACTIONS: NavCmd[] = [
   { label: "Register new patient", href: "/patients/new", icon: UserPlus, section: "Quick actions", roles: ["admin", "doctor", "nurse", "receptionist"] },
+  { label: "Book new appointment", href: "/appointments/new", icon: CalendarPlus, section: "Quick actions", keywords: "schedule slot opd", roles: ["admin", "doctor", "nurse", "receptionist"] },
   { label: "Create new bill", href: "/billing/new", icon: FilePlus2, section: "Quick actions", keywords: "invoice gst", roles: ["admin", "accountant", "cashier", "receptionist"] },
 ];
 
@@ -69,9 +70,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const canLookupPatients = PATIENT_LOOKUP_ROLES.has(role);
   const navVisible = NAV.filter((n) => !n.roles || n.roles.includes(role));
   const actionsVisible = ACTIONS.filter((a) => !a.roles || a.roles.includes(role));
-  const { data: patients } = useListPatients(
-    canLookupPatients && search.length > 1 ? { search } : {},
-  );
+  const shouldSearchPatients = open && canLookupPatients && search.length > 1;
 
   useEffect(() => {
     if (!open) setSearch("");
@@ -88,25 +87,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <CommandList className="max-h-[440px]">
         <CommandEmpty>No results found.</CommandEmpty>
 
-        {canLookupPatients && patients && patients.length > 0 && (
-          <>
-            <CommandGroup heading="Patients">
-              {patients.slice(0, 6).map((p) => (
-                <CommandItem
-                  key={p.id}
-                  value={`patient ${p.name} ${p.uhid} ${p.phone}`}
-                  onSelect={() => go(`/patients/${p.id}`)}
-                >
-                  <Users className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.uhid} · {p.phone}</div>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandSeparator />
-          </>
+        {shouldSearchPatients && (
+          <PatientResults search={search} onPick={(id) => go(`/patients/${id}`)} />
         )}
 
         {actionsVisible.length > 0 && (
@@ -132,6 +114,34 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         </CommandGroup>
       </CommandList>
     </CommandDialog>
+  );
+}
+
+// Patient lookup is split into its own component so the underlying React Query
+// only mounts (and hits /api/patients) when the user is authorized AND actively
+// searching. This prevents background PHI overfetch for any other role.
+function PatientResults({ search, onPick }: { search: string; onPick: (id: number) => void }) {
+  const { data: patients } = useListPatients({ search });
+  if (!patients || patients.length === 0) return null;
+  return (
+    <>
+      <CommandGroup heading="Patients">
+        {patients.slice(0, 6).map((p) => (
+          <CommandItem
+            key={p.id}
+            value={`patient ${p.name} ${p.uhid} ${p.phone}`}
+            onSelect={() => onPick(p.id)}
+          >
+            <Users className="w-4 h-4 mr-2 text-muted-foreground" />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium truncate">{p.name}</div>
+              <div className="text-xs text-muted-foreground truncate">{p.uhid} · {p.phone}</div>
+            </div>
+          </CommandItem>
+        ))}
+      </CommandGroup>
+      <CommandSeparator />
+    </>
   );
 }
 

@@ -3,8 +3,13 @@ import { db, patientsTable } from "@workspace/db";
 import { desc, eq, ilike, or, sql } from "drizzle-orm";
 import { CreatePatientBody, UpdatePatientBody } from "@workspace/api-zod";
 import { ageFromDob, dateOnly, requiredIso } from "../lib/format";
+import { requireRole } from "../lib/auth";
 
 const router: IRouter = Router();
+
+// Roles allowed to read patient PHI. Billing-only roles (cashier, accountant)
+// access patients indirectly via bills; they must not list/read raw PHI.
+const PATIENT_READ_ROLES = ["admin", "doctor", "nurse", "receptionist", "labtech", "pharmacist"] as const;
 
 function shape(p: typeof patientsTable.$inferSelect) {
   return {
@@ -27,7 +32,7 @@ function shape(p: typeof patientsTable.$inferSelect) {
   };
 }
 
-router.get("/patients", async (req, res) => {
+router.get("/patients", requireRole(...PATIENT_READ_ROLES), async (req, res) => {
   const search = typeof req.query.search === "string" ? req.query.search : null;
   const rows = await db
     .select()
@@ -46,7 +51,6 @@ router.get("/patients", async (req, res) => {
   res.json(rows.map(shape));
 });
 
-import { requireRole } from "../lib/auth";
 router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (req, res) => {
   const parsed = CreatePatientBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -74,7 +78,7 @@ router.post("/patients", requireRole("admin", "receptionist", "doctor"), async (
   res.status(201).json(shape(row));
 });
 
-router.get("/patients/:id", async (req, res) => {
+router.get("/patients/:id", requireRole(...PATIENT_READ_ROLES), async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.select().from(patientsTable).where(eq(patientsTable.id, id)).limit(1);
   if (!row) return res.status(404).json({ error: "Patient not found" });
