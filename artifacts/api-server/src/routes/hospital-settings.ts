@@ -3,7 +3,7 @@ import { db, hospitalSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { UpdateHospitalSettingsBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -57,12 +57,12 @@ function shape(r: Row) {
   };
 }
 
-router.get("/admin/hospital-settings", requireRole("admin"), async (_req, res) => {
+router.get("/admin/hospital-settings", requirePermission("admin.settings"), async (_req, res) => {
   const row = await loadOrSeed();
   res.json(shape(row));
 });
 
-router.put("/admin/hospital-settings", requireRole("admin"), async (req, res) => {
+router.put("/admin/hospital-settings", requirePermission("admin.settings"), async (req, res) => {
   const parsed = UpdateHospitalSettingsBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   await loadOrSeed();

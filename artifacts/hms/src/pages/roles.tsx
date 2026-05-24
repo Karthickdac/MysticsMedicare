@@ -150,7 +150,7 @@ export default function Roles() {
                 </div>
                 {selected.isBuiltin && (
                   <p className="text-xs text-muted-foreground border-l-2 border-amber-500/50 pl-3 bg-amber-50/40 dark:bg-amber-500/5 py-2 rounded-r">
-                    <strong>Heads up:</strong> built-in roles are also enforced server-side by hardcoded route guards (<code>requireRole</code>). Toggling permissions here updates the UI matrix but does not open or close server routes.
+                    <strong>How this is enforced:</strong> the server resolves each request's permissions from this matrix (cached for 60s) via <code>requirePermission</code> on the admin module routes. Toggling a permission here grants or revokes access on the server within a minute — no app restart required.
                   </p>
                 )}
               </CardContent>

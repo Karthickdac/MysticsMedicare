@@ -9,7 +9,7 @@ import {
 import { asc, eq, sql, count } from "drizzle-orm";
 import { CreateStaffBody, UpdateStaffBody } from "@workspace/api-zod";
 import { dateOnly, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -35,7 +35,7 @@ router.get("/staff", async (_req, res) => {
   res.json(rows.map(shape));
 });
 
-router.post("/staff", requireRole("admin"), async (req, res) => {
+router.post("/staff", requirePermission("staff.write"), async (req, res) => {
   const parsed = CreateStaffBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const r = await db.execute<{ next: string }>(
@@ -49,7 +49,7 @@ router.post("/staff", requireRole("admin"), async (req, res) => {
   res.status(201).json(shape(row));
 });
 
-router.patch("/staff/:id", requireRole("admin"), async (req, res) => {
+router.patch("/staff/:id", requirePermission("staff.write"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateStaffBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -58,7 +58,7 @@ router.patch("/staff/:id", requireRole("admin"), async (req, res) => {
   res.json(shape(row));
 });
 
-router.delete("/staff/:id", requireRole("admin"), async (req, res) => {
+router.delete("/staff/:id", requirePermission("staff.write"), async (req, res) => {
   const id = Number(req.params.id);
   const [existing] = await db.select().from(staffTable).where(eq(staffTable.id, id));
   if (!existing) return res.status(404).json({ error: "Not found" });

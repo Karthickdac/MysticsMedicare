@@ -170,6 +170,28 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   next();
 }
 
+// Permission-based authorization. Resolves the caller's permissions from
+// the rolesTable (cached 60s) with a built-in role fallback. Grants access
+// when the user has ANY of the requested permissions. Prefer this over
+// requireRole(...) for new routes so custom roles in the matrix actually
+// take effect on the server.
+export function requirePermission(...perms: string[]): RequestHandler {
+  return async (req, res, next) => {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const { getPermissionsForRole } = await import("./permissions");
+      const granted = await getPermissionsForRole(req.user.role);
+      if (perms.some((p) => granted.has(p))) return next();
+      res.status(403).json({ error: `Forbidden — missing permission: ${perms.join(" or ")}` });
+    } catch {
+      res.status(500).json({ error: "Permission check failed" });
+    }
+  };
+}
+
 export function requireRole(...roles: string[]): RequestHandler {
   return (req, res, next) => {
     if (!req.user) {

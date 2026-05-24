@@ -2,11 +2,11 @@ import { Router, type IRouter } from "express";
 import { db, auditLogTable } from "@workspace/db";
 import { desc, eq, and, gte, lte, ilike, or, type SQL } from "drizzle-orm";
 import { requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
-router.get("/audit", requireRole("admin"), async (req, res) => {
+router.get("/audit", requirePermission("admin.audit"), async (req, res) => {
   const conds: SQL[] = [];
   if (req.query.userId) conds.push(eq(auditLogTable.userId, Number(req.query.userId)));
   if (req.query.entity) conds.push(eq(auditLogTable.entity, String(req.query.entity)));

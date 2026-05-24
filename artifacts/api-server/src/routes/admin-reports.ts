@@ -7,7 +7,7 @@ import {
   staffTable,
 } from "@workspace/db";
 import { and, gte, lte, sql, desc, eq, ne, isNotNull } from "drizzle-orm";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -41,7 +41,7 @@ function parseRange(req: Parameters<typeof router.get>[1] extends never ? never 
   return { from, to };
 }
 
-router.get("/admin/reports/overview", requireRole("admin", "accountant"), async (req, res) => {
+router.get("/admin/reports/overview", requirePermission("reports.read"), async (req, res) => {
   const { from, to } = parseRange(undefined as never, req.query.from, req.query.to);
 
   // OPD volume — outpatient encounters per day.

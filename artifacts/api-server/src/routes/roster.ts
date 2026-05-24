@@ -3,7 +3,7 @@ import { db, rosterShiftsTable, staffTable } from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 import { CreateRosterShiftBody } from "@workspace/api-zod";
 import { dateOnly, requiredIso } from "../lib/format";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -40,7 +40,7 @@ function conflicts(a: string, b: string): boolean {
   return a === b;
 }
 
-router.post("/roster", requireRole("admin"), async (req, res) => {
+router.post("/roster", requirePermission("roster.write"), async (req, res) => {
   const parsed = CreateRosterShiftBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -74,7 +74,7 @@ router.post("/roster", requireRole("admin"), async (req, res) => {
   }
 });
 
-router.delete("/roster/:id", requireRole("admin"), async (req, res) => {
+router.delete("/roster/:id", requirePermission("roster.write"), async (req, res) => {
   const id = Number(req.params.id);
   const result = await db.delete(rosterShiftsTable).where(eq(rosterShiftsTable.id, id));
   if (!result.rowCount) return res.status(404).json({ error: "Not found" });
