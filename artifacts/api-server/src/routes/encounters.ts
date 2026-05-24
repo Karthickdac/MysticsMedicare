@@ -42,7 +42,7 @@ router.get("/encounters", async (req, res) => {
   res.json(rows.map((r) => shape(r.e, r.p, r.s)));
 });
 
-router.post("/encounters", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
+router.post("/encounters", requireRole("admin", "doctor"), async (req, res) => {
   const parsed = CreateEncounterBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const [row] = await db
@@ -75,7 +75,7 @@ router.get("/encounters/:id", async (req, res) => {
   res.json(shape(r.e, r.p, r.s));
 });
 
-router.patch("/encounters/:id", requireRole("admin", "doctor", "nurse"), async (req, res) => {
+router.patch("/encounters/:id", requireRole("admin", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateEncounterBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });

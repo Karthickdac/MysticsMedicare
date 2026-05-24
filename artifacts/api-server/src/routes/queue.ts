@@ -101,7 +101,7 @@ router.get("/queue/opd/stats", async (_req, res) => {
   });
 });
 
-router.post("/queue/opd/next", requireRole("admin", "doctor", "nurse", "receptionist"), async (_req, res) => {
+router.post("/queue/opd/next", requireRole("admin", "doctor"), async (_req, res) => {
   const [next] = await db
     .select()
     .from(queueTokensTable)
@@ -131,7 +131,10 @@ router.post("/queue/opd/next", requireRole("admin", "doctor", "nurse", "receptio
 //   complete → close out a called token after consultation
 // All four are POST /queue/opd/:id/{action}. Each returns the updated token
 // in the same QueueToken shape as GET /queue/opd.
-router.post("/queue/opd/:id/:action", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
+// Per Task #6 role policy: token actions (call/recall/skip/complete) drive the
+// consultation flow, so they are restricted to admin + doctor. Receptionists
+// remain limited to /queue/opd/check-in; nurses are read-only.
+router.post("/queue/opd/:id/:action", requireRole("admin", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const action = String(req.params.action);
   if (!["call", "recall", "skip", "complete"].includes(action)) {

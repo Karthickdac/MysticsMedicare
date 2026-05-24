@@ -9,8 +9,14 @@ import { requireRole } from "../lib/auth";
 // Roles allowed to mark a visit as completed / no_show. Reschedule and cancel
 // are still open to receptionist/admin. UI hides these actions, but the
 // authorization boundary must also live here — never trust the client.
+// Role policy for OPD per Task #6:
+//   doctor    → full (book, reschedule, cancel, set clinical status)
+//   admin     → full
+//   receptionist → booking-only (book, reschedule, cancel; no clinical status)
+//   nurse     → read + vitals (no appointment mutation)
+const BOOKING_ROLES = new Set(["admin", "doctor", "receptionist"]);
+const STATUS_ROLES = new Set(["admin", "doctor"]);
 const CLINICAL_STATUS = new Set(["completed", "no_show", "in_progress"]);
-const CLINICAL_ROLES = new Set(["admin", "doctor", "nurse"]);
 
 const router: IRouter = Router();
 
@@ -76,7 +82,7 @@ router.get("/appointments", async (req, res) => {
   res.json(await shapeJoin(rows));
 });
 
-router.post("/appointments", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
+router.post("/appointments", requireRole("admin", "doctor", "receptionist"), async (req, res) => {
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
   const when = new Date(parsed.data.scheduledAt);
@@ -140,7 +146,7 @@ router.post("/appointments/:id/remind", async (req, res) => {
   res.json({ ok: true });
 });
 
-router.patch("/appointments/:id", requireRole("admin", "doctor", "nurse", "receptionist"), async (req, res) => {
+router.patch("/appointments/:id", requireRole("admin", "doctor", "receptionist"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateAppointmentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
@@ -148,11 +154,11 @@ router.patch("/appointments/:id", requireRole("admin", "doctor", "nurse", "recep
   if (!existing) return res.status(404).json({ error: "Not found" });
 
   // Restrict clinical-only status transitions at the API boundary. Receptionists
-  // can reschedule or cancel, but not mark "completed" / "no_show".
+  // can reschedule or cancel, but only admin/doctor can mark completed/no_show.
   if (parsed.data.status && CLINICAL_STATUS.has(parsed.data.status)) {
     const userRole = (req as { user?: { role?: string } }).user?.role;
-    if (!userRole || !CLINICAL_ROLES.has(userRole)) {
-      return res.status(403).json({ error: `Only clinical staff can set status "${parsed.data.status}"` });
+    if (!userRole || !STATUS_ROLES.has(userRole)) {
+      return res.status(403).json({ error: `Only doctors can set status "${parsed.data.status}"` });
     }
   }
 

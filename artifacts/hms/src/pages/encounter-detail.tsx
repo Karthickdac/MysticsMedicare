@@ -16,6 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Video, Disc, StopCircle, PlayCircle, Save, X, Activity, Pill, CalendarPlus, HeartPulse } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { searchIcd10, ICD10 } from "@/lib/icd10";
 
 export default function EncounterDetail() {
   const { id } = useParams<{ id: string }>();
@@ -197,8 +200,11 @@ export default function EncounterDetail() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Diagnosis</label>
-                <Input value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} placeholder="Enter diagnosis…" />
+                <label className="text-sm font-medium mb-1 block">Diagnosis (ICD-10)</label>
+                <Icd10Picker value={diagnosis} onChange={setDiagnosis} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Search by code or description. Free text is allowed for codes outside the formulary.
+                </p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Notes / Plan</label>
@@ -323,6 +329,58 @@ export default function EncounterDetail() {
           {activeVideoUrl && <video src={activeVideoUrl} controls autoPlay className="w-full h-auto max-h-[80vh]" />}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ICD-10 diagnosis picker. Backed by a static curated formulary (~50 common
+// codes) so the encounter form has structured codes without a backend lookup.
+// Free text remains supported via the input so anything outside the formulary
+// can still be recorded.
+function Icd10Picker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const results = searchIcd10(query);
+  const matched = ICD10.find((e) => value.startsWith(e.code));
+  return (
+    <div className="flex gap-2">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="e.g. I10 — Essential hypertension"
+        className="flex-1"
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" type="button">
+            {matched ? matched.code : "Browse codes"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[420px] p-0" align="end">
+          <Command shouldFilter={false}>
+            <CommandInput placeholder="Search ICD-10 code or label…" value={query} onValueChange={setQuery} />
+            <CommandList>
+              <CommandEmpty>No matching codes.</CommandEmpty>
+              <CommandGroup heading="Common ICD-10 codes">
+                {results.map((e) => (
+                  <CommandItem
+                    key={e.code}
+                    value={`${e.code} ${e.label}`}
+                    onSelect={() => {
+                      onChange(`${e.code} — ${e.label}`);
+                      setOpen(false);
+                      setQuery("");
+                    }}
+                  >
+                    <span className="font-mono text-xs mr-2 text-primary">{e.code}</span>
+                    <span className="truncate">{e.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
