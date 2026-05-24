@@ -119,7 +119,7 @@ function shapeSale(
 // ---------------------------------------------------------------------------
 // Legacy: dispense queue (kept for backward compat with existing UI hooks)
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/queue", async (_req, res) => {
+router.get("/pharmacy/queue", requireRole("admin", "pharmacist", "doctor", "nurse"), async (_req, res) => {
   const rows = await db
     .select({ p: prescriptionsTable, pt: patientsTable })
     .from(prescriptionsTable)
@@ -146,23 +146,20 @@ router.get("/pharmacy/queue", async (_req, res) => {
   );
 });
 
-// Deprecated: kept so existing dispense UI does not 404. New code should POST
-// /pharmacy/sales which decrements batches and creates a bill atomically.
-router.post("/prescriptions/:id/dispense", requireRole("admin", "pharmacist"), async (req, res) => {
-  const id = Number(req.params.id);
-  const [row] = await db
-    .update(prescriptionsTable)
-    .set({ status: "dispensed", dispensedAt: new Date() })
-    .where(eq(prescriptionsTable.id, id))
-    .returning();
-  if (!row) return res.status(404).json({ error: "Not found" });
-  res.json({ ok: true });
+// Deprecated and hardened: the legacy endpoint used to flip Rx -> dispensed
+// without decrementing stock or posting a bill, which would silently bypass
+// inventory + accounting if any client still hit it. It now refuses and
+// directs callers to POST /pharmacy/sales (transactional flow).
+router.post("/prescriptions/:id/dispense", requireRole("admin", "pharmacist"), async (_req, res) => {
+  res.status(410).json({
+    error: "This endpoint is deprecated. POST /pharmacy/sales with kind=\"rx\" and prescriptionId to dispense (it decrements stock and posts the bill atomically).",
+  });
 });
 
 // ---------------------------------------------------------------------------
 // Suppliers
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/suppliers", async (_req, res) => {
+router.get("/pharmacy/suppliers", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
   const rows = await db.select().from(pharmacySuppliersTable).orderBy(asc(pharmacySuppliersTable.name));
   res.json(rows.map(shapeSupplier));
 });
@@ -177,7 +174,7 @@ router.post("/pharmacy/suppliers", requireRole("admin", "pharmacist"), async (re
 // ---------------------------------------------------------------------------
 // Batches & alerts
 // ---------------------------------------------------------------------------
-router.get("/pharmacy/drugs/:id/batches", async (req, res) => {
+router.get("/pharmacy/drugs/:id/batches", requireRole("admin", "pharmacist", "doctor", "nurse"), async (req, res) => {
   const drugId = Number(req.params.id);
   const rows = await db
     .select({ b: pharmacyBatchesTable, drugName: drugsTable.name })
@@ -188,7 +185,7 @@ router.get("/pharmacy/drugs/:id/batches", async (req, res) => {
   res.json(rows.map((r) => shapeBatch(r.b, r.drugName)));
 });
 
-router.get("/pharmacy/batches", async (req, res) => {
+router.get("/pharmacy/batches", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
   const nearDays = req.query.nearExpiryDays ? Number(req.query.nearExpiryDays) : null;
   let query = db
     .select({ b: pharmacyBatchesTable, drugName: drugsTable.name })
@@ -204,7 +201,7 @@ router.get("/pharmacy/batches", async (req, res) => {
   res.json(rows.map((r) => shapeBatch(r.b, r.drugName)));
 });
 
-router.get("/pharmacy/alerts", async (_req, res) => {
+router.get("/pharmacy/alerts", requireRole("admin", "pharmacist"), async (_req, res) => {
   // Low stock: aggregate qtyOnHand by drug, compare to reorderLevel.
   const stockRows = await db
     .select({
@@ -257,7 +254,7 @@ async function loadPoItems(poIds: number[], executor: typeof db = db) {
   return map;
 }
 
-router.get("/pharmacy/purchase-orders", async (_req, res) => {
+router.get("/pharmacy/purchase-orders", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
   const rows = await db
     .select({ po: pharmacyPurchaseOrdersTable, supplierName: pharmacySuppliersTable.name })
     .from(pharmacyPurchaseOrdersTable)
@@ -268,7 +265,7 @@ router.get("/pharmacy/purchase-orders", async (_req, res) => {
   res.json(rows.map((r) => shapePo(r.po, r.supplierName, items.get(r.po.id) ?? [])));
 });
 
-router.get("/pharmacy/purchase-orders/:id", async (req, res) => {
+router.get("/pharmacy/purchase-orders/:id", requireRole("admin", "pharmacist", "accountant"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({ po: pharmacyPurchaseOrdersTable, supplierName: pharmacySuppliersTable.name })
@@ -358,7 +355,7 @@ async function loadGrnItems(grnIds: number[], executor: typeof db = db) {
   return map;
 }
 
-router.get("/pharmacy/grns", async (_req, res) => {
+router.get("/pharmacy/grns", requireRole("admin", "pharmacist", "accountant"), async (_req, res) => {
   const rows = await db
     .select({ g: pharmacyGrnsTable, supplierName: pharmacySuppliersTable.name })
     .from(pharmacyGrnsTable)
@@ -504,7 +501,7 @@ async function loadSaleItems(saleIds: number[], executor: typeof db = db): Promi
   return map;
 }
 
-router.get("/pharmacy/sales", async (req, res) => {
+router.get("/pharmacy/sales", requireRole("admin", "pharmacist", "accountant", "cashier"), async (req, res) => {
   const conds: ReturnType<typeof eq>[] = [];
   if (req.query.kind) conds.push(eq(pharmacySalesTable.kind, String(req.query.kind)));
   if (req.query.from) conds.push(gte(pharmacySalesTable.dispensedAt, new Date(String(req.query.from))));
@@ -525,7 +522,7 @@ router.get("/pharmacy/sales", async (req, res) => {
   res.json(rows.map((r) => shapeSale(r.s, r.patientName, r.billNumber, items.get(r.s.id) ?? [])));
 });
 
-router.get("/pharmacy/sales/:id", async (req, res) => {
+router.get("/pharmacy/sales/:id", requireRole("admin", "pharmacist", "accountant", "cashier"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
     .select({
