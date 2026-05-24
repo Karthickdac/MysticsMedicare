@@ -685,3 +685,32 @@ export const auditLogTable = pgTable("audit_log", {
   details: text("details"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// Patient-portal OTP. One active row per patient at a time (older ones are
+// left in place as an audit trail; lookup uses the latest non-consumed row).
+// `attempts` is incremented on each /verify so we can lock out after 5 wrong
+// guesses without invalidating the code (the next /request issues a new one).
+export const patientOtpTable = pgTable("patient_otp", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Audit trail for self-service profile edits made from the patient portal.
+// Kept separate from staff `audit_log` (which is keyed to a staff userId) so
+// portal-initiated changes are clearly attributable to the patient themselves.
+export const patientAuditLogTable = pgTable("patient_audit_log", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

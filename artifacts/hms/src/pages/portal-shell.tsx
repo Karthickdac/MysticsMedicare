@@ -1,0 +1,174 @@
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sparkles, Home, Calendar, FolderHeart, Receipt, User, Bell, LogOut,
+} from "lucide-react";
+
+export const portalBase = import.meta.env.BASE_URL;
+
+export type PortalMe = {
+  id: number;
+  name: string;
+  mrn: string;
+  phone: string;
+  email?: string | null;
+};
+
+export function portalApi<T>(path: string, init?: RequestInit): Promise<T> {
+  return fetch(`${portalBase}api${path}`, {
+    credentials: "include",
+    ...init,
+    headers: {
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
+    },
+  }).then(async (r) => {
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${r.status})`);
+    }
+    if (r.status === 204) return null as T;
+    return r.json();
+  });
+}
+
+export function useApi<T>(path: string | null, deps: unknown[] = []) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(path !== null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (path === null) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    portalApi<T>(path)
+      .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
+      .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false); } });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return { data, loading, error, setData };
+}
+
+type TabKey = "home" | "appointments" | "records" | "bills" | "profile" | "notifications";
+
+const TABS: { key: TabKey; href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: "home", href: "/portal/home", label: "Home", icon: Home },
+  { key: "appointments", href: "/portal/appointments", label: "Appointments", icon: Calendar },
+  { key: "records", href: "/portal/records", label: "Records", icon: FolderHeart },
+  { key: "bills", href: "/portal/bills", label: "Bills", icon: Receipt },
+  { key: "notifications", href: "/portal/notifications", label: "Inbox", icon: Bell },
+  { key: "profile", href: "/portal/profile", label: "Profile", icon: User },
+];
+
+export function PortalShell({
+  children, active, notifBadge,
+}: {
+  children: React.ReactNode;
+  active: TabKey;
+  notifBadge?: number;
+}) {
+  const [, setLocation] = useLocation();
+  const { data: me } = useApi<PortalMe>("/portal/me", []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch(`${portalBase}api/portal/me`, { credentials: "include" }).then((r) => {
+        if (!cancelled && !r.ok) setLocation("/portal/login");
+      });
+    }, 0);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [setLocation]);
+
+  async function logout() {
+    await fetch(`${portalBase}api/portal/logout`, { method: "POST", credentials: "include" });
+    setLocation("/portal/login");
+  }
+
+  return (
+    <div className="min-h-screen bg-muted/30">
+      <div className="bg-sidebar-gradient text-white">
+        <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md ring-1 ring-white/20">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold tracking-tight text-base leading-tight">Mystics MediCare</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-white/60 font-semibold">Patient Portal</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {me && (
+              <div className="text-right hidden sm:block">
+                <div className="text-sm font-medium">{me.name}</div>
+                <div className="text-[10px] uppercase tracking-wider text-white/60">{me.mrn}</div>
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={logout} className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:text-white">
+              <LogOut className="w-4 h-4 mr-1.5" /> Sign out
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <nav className="bg-card border-b border-border sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-6 flex gap-1 overflow-x-auto">
+          {TABS.map((t) => (
+            <PortalTab
+              key={t.key}
+              href={t.href}
+              icon={t.icon}
+              label={t.label}
+              active={active === t.key}
+              badge={t.key === "notifications" ? notifBadge : undefined}
+            />
+          ))}
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto p-6">{children}</main>
+    </div>
+  );
+}
+
+function PortalTab({
+  href, icon: Icon, label, active, badge,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active: boolean;
+  badge?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-2 py-3.5 px-4 text-sm font-medium border-b-2 transition whitespace-nowrap ${active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+      {badge && badge > 0 ? (
+        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{badge}</Badge>
+      ) : null}
+    </Link>
+  );
+}
+
+export function formatINR(n: number | string | null | undefined): string {
+  const v = typeof n === "number" ? n : Number(n ?? 0);
+  return `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+
+export function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", { dateStyle: "medium" });
+}

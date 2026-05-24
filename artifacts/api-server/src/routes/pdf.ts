@@ -34,10 +34,9 @@ function inr(n: string | number | null | undefined) {
   return `Rs. ${num(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-router.get("/pdf/invoice/:billId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
-  const id = Number(req.params.billId);
+export async function renderInvoicePdf(res: Response, id: number): Promise<void> {
   const [b] = await db.select().from(billsTable).where(eq(billsTable.id, id));
-  if (!b) return res.status(404).json({ error: "Bill not found" });
+  if (!b) { res.status(404).json({ error: "Bill not found" }); return; }
   const [p] = b.patientId ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
   const payments = await db.select().from(billPaymentsTable).where(eq(billPaymentsTable.billId, id));
   const doc = startPdf(res, `invoice-${b.billNumber}.pdf`);
@@ -126,12 +125,15 @@ router.get("/pdf/invoice/:billId", requireRole("admin", "accountant", "reception
     doc.fillColor("#000");
   }
   doc.end();
+}
+
+router.get("/pdf/invoice/:billId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+  await renderInvoicePdf(res, Number(req.params.billId));
 });
 
-router.get("/pdf/receipt/:paymentId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
-  const id = Number(req.params.paymentId);
+export async function renderReceiptPdf(res: Response, id: number): Promise<void> {
   const [pay] = await db.select().from(billPaymentsTable).where(eq(billPaymentsTable.id, id));
-  if (!pay) return res.status(404).json({ error: "Receipt not found" });
+  if (!pay) { res.status(404).json({ error: "Receipt not found" }); return; }
   const [b] = await db.select().from(billsTable).where(eq(billsTable.id, pay.billId));
   const [p] = b ? await db.select().from(patientsTable).where(eq(patientsTable.id, b.patientId)) : [null];
   const doc = startPdf(res, `receipt-${pay.receiptNumber}.pdf`);
@@ -158,12 +160,15 @@ router.get("/pdf/receipt/:paymentId", requireRole("admin", "accountant", "recept
   doc.moveDown(2);
   doc.fontSize(9).fillColor("#666").text("This is a computer generated receipt and does not require a signature.", { align: "center" });
   doc.end();
+}
+
+router.get("/pdf/receipt/:paymentId", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
+  await renderReceiptPdf(res, Number(req.params.paymentId));
 });
 
-router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
-  const id = Number(req.params.encounterId);
+export async function renderDischargeSummaryPdf(res: Response, id: number): Promise<void> {
   const [e] = await db.select().from(encountersTable).where(eq(encountersTable.id, id));
-  if (!e) return res.status(404).json({ error: "Encounter not found" });
+  if (!e) { res.status(404).json({ error: "Encounter not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, e.patientId));
 
   // Stay window — vitals/labs after admit, prescriptions linked to encounter.
@@ -268,6 +273,10 @@ router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
   doc.fontSize(12).text("Treatment Plan & Notes", { underline: true });
   doc.fontSize(11).text(e.notes ?? adm?.summary ?? "-");
   doc.end();
+}
+
+router.get("/pdf/discharge-summary/:encounterId", async (req, res) => {
+  await renderDischargeSummaryPdf(res, Number(req.params.encounterId));
 });
 
 // Lab report PDF: structured header, sample/collection block, parameter
@@ -418,10 +427,9 @@ router.get("/pdf/radiology-report/:orderId", async (req, res) => {
   await renderRadiologyReportPdf(res, Number(req.params.orderId));
 });
 
-router.get("/pdf/prescription/:prescriptionId", async (req, res) => {
-  const id = Number(req.params.prescriptionId);
+export async function renderPrescriptionPdf(res: Response, id: number): Promise<void> {
   const [rx] = await db.select().from(prescriptionsTable).where(eq(prescriptionsTable.id, id));
-  if (!rx) return res.status(404).json({ error: "Prescription not found" });
+  if (!rx) { res.status(404).json({ error: "Prescription not found" }); return; }
   const [p] = await db.select().from(patientsTable).where(eq(patientsTable.id, rx.patientId));
   const doc = startPdf(res, `prescription-${id}.pdf`);
   doc.fontSize(16).text("PRESCRIPTION (Rx)", { align: "center" }).moveDown();
@@ -441,6 +449,10 @@ router.get("/pdf/prescription/:prescriptionId", async (req, res) => {
     doc.fontSize(11).text(rx.instructions);
   }
   doc.end();
+}
+
+router.get("/pdf/prescription/:prescriptionId", async (req, res) => {
+  await renderPrescriptionPdf(res, Number(req.params.prescriptionId));
 });
 
 export default router;

@@ -45,7 +45,10 @@ import Settings from "@/pages/settings";
 import { Shell } from "@/components/layout/shell";
 import { RequireAuth } from "@/components/require-auth";
 import PortalLogin from "@/pages/portal-login";
-import { PortalAppointments, PortalBills } from "@/pages/portal-home";
+import { PortalHome, PortalAppointments, PortalBook } from "@/pages/portal-home";
+import PortalRecords from "@/pages/portal-records";
+import { PortalBills, PortalBillDetail } from "@/pages/portal-bills";
+import { PortalProfile, PortalNotifications } from "@/pages/portal-profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,9 +65,15 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/portal/login" component={PortalLogin} />
-      <Route path="/portal" component={PortalAppointments} />
+      <Route path="/portal" component={PortalHome} />
+      <Route path="/portal/home" component={PortalHome} />
       <Route path="/portal/appointments" component={PortalAppointments} />
+      <Route path="/portal/book" component={PortalBook} />
+      <Route path="/portal/records" component={PortalRecords} />
+      <Route path="/portal/bills/:id" component={PortalBillDetail} />
       <Route path="/portal/bills" component={PortalBills} />
+      <Route path="/portal/profile" component={PortalProfile} />
+      <Route path="/portal/notifications" component={PortalNotifications} />
       <Route>
         <RequireAuth>
         <Shell>

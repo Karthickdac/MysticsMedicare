@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, appointmentsTable, patientsTable, staffTable } from "@workspace/db";
-import { desc, eq, and, gte, lt, ne, sql } from "drizzle-orm";
+import { desc, eq, and, gte, lt, sql } from "drizzle-orm";
 import { CreateAppointmentBody, UpdateAppointmentBody } from "@workspace/api-zod";
 import { requiredIso } from "../lib/format";
 import { sendNotification } from "../lib/notifications";
 import { requireRole } from "../lib/auth";
+import { hasSlotConflict } from "../lib/slot-conflict";
 
 // Roles allowed to mark a visit as completed / no_show. Reschedule and cancel
 // are still open to receptionist/admin. UI hides these actions, but the
@@ -34,27 +35,6 @@ async function shapeJoin(rows: Array<{ a: typeof appointmentsTable.$inferSelect;
     tokenNumber: r.a.tokenNumber,
     createdAt: requiredIso(r.a.createdAt),
   }));
-}
-
-// Reject overlapping bookings for the same doctor within ±SLOT_MINUTES of the
-// proposed scheduledAt. Cancelled and no_show appointments are ignored so
-// freeing a slot makes it bookable again. `ignoreId` lets reschedules exempt
-// the appointment that is currently being moved.
-const SLOT_MINUTES = 15;
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-async function hasSlotConflict(tx: Tx, doctorId: number, scheduledAt: Date, ignoreId?: number) {
-  const lo = new Date(scheduledAt.getTime() - SLOT_MINUTES * 60_000);
-  const hi = new Date(scheduledAt.getTime() + SLOT_MINUTES * 60_000);
-  const conds = [
-    eq(appointmentsTable.doctorId, doctorId),
-    gte(appointmentsTable.scheduledAt, lo),
-    lt(appointmentsTable.scheduledAt, hi),
-    ne(appointmentsTable.status, "cancelled"),
-    ne(appointmentsTable.status, "no_show"),
-  ];
-  if (ignoreId) conds.push(ne(appointmentsTable.id, ignoreId));
-  const rows = await tx.select({ id: appointmentsTable.id }).from(appointmentsTable).where(and(...conds)).limit(1);
-  return rows.length > 0;
 }
 
 router.get("/appointments", async (req, res) => {
