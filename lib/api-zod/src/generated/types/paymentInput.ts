@@ -7,7 +7,10 @@
  */
 
 export interface PaymentInput {
+  /** amount applied to the bill (≤ outstanding balance) */
   amount: number;
+  /** what the customer handed over; for cash overpay, change = tendered − amount */
+  tenderedAmount?: number;
   mode: string;
   reference?: string;
   notes?: string;

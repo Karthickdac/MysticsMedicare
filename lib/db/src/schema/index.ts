@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -211,6 +212,8 @@ export const drugsTable = pgTable("drugs", {
 export const billsTable = pgTable("bills", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull().references(() => patientsTable.id, { onDelete: "cascade" }),
+  doctorId: integer("doctor_id").references(() => staffTable.id),
+  department: text("department"),
   billNumber: varchar("bill_number", { length: 30 }).notNull().unique(),
   // discount applied at line level is captured in items[]; this is the
   // optional bill-level (e.g. "promo / concession") discount applied AFTER
@@ -265,6 +268,10 @@ export const billPaymentsTable = pgTable("bill_payments", {
   billId: integer("bill_id").notNull().references(() => billsTable.id, { onDelete: "cascade" }),
   receiptNumber: varchar("receipt_number", { length: 30 }).notNull().unique(),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  // Cash drawer overpay support: tendered is what the customer handed over,
+  // changeDue is what was returned. `amount` is what was applied to the bill.
+  tenderedAmount: numeric("tendered_amount", { precision: 12, scale: 2 }),
+  changeDue: numeric("change_due", { precision: 12, scale: 2 }),
   mode: text("mode").notNull(), // cash|card|upi|insurance|cheque|netbanking
   reference: text("reference"),
   receivedBy: text("received_by"),
@@ -286,19 +293,30 @@ export const billRefundsTable = pgTable("bill_refunds", {
 
 // Cashier shift / day-end reconciliation. open one per cashier; closing
 // captures counted cash and any variance vs system-recorded cash collections.
-export const cashierSessionsTable = pgTable("cashier_sessions", {
-  id: serial("id").primaryKey(),
-  cashierUserId: integer("cashier_user_id").notNull().references(() => usersTable.id),
-  cashierName: text("cashier_name").notNull(),
-  openingCash: numeric("opening_cash", { precision: 12, scale: 2 }).notNull().default("0"),
-  closingCash: numeric("closing_cash", { precision: 12, scale: 2 }),
-  expectedCash: numeric("expected_cash", { precision: 12, scale: 2 }),
-  variance: numeric("variance", { precision: 12, scale: 2 }),
-  status: text("status").notNull().default("open"), // open | closed
-  notes: text("notes"),
-  openedAt: timestamp("opened_at").notNull().defaultNow(),
-  closedAt: timestamp("closed_at"),
-});
+export const cashierSessionsTable = pgTable(
+  "cashier_sessions",
+  {
+    id: serial("id").primaryKey(),
+    cashierUserId: integer("cashier_user_id").notNull().references(() => usersTable.id),
+    cashierName: text("cashier_name").notNull(),
+    openingCash: numeric("opening_cash", { precision: 12, scale: 2 }).notNull().default("0"),
+    closingCash: numeric("closing_cash", { precision: 12, scale: 2 }),
+    expectedCash: numeric("expected_cash", { precision: 12, scale: 2 }),
+    variance: numeric("variance", { precision: 12, scale: 2 }),
+    status: text("status").notNull().default("open"), // open | closed
+    notes: text("notes"),
+    openedAt: timestamp("opened_at").notNull().defaultNow(),
+    closedAt: timestamp("closed_at"),
+  },
+  (t) => ({
+    // DB-level invariant: at most one open drawer per cashier. Protects against
+    // racing "open session" requests that would both pass app-level checks and
+    // break payment attribution / close reconciliation.
+    oneOpenPerCashier: uniqueIndex("cashier_sessions_one_open_per_user")
+      .on(t.cashierUserId)
+      .where(sql`status = 'open'`),
+  }),
+);
 
 export const inventoryTable = pgTable("inventory_items", {
   id: serial("id").primaryKey(),

@@ -797,6 +797,9 @@ export const ListBillsResponseItem = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
   "discount": zod.number(),
@@ -839,6 +842,8 @@ export const ListBillsResponse = zod.array(ListBillsResponseItem)
 
 export const CreateBillBody = zod.object({
   "patientId": zod.number(),
+  "doctorId": zod.number().optional(),
+  "department": zod.string().optional(),
   "gstMode": zod.string().optional(),
   "discount": zod.number().optional(),
   "insuranceProvider": zod.string().optional(),
@@ -869,6 +874,9 @@ export const GetBillResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
   "discount": zod.number(),
@@ -916,6 +924,9 @@ export const PayBillResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
   "discount": zod.number(),
@@ -964,6 +975,9 @@ export const GetBillFullResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
   "discount": zod.number(),
@@ -1006,6 +1020,8 @@ export const GetBillFullResponse = zod.object({
   "billId": zod.number(),
   "receiptNumber": zod.string(),
   "amount": zod.number(),
+  "tenderedAmount": zod.number().nullish(),
+  "changeDue": zod.number().nullish(),
   "mode": zod.string(),
   "reference": zod.string().nullish(),
   "receivedBy": zod.string().nullish(),
@@ -1035,6 +1051,8 @@ export const ListBillPaymentsResponseItem = zod.object({
   "billId": zod.number(),
   "receiptNumber": zod.string(),
   "amount": zod.number(),
+  "tenderedAmount": zod.number().nullish(),
+  "changeDue": zod.number().nullish(),
   "mode": zod.string(),
   "reference": zod.string().nullish(),
   "receivedBy": zod.string().nullish(),
@@ -1050,7 +1068,8 @@ export const RecordPaymentParams = zod.object({
 })
 
 export const RecordPaymentBody = zod.object({
-  "amount": zod.number(),
+  "amount": zod.number().describe('amount applied to the bill (≤ outstanding balance)'),
+  "tenderedAmount": zod.number().optional().describe('what the customer handed over; for cash overpay, change = tendered − amount'),
   "mode": zod.string(),
   "reference": zod.string().optional(),
   "notes": zod.string().optional()
@@ -1081,6 +1100,9 @@ export const VoidBillResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
   "discount": zod.number(),
@@ -1136,6 +1158,9 @@ export const UpdateBillClaimResponse = zod.object({
   "id": zod.number(),
   "patientId": zod.number(),
   "patientName": zod.string(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "billNumber": zod.string(),
   "subtotal": zod.number(),
   "discount": zod.number(),
@@ -1327,12 +1352,18 @@ export const CloseCashierSessionResponse = zod.object({
 
 export const GetCollectionsReportQueryParams = zod.object({
   "from": zod.coerce.string().optional(),
-  "to": zod.coerce.string().optional()
+  "to": zod.coerce.string().optional(),
+  "doctorId": zod.coerce.number().optional(),
+  "department": zod.coerce.string().optional(),
+  "groupBy": zod.coerce.string().optional().describe('comma-separated dimensions; supported values: date, mode, doctor, department')
 })
 
 export const GetCollectionsReportResponseItem = zod.object({
-  "date": zod.string(),
-  "mode": zod.string(),
+  "date": zod.string().nullish(),
+  "mode": zod.string().nullish(),
+  "doctorId": zod.number().nullish(),
+  "doctorName": zod.string().nullish(),
+  "department": zod.string().nullish(),
   "amount": zod.number(),
   "count": zod.number()
 })

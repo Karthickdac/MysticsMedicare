@@ -930,6 +930,12 @@ paths:
       parameters:
         - { in: query, name: from, schema: { type: string } }
         - { in: query, name: to, schema: { type: string } }
+        - { in: query, name: doctorId, schema: { type: integer } }
+        - { in: query, name: department, schema: { type: string } }
+        - in: query
+          name: groupBy
+          description: "comma-separated dimensions; supported values: date, mode, doctor, department"
+          schema: { type: string }
       responses:
         "200":
           description: Collections
@@ -2023,6 +2029,9 @@ components:
         id: { type: integer }
         patientId: { type: integer }
         patientName: { type: string }
+        doctorId: { type: ["integer", "null"] }
+        doctorName: { type: ["string", "null"] }
+        department: { type: ["string", "null"] }
         billNumber: { type: string }
         subtotal: { type: number }
         discount: { type: number }
@@ -2065,10 +2074,13 @@ components:
         igst: { type: number }
         amount: { type: number }
     BillInput:
+      x-doctor-note: doctorId/department are optional and used for billing reports.
       type: object
       required: [patientId, items]
       properties:
         patientId: { type: integer }
+        doctorId: { type: integer }
+        department: { type: string }
         gstMode: { type: string }
         discount: { type: number }
         insuranceProvider: { type: string }
@@ -2087,6 +2099,8 @@ components:
         billId: { type: integer }
         receiptNumber: { type: string }
         amount: { type: number }
+        tenderedAmount: { type: ["number", "null"] }
+        changeDue: { type: ["number", "null"] }
         mode: { type: string }
         reference: { type: ["string", "null"] }
         receivedBy: { type: ["string", "null"] }
@@ -2097,7 +2111,8 @@ components:
       type: object
       required: [amount, mode]
       properties:
-        amount: { type: number }
+        amount: { type: number, description: "amount applied to the bill (≤ outstanding balance)" }
+        tenderedAmount: { type: number, description: "what the customer handed over; for cash overpay, change = tendered − amount" }
         mode: { type: string }
         reference: { type: string }
         notes: { type: string }
@@ -2223,10 +2238,13 @@ components:
         notes: { type: string }
     CollectionsReportRow:
       type: object
-      required: [date, mode, amount, count]
+      required: [amount, count]
       properties:
-        date: { type: string }
-        mode: { type: string }
+        date: { type: ["string", "null"] }
+        mode: { type: ["string", "null"] }
+        doctorId: { type: ["integer", "null"] }
+        doctorName: { type: ["string", "null"] }
+        department: { type: ["string", "null"] }
         amount: { type: number }
         count: { type: integer }
     Gstr1Row:

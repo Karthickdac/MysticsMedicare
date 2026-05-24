@@ -9,4 +9,10 @@
 export type GetCollectionsReportParams = {
 from?: string;
 to?: string;
+doctorId?: number;
+department?: string;
+/**
+ * comma-separated dimensions; supported values: date, mode, doctor, department
+ */
+groupBy?: string;
 };

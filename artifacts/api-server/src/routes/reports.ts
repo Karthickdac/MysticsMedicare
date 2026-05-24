@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, billsTable, billPaymentsTable, patientsTable } from "@workspace/db";
-import { and, eq, gte, lte, sql, ne, desc } from "drizzle-orm";
+import { db, billsTable, billPaymentsTable, patientsTable, staffTable } from "@workspace/db";
+import { and, eq, gte, lte, sql, ne, desc, type SQL } from "drizzle-orm";
 import { num, requiredIso } from "../lib/format";
 import { requireRole } from "../lib/auth";
 
@@ -16,18 +16,54 @@ function parseDateRange(req: { query: Record<string, unknown> }) {
 
 router.get("/reports/collections", requireRole("admin", "accountant", "receptionist"), async (req, res) => {
   const { from, to } = parseDateRange(req);
+  // ?groupBy=date,mode,doctor,department  (default: date,mode)
+  const wanted = String(req.query["groupBy"] ?? "date,mode").split(",").map((s) => s.trim()).filter(Boolean);
+  const allowed = new Set(["date", "mode", "doctor", "department"]);
+  const groups = wanted.filter((g) => allowed.has(g));
+  if (groups.length === 0) groups.push("date", "mode");
+
+  const dayExpr = sql<string>`to_char(${billPaymentsTable.receivedAt}, 'YYYY-MM-DD')`;
+  const conds: SQL[] = [gte(billPaymentsTable.receivedAt, from), lte(billPaymentsTable.receivedAt, to)];
+  if (req.query["doctorId"]) conds.push(eq(billsTable.doctorId, Number(req.query["doctorId"])));
+  if (req.query["department"]) conds.push(eq(billsTable.department, String(req.query["department"])));
+
+  const select: Record<string, unknown> = {
+    amount: sql<string>`coalesce(sum(${billPaymentsTable.amount}),0)`,
+    count: sql<number>`count(*)::int`,
+  };
+  const groupCols: SQL[] = [];
+  if (groups.includes("date")) { select.day = dayExpr; groupCols.push(dayExpr); }
+  if (groups.includes("mode")) { select.mode = billPaymentsTable.mode; groupCols.push(sql`${billPaymentsTable.mode}`); }
+  if (groups.includes("doctor")) {
+    select.doctorId = billsTable.doctorId;
+    select.doctorName = staffTable.name;
+    groupCols.push(sql`${billsTable.doctorId}`, sql`${staffTable.name}`);
+  }
+  if (groups.includes("department")) {
+    select.department = billsTable.department;
+    groupCols.push(sql`${billsTable.department}`);
+  }
+
   const rows = await db
-    .select({
-      day: sql<string>`to_char(${billPaymentsTable.receivedAt}, 'YYYY-MM-DD')`,
-      mode: billPaymentsTable.mode,
-      amount: sql<string>`coalesce(sum(${billPaymentsTable.amount}),0)`,
-      count: sql<number>`count(*)::int`,
-    })
+    .select(select as never)
     .from(billPaymentsTable)
-    .where(and(gte(billPaymentsTable.receivedAt, from), lte(billPaymentsTable.receivedAt, to)))
-    .groupBy(sql`to_char(${billPaymentsTable.receivedAt}, 'YYYY-MM-DD')`, billPaymentsTable.mode)
-    .orderBy(sql`to_char(${billPaymentsTable.receivedAt}, 'YYYY-MM-DD') DESC`);
-  res.json(rows.map((r) => ({ date: r.day, mode: r.mode, amount: num(r.amount), count: r.count })));
+    .innerJoin(billsTable, eq(billPaymentsTable.billId, billsTable.id))
+    .leftJoin(staffTable, eq(billsTable.doctorId, staffTable.id))
+    .where(and(...conds))
+    .groupBy(...groupCols)
+    .orderBy(desc(sql`coalesce(sum(${billPaymentsTable.amount}),0)`));
+
+  res.json(
+    (rows as Array<Record<string, unknown>>).map((r) => ({
+      date: (r["day"] as string | undefined) ?? null,
+      mode: (r["mode"] as string | undefined) ?? null,
+      doctorId: (r["doctorId"] as number | undefined) ?? null,
+      doctorName: (r["doctorName"] as string | undefined) ?? null,
+      department: (r["department"] as string | undefined) ?? null,
+      amount: num(r["amount"] as string | number),
+      count: Number(r["count"] ?? 0),
+    })),
+  );
 });
 
 router.get("/reports/gstr1", requireRole("admin", "accountant"), async (req, res) => {

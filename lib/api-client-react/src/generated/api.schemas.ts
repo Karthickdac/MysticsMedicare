@@ -505,6 +505,12 @@ export interface Bill {
   id: number;
   patientId: number;
   patientName: string;
+  /** @nullable */
+  doctorId?: number | null;
+  /** @nullable */
+  doctorName?: string | null;
+  /** @nullable */
+  department?: string | null;
   billNumber: string;
   subtotal: number;
   discount: number;
@@ -543,6 +549,8 @@ export interface Bill {
 
 export interface BillInput {
   patientId: number;
+  doctorId?: number;
+  department?: string;
   gstMode?: string;
   discount?: number;
   insuranceProvider?: string;
@@ -558,6 +566,10 @@ export interface Payment {
   billId: number;
   receiptNumber: string;
   amount: number;
+  /** @nullable */
+  tenderedAmount?: number | null;
+  /** @nullable */
+  changeDue?: number | null;
   mode: string;
   /** @nullable */
   reference?: string | null;
@@ -571,7 +583,10 @@ export interface Payment {
 }
 
 export interface PaymentInput {
+  /** amount applied to the bill (≤ outstanding balance) */
   amount: number;
+  /** what the customer handed over; for cash overpay, change = tendered − amount */
+  tenderedAmount?: number;
   mode: string;
   reference?: string;
   notes?: string;
@@ -691,8 +706,16 @@ export interface CloseSessionInput {
 }
 
 export interface CollectionsReportRow {
-  date: string;
-  mode: string;
+  /** @nullable */
+  date?: string | null;
+  /** @nullable */
+  mode?: string | null;
+  /** @nullable */
+  doctorId?: number | null;
+  /** @nullable */
+  doctorName?: string | null;
+  /** @nullable */
+  department?: string | null;
   amount: number;
   count: number;
 }
@@ -1185,6 +1208,12 @@ status?: string;
 export type GetCollectionsReportParams = {
 from?: string;
 to?: string;
+doctorId?: number;
+department?: string;
+/**
+ * comma-separated dimensions; supported values: date, mode, doctor, department
+ */
+groupBy?: string;
 };
 
 export type GetGstr1ReportParams = {

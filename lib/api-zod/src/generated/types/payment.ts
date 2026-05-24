@@ -11,6 +11,10 @@ export interface Payment {
   billId: number;
   receiptNumber: string;
   amount: number;
+  /** @nullable */
+  tenderedAmount?: number | null;
+  /** @nullable */
+  changeDue?: number | null;
   mode: string;
   /** @nullable */
   reference?: string | null;

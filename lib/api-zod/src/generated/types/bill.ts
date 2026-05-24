@@ -11,6 +11,12 @@ export interface Bill {
   id: number;
   patientId: number;
   patientName: string;
+  /** @nullable */
+  doctorId?: number | null;
+  /** @nullable */
+  doctorName?: string | null;
+  /** @nullable */
+  department?: string | null;
   billNumber: string;
   subtotal: number;
   discount: number;

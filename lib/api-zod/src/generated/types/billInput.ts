@@ -9,6 +9,8 @@ import type { BillItem } from './billItem';
 
 export interface BillInput {
   patientId: number;
+  doctorId?: number;
+  department?: string;
   gstMode?: string;
   discount?: number;
   insuranceProvider?: string;

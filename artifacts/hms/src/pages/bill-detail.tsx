@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -213,9 +213,16 @@ function PaymentDialog({ billId, balance, disabled, onDone }: { billId: number; 
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(balance.toFixed(2));
   const [mode, setMode] = useState("cash");
+  const [tendered, setTendered] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const mut = useRecordPayment();
+  const change = useMemo(() => {
+    const t = Number(tendered);
+    const a = Number(amount);
+    if (!Number.isFinite(t) || !Number.isFinite(a) || t <= 0) return 0;
+    return Math.max(0, Math.round((t - a) * 100) / 100);
+  }, [tendered, amount]);
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) setAmount(balance.toFixed(2)); }}>
       <DialogTrigger asChild>
@@ -234,6 +241,13 @@ function PaymentDialog({ billId, balance, disabled, onDone }: { billId: number; 
               <SelectContent>{PAYMENT_MODES.map((m) => <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+          {mode === "cash" && (
+            <div>
+              <Label>Tendered (₹) <span className="text-muted-foreground text-xs">optional · for cash over-tender</span></Label>
+              <Input type="number" min={0} step="0.01" value={tendered} onChange={(e) => setTendered(e.target.value)} placeholder="What the customer handed over" />
+              {Number(tendered) > 0 && <p className="text-xs mt-1">Change due: <strong>{inr(change)}</strong></p>}
+            </div>
+          )}
           <div><Label>Reference (txn ID / cheque #)</Label><Input value={reference} onChange={(e) => setReference(e.target.value)} /></div>
           <div><Label>Notes</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
           <p className="text-xs text-muted-foreground">Outstanding balance: <strong>{inr(balance)}</strong></p>
@@ -243,7 +257,9 @@ function PaymentDialog({ billId, balance, disabled, onDone }: { billId: number; 
           <Button
             disabled={mut.isPending}
             onClick={() => {
-              mut.mutate({ id: billId, data: { amount: Number(amount), mode, reference: reference || undefined, notes: notes || undefined } }, {
+              const tNum = Number(tendered);
+              const tenderedAmount = mode === "cash" && Number.isFinite(tNum) && tNum > 0 ? tNum : undefined;
+              mut.mutate({ id: billId, data: { amount: Number(amount), mode, tenderedAmount, reference: reference || undefined, notes: notes || undefined } }, {
                 onSuccess: () => { toast({ title: "Payment recorded" }); setOpen(false); onDone(); },
                 onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
               });

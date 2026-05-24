@@ -35,9 +35,11 @@ async function shape(s: typeof cashierSessionsTable.$inferSelect) {
   ).map((r) => r.id);
   let refundsTotal = 0;
   if (sessionPaymentIds.length > 0) {
+    // Only cash refunds reduce the drawer's expected cash; card/UPI/insurance
+    // refunds settle through other channels and must not affect cash variance.
     const [{ t }] = (
       await db.execute<{ t: string }>(
-        sql`SELECT coalesce(sum(amount),0)::text AS t FROM bill_refunds WHERE payment_id IN ${sql.raw(`(${sessionPaymentIds.join(",")})`)}`,
+        sql`SELECT coalesce(sum(amount),0)::text AS t FROM bill_refunds WHERE mode = 'cash' AND payment_id IN ${sql.raw(`(${sessionPaymentIds.join(",")})`)}`,
       )
     ).rows;
     refundsTotal = num(t);
@@ -89,65 +91,94 @@ router.post("/cashier/sessions", requireRole("admin", "accountant", "receptionis
     .where(and(eq(cashierSessionsTable.cashierUserId, req.user.id), eq(cashierSessionsTable.status, "open")))
     .limit(1);
   if (existing) return res.status(409).json({ error: "An open session already exists" });
-  const [row] = await db
-    .insert(cashierSessionsTable)
-    .values({
-      cashierUserId: req.user.id,
-      cashierName: req.user.name,
-      openingCash: Number(parsed.data.openingCash).toFixed(2),
-      notes: parsed.data.notes,
-    })
-    .returning();
-  res.status(201).json(await shape(row));
+  try {
+    const [row] = await db
+      .insert(cashierSessionsTable)
+      .values({
+        cashierUserId: req.user.id,
+        cashierName: req.user.name,
+        openingCash: Number(parsed.data.openingCash).toFixed(2),
+        notes: parsed.data.notes,
+      })
+      .returning();
+    res.status(201).json(await shape(row));
+  } catch (e) {
+    // Partial-unique index `cashier_sessions_one_open_per_user` enforces the
+    // single-open-drawer invariant at the DB layer; a concurrent open request
+    // that loses the race surfaces here as a unique-violation.
+    const code = (e as { code?: string }).code;
+    if (code === "23505") return res.status(409).json({ error: "An open session already exists" });
+    throw e;
+  }
 });
 
 router.post("/cashier/sessions/:id/close", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = CloseCashierSessionBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [s] = await db.select().from(cashierSessionsTable).where(eq(cashierSessionsTable.id, id));
-  if (!s) return res.status(404).json({ error: "Not found" });
-  if (s.status !== "open") return res.status(409).json({ error: "Session already closed" });
-  // Only the cashier who opened the session — or an admin/accountant overseer — may close it.
   if (!req.user) return res.status(401).json({ error: "Login required" });
-  const isOverseer = req.user.role === "admin" || req.user.role === "accountant";
-  if (!isOverseer && s.cashierUserId !== req.user.id) {
-    return res.status(403).json({ error: "Only the session owner can close this drawer" });
-  }
 
-  // Compute expected cash = opening + cash collections − cash refunds for this session
-  const [cashIn] = await db
-    .select({ sum: sql<string>`coalesce(sum(${billPaymentsTable.amount}),0)` })
-    .from(billPaymentsTable)
-    .where(and(eq(billPaymentsTable.cashierSessionId, id), eq(billPaymentsTable.mode, "cash")));
-  const paymentIds = (
-    await db.select({ id: billPaymentsTable.id }).from(billPaymentsTable).where(eq(billPaymentsTable.cashierSessionId, id))
-  ).map((r) => r.id);
-  let cashOut = 0;
-  if (paymentIds.length > 0) {
-    const refunds = await db
-      .select({ amount: billRefundsTable.amount, mode: billRefundsTable.mode })
-      .from(billRefundsTable)
-      .where(inArray(billRefundsTable.paymentId, paymentIds));
-    cashOut = refunds.filter((r) => r.mode === "cash").reduce((s2, r) => s2 + num(r.amount), 0);
+  // Whole close happens in one transaction:
+  //   1. Lock the session row (FOR UPDATE) and re-verify it is still open.
+  //      This blocks concurrent payments (which also FOR UPDATE the open
+  //      session) from inserting after we have computed expected cash.
+  //   2. Compute cashIn/cashOut from rows already committed.
+  //   3. UPDATE ... WHERE id=? AND status='open' so two concurrent closes
+  //      cannot both write closing figures.
+  try {
+    const closed = await db.transaction(async (tx) => {
+      const sRows = await tx.execute<typeof cashierSessionsTable.$inferSelect>(
+        sql`SELECT * FROM cashier_sessions WHERE id = ${id} FOR UPDATE`,
+      );
+      const s = sRows.rows[0];
+      if (!s) throw new HttpError(404, "Not found");
+      if (s.status !== "open") throw new HttpError(409, "Session already closed");
+      const isOverseer = req.user!.role === "admin" || req.user!.role === "accountant";
+      if (!isOverseer && s.cashierUserId !== req.user!.id) {
+        throw new HttpError(403, "Only the session owner can close this drawer");
+      }
+      const [cashIn] = await tx
+        .select({ sum: sql<string>`coalesce(sum(${billPaymentsTable.amount}),0)` })
+        .from(billPaymentsTable)
+        .where(and(eq(billPaymentsTable.cashierSessionId, id), eq(billPaymentsTable.mode, "cash")));
+      const paymentIds = (
+        await tx.select({ id: billPaymentsTable.id }).from(billPaymentsTable).where(eq(billPaymentsTable.cashierSessionId, id))
+      ).map((r) => r.id);
+      let cashOut = 0;
+      if (paymentIds.length > 0) {
+        const refunds = await tx
+          .select({ amount: billRefundsTable.amount, mode: billRefundsTable.mode })
+          .from(billRefundsTable)
+          .where(inArray(billRefundsTable.paymentId, paymentIds));
+        cashOut = refunds.filter((r) => r.mode === "cash").reduce((s2, r) => s2 + num(r.amount), 0);
+      }
+      const expected = num(s.openingCash) + num(cashIn.sum) - cashOut;
+      const closing = Number(parsed.data.closingCash);
+      const variance = Math.round((closing - expected) * 100) / 100;
+      const updated = await tx
+        .update(cashierSessionsTable)
+        .set({
+          status: "closed",
+          closingCash: closing.toFixed(2),
+          expectedCash: expected.toFixed(2),
+          variance: variance.toFixed(2),
+          notes: parsed.data.notes ?? s.notes,
+          closedAt: new Date(),
+        })
+        .where(and(eq(cashierSessionsTable.id, id), eq(cashierSessionsTable.status, "open")))
+        .returning();
+      if (updated.length === 0) throw new HttpError(409, "Session already closed");
+      return updated[0];
+    });
+    res.json(await shape(closed));
+  } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
+    throw e;
   }
-  const expected = num(s.openingCash) + num(cashIn.sum) - cashOut;
-  const closing = Number(parsed.data.closingCash);
-  const variance = Math.round((closing - expected) * 100) / 100;
-
-  const [row] = await db
-    .update(cashierSessionsTable)
-    .set({
-      status: "closed",
-      closingCash: closing.toFixed(2),
-      expectedCash: expected.toFixed(2),
-      variance: variance.toFixed(2),
-      notes: parsed.data.notes ?? s.notes,
-      closedAt: new Date(),
-    })
-    .where(eq(cashierSessionsTable.id, id))
-    .returning();
-  res.json(await shape(row));
 });
+
+class HttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
 
 export default router;

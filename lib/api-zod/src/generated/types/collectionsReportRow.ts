@@ -7,8 +7,16 @@
  */
 
 export interface CollectionsReportRow {
-  date: string;
-  mode: string;
+  /** @nullable */
+  date?: string | null;
+  /** @nullable */
+  mode?: string | null;
+  /** @nullable */
+  doctorId?: number | null;
+  /** @nullable */
+  doctorName?: string | null;
+  /** @nullable */
+  department?: string | null;
   amount: number;
   count: number;
 }

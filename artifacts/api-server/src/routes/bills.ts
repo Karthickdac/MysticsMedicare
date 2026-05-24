@@ -6,6 +6,7 @@ import {
   billPaymentsTable,
   billRefundsTable,
   cashierSessionsTable,
+  staffTable,
 } from "@workspace/db";
 import { desc, eq, and, sql } from "drizzle-orm";
 import {
@@ -39,7 +40,13 @@ interface BillItem {
 
 function r2(n: number) { return Math.round(n * 100) / 100; }
 
-function shape(b: typeof billsTable.$inferSelect, pt: typeof patientsTable.$inferSelect) {
+// Small typed throw used inside DB transactions so we can short-circuit with
+// a specific HTTP status without leaking transaction internals to the caller.
+class HttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+
+function shape(b: typeof billsTable.$inferSelect, pt: typeof patientsTable.$inferSelect, doctorName: string | null = null) {
   const total = num(b.total);
   const paid = num(b.paidAmount);
   const refunded = num(b.refundedAmount);
@@ -47,6 +54,9 @@ function shape(b: typeof billsTable.$inferSelect, pt: typeof patientsTable.$infe
     id: b.id,
     patientId: b.patientId,
     patientName: pt.name,
+    doctorId: b.doctorId,
+    doctorName,
+    department: b.department,
     billNumber: b.billNumber,
     subtotal: num(b.subtotal),
     discount: num(b.discount),
@@ -81,6 +91,8 @@ function shapePayment(p: typeof billPaymentsTable.$inferSelect) {
     billId: p.billId,
     receiptNumber: p.receiptNumber,
     amount: num(p.amount),
+    tenderedAmount: p.tenderedAmount == null ? null : num(p.tenderedAmount),
+    changeDue: p.changeDue == null ? null : num(p.changeDue),
     mode: p.mode,
     reference: p.reference,
     receivedBy: p.receivedBy,
@@ -169,13 +181,14 @@ router.get("/bills", requireRole("admin", "accountant", "receptionist", "cashier
   if (req.query.patientId) conds.push(eq(billsTable.patientId, Number(req.query.patientId)));
   if (req.query.status) conds.push(eq(billsTable.status, String(req.query.status)));
   const rows = await db
-    .select({ b: billsTable, pt: patientsTable })
+    .select({ b: billsTable, pt: patientsTable, doctorName: staffTable.name })
     .from(billsTable)
     .innerJoin(patientsTable, eq(billsTable.patientId, patientsTable.id))
+    .leftJoin(staffTable, eq(billsTable.doctorId, staffTable.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(billsTable.createdAt))
     .limit(500);
-  res.json(rows.map((r) => shape(r.b, r.pt)));
+  res.json(rows.map((r) => shape(r.b, r.pt, r.doctorName)));
 });
 
 router.post("/bills", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
@@ -194,6 +207,8 @@ router.post("/bills", requireRole("admin", "accountant", "receptionist", "cashie
     .insert(billsTable)
     .values({
       patientId: parsed.data.patientId,
+      doctorId: parsed.data.doctorId ?? null,
+      department: parsed.data.department ?? null,
       billNumber: next,
       subtotal: totals.subtotal.toFixed(2),
       discount: totals.discount.toFixed(2),
@@ -223,21 +238,23 @@ router.post("/bills", requireRole("admin", "accountant", "receptionist", "cashie
 router.get("/bills/:id", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
-    .select({ b: billsTable, pt: patientsTable })
+    .select({ b: billsTable, pt: patientsTable, doctorName: staffTable.name })
     .from(billsTable)
     .innerJoin(patientsTable, eq(billsTable.patientId, patientsTable.id))
+    .leftJoin(staffTable, eq(billsTable.doctorId, staffTable.id))
     .where(eq(billsTable.id, id))
     .limit(1);
   if (!r) return res.status(404).json({ error: "Not found" });
-  res.json(shape(r.b, r.pt));
+  res.json(shape(r.b, r.pt, r.doctorName));
 });
 
 router.get("/bills/:id/full", requireRole("admin", "accountant", "receptionist", "cashier", "doctor"), async (req, res) => {
   const id = Number(req.params.id);
   const [r] = await db
-    .select({ b: billsTable, pt: patientsTable })
+    .select({ b: billsTable, pt: patientsTable, doctorName: staffTable.name })
     .from(billsTable)
     .innerJoin(patientsTable, eq(billsTable.patientId, patientsTable.id))
+    .leftJoin(staffTable, eq(billsTable.doctorId, staffTable.id))
     .where(eq(billsTable.id, id))
     .limit(1);
   if (!r) return res.status(404).json({ error: "Not found" });
@@ -252,7 +269,7 @@ router.get("/bills/:id/full", requireRole("admin", "accountant", "receptionist",
     .where(eq(billRefundsTable.billId, id))
     .orderBy(desc(billRefundsTable.refundedAt));
   res.json({
-    bill: shape(r.b, r.pt),
+    bill: shape(r.b, r.pt, r.doctorName),
     payments: payments.map(shapePayment),
     refunds: refunds.map(shapeRefund),
   });
@@ -275,121 +292,148 @@ router.post("/bills/:id/payments", requireRole("admin", "accountant", "reception
   const id = Number(req.params.id);
   const parsed = RecordPaymentBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [bill] = await db.select().from(billsTable).where(eq(billsTable.id, id));
-  if (!bill) return res.status(404).json({ error: "Bill not found" });
-  if (bill.status === "void") return res.status(409).json({ error: "Bill is voided" });
-  const total = num(bill.total);
-  const alreadyPaid = num(bill.paidAmount);
-  const refunded = num(bill.refundedAmount);
-  const balance = r2(total - alreadyPaid + refunded);
   const amount = Number(parsed.data.amount);
   if (!(amount > 0)) return res.status(400).json({ error: "Amount must be positive" });
-  if (amount > balance + 0.01) {
-    return res.status(400).json({ error: `Amount exceeds outstanding balance ₹${balance.toFixed(2)}` });
+  // Cash over-tender support: tenderedAmount may exceed amount; change = tendered − amount.
+  const tendered = parsed.data.tenderedAmount != null ? Number(parsed.data.tenderedAmount) : null;
+  if (tendered != null && tendered + 0.005 < amount) {
+    return res.status(400).json({ error: "Tendered amount cannot be less than amount applied" });
   }
 
-  // find user's open cashier session (cash payments only) for reconciliation
-  let openSession: number | null = null;
-  if (parsed.data.mode === "cash" && req.user) {
-    const [s] = await db
-      .select()
-      .from(cashierSessionsTable)
-      .where(and(eq(cashierSessionsTable.cashierUserId, req.user.id), eq(cashierSessionsTable.status, "open")))
-      .limit(1);
-    if (s) openSession = s.id;
-  }
-
-  const [{ next }] = (
-    await db.execute<{ next: string }>(
-      sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
-    )
-  ).rows;
-
-  const [payment] = await db
-    .insert(billPaymentsTable)
-    .values({
-      billId: id,
-      receiptNumber: next,
-      amount: amount.toFixed(2),
-      mode: parsed.data.mode,
-      reference: parsed.data.reference,
-      receivedBy: req.user?.name ?? null,
-      cashierSessionId: openSession,
-      notes: parsed.data.notes,
-    })
-    .returning();
-
-  const newPaid = r2(alreadyPaid + amount);
-  const newStatus = recomputeStatus(total, newPaid, refunded, bill.status);
-  await db
-    .update(billsTable)
-    .set({
-      paidAmount: newPaid.toFixed(2),
-      status: newStatus,
-      paymentMethod: parsed.data.mode,
-      paidAt: newStatus === "paid" ? new Date() : bill.paidAt,
-    })
-    .where(eq(billsTable.id, id));
-
-  if (newStatus === "paid") {
-    await sendNotification({
-      eventKey: "bill_paid",
-      channel: "both",
-      patientId: bill.patientId,
-      variables: { billNumber: bill.billNumber, total: total.toFixed(2) },
+  // Atomic write: lock the bill row, re-derive balance from disk, then insert
+  // payment + update aggregates in one transaction. The cashier session is also
+  // locked + re-checked inside the tx so a concurrent /cashier/sessions/:id/close
+  // cannot let us attribute a payment to a drawer that has already been cut.
+  try {
+    const result = await db.transaction(async (tx) => {
+      const lockedRows = await tx.execute<typeof billsTable.$inferSelect>(
+        sql`SELECT * FROM bills WHERE id = ${id} FOR UPDATE`,
+      );
+      const bill = lockedRows.rows[0];
+      if (!bill) throw new HttpError(404, "Bill not found");
+      if (bill.status === "void") throw new HttpError(409, "Bill is voided");
+      // session lookup happens INSIDE the tx with FOR UPDATE so close-vs-payment race is closed
+      let openSession: number | null = null;
+      if (parsed.data.mode === "cash" && req.user) {
+        const sRows = await tx.execute<typeof cashierSessionsTable.$inferSelect>(
+          sql`SELECT * FROM cashier_sessions WHERE cashier_user_id = ${req.user.id} AND status = 'open' LIMIT 1 FOR UPDATE`,
+        );
+        if (sRows.rows[0]) openSession = sRows.rows[0].id;
+      }
+      const total = num(bill.total);
+      const alreadyPaid = num(bill.paidAmount);
+      const refunded = num(bill.refundedAmount);
+      const balance = r2(total - alreadyPaid + refunded);
+      if (amount > balance + 0.005) {
+        throw new HttpError(400, `Amount exceeds outstanding balance ₹${balance.toFixed(2)}`);
+      }
+      const [{ next }] = (
+        await tx.execute<{ next: string }>(
+          sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
+        )
+      ).rows;
+      const change = tendered != null ? r2(tendered - amount) : null;
+      const [payment] = await tx
+        .insert(billPaymentsTable)
+        .values({
+          billId: id,
+          receiptNumber: next,
+          amount: amount.toFixed(2),
+          tenderedAmount: tendered != null ? tendered.toFixed(2) : null,
+          changeDue: change != null ? change.toFixed(2) : null,
+          mode: parsed.data.mode,
+          reference: parsed.data.reference,
+          receivedBy: req.user?.name ?? null,
+          cashierSessionId: openSession,
+          notes: parsed.data.notes,
+        })
+        .returning();
+      const newPaid = r2(alreadyPaid + amount);
+      const newStatus = recomputeStatus(total, newPaid, refunded, bill.status);
+      await tx
+        .update(billsTable)
+        .set({
+          paidAmount: newPaid.toFixed(2),
+          status: newStatus,
+          paymentMethod: parsed.data.mode,
+          paidAt: newStatus === "paid" ? new Date() : bill.paidAt,
+        })
+        .where(eq(billsTable.id, id));
+      return { payment, newStatus, total, bill };
     });
+    if (result.newStatus === "paid") {
+      await sendNotification({
+        eventKey: "bill_paid",
+        channel: "both",
+        patientId: result.bill.patientId,
+        variables: { billNumber: result.bill.billNumber, total: result.total.toFixed(2) },
+      });
+    }
+    res.status(201).json(shapePayment(result.payment));
+  } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
+    throw e;
   }
-  res.status(201).json(shapePayment(payment));
 });
 
 // ---------------------------------------------------------------------------
 // Refunds
 // ---------------------------------------------------------------------------
 router.post("/bills/:id/refunds", requireRole("admin", "accountant", "cashier"), async (req, res) => {
-  // Body parsed below; we also verify that any cited paymentId belongs to this same bill
-  // before inserting the refund row — preventing cross-bill misattribution.
   const id = Number(req.params.id);
   const parsed = RecordRefundBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [bill] = await db.select().from(billsTable).where(eq(billsTable.id, id));
-  if (!bill) return res.status(404).json({ error: "Bill not found" });
-  const paid = num(bill.paidAmount);
-  const refunded = num(bill.refundedAmount);
-  const refundable = r2(paid - refunded);
   const amount = Number(parsed.data.amount);
   if (!(amount > 0)) return res.status(400).json({ error: "Amount must be positive" });
-  if (amount > refundable + 0.01) {
-    return res.status(400).json({ error: `Amount exceeds refundable balance ₹${refundable.toFixed(2)}` });
+  // Atomic: lock the bill, verify paymentId↔bill linkage inside the tx, then
+  // insert the refund row + update the bill aggregate together. This prevents
+  // racing refund requests from collectively exceeding refundable balance.
+  try {
+    const refund = await db.transaction(async (tx) => {
+      const lockedRows = await tx.execute<typeof billsTable.$inferSelect>(
+        sql`SELECT * FROM bills WHERE id = ${id} FOR UPDATE`,
+      );
+      const bill = lockedRows.rows[0];
+      if (!bill) throw new HttpError(404, "Bill not found");
+      const paid = num(bill.paidAmount);
+      const refunded = num(bill.refundedAmount);
+      const refundable = r2(paid - refunded);
+      if (amount > refundable + 0.005) {
+        throw new HttpError(400, `Amount exceeds refundable balance ₹${refundable.toFixed(2)}`);
+      }
+      if (parsed.data.paymentId != null) {
+        const [linked] = await tx
+          .select({ billId: billPaymentsTable.billId })
+          .from(billPaymentsTable)
+          .where(eq(billPaymentsTable.id, parsed.data.paymentId));
+        if (!linked || linked.billId !== id) {
+          throw new HttpError(400, "Payment does not belong to this bill");
+        }
+      }
+      const [row] = await tx
+        .insert(billRefundsTable)
+        .values({
+          billId: id,
+          paymentId: parsed.data.paymentId ?? null,
+          amount: amount.toFixed(2),
+          mode: parsed.data.mode,
+          reason: parsed.data.reason,
+          approvedBy: req.user?.name ?? null,
+        })
+        .returning();
+      const newRefunded = r2(refunded + amount);
+      const newStatus = recomputeStatus(num(bill.total), paid, newRefunded, bill.status);
+      await tx
+        .update(billsTable)
+        .set({ refundedAmount: newRefunded.toFixed(2), status: newStatus })
+        .where(eq(billsTable.id, id));
+      return row;
+    });
+    res.status(201).json(shapeRefund(refund));
+  } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
+    throw e;
   }
-  // If the caller cites a payment, verify it actually belongs to this bill so refunds
-  // can never be mis-attributed across bills (would corrupt cashier reconciliation).
-  if (parsed.data.paymentId != null) {
-    const [linked] = await db
-      .select({ billId: billPaymentsTable.billId })
-      .from(billPaymentsTable)
-      .where(eq(billPaymentsTable.id, parsed.data.paymentId));
-    if (!linked || linked.billId !== id) {
-      return res.status(400).json({ error: "Payment does not belong to this bill" });
-    }
-  }
-  const [refund] = await db
-    .insert(billRefundsTable)
-    .values({
-      billId: id,
-      paymentId: parsed.data.paymentId ?? null,
-      amount: amount.toFixed(2),
-      mode: parsed.data.mode,
-      reason: parsed.data.reason,
-      approvedBy: req.user?.name ?? null,
-    })
-    .returning();
-  const newRefunded = r2(refunded + amount);
-  const newStatus = recomputeStatus(num(bill.total), paid, newRefunded, bill.status);
-  await db
-    .update(billsTable)
-    .set({ refundedAmount: newRefunded.toFixed(2), status: newStatus })
-    .where(eq(billsTable.id, id));
-  res.status(201).json(shapeRefund(refund));
 });
 
 // ---------------------------------------------------------------------------
@@ -399,23 +443,36 @@ router.post("/bills/:id/void", requireRole("admin"), async (req, res) => {
   const id = Number(req.params.id);
   const parsed = VoidBillBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-  const [bill] = await db.select().from(billsTable).where(eq(billsTable.id, id));
-  if (!bill) return res.status(404).json({ error: "Bill not found" });
-  if (num(bill.paidAmount) > num(bill.refundedAmount)) {
-    return res.status(409).json({ error: "Refund remaining payments before voiding" });
+  // Lock the bill, re-verify "no outstanding payment" under lock, then flip to void
+  // atomically — closes the window where a payment lands between the check and the update.
+  try {
+    const updated = await db.transaction(async (tx) => {
+      const lockedRows = await tx.execute<typeof billsTable.$inferSelect>(
+        sql`SELECT * FROM bills WHERE id = ${id} FOR UPDATE`,
+      );
+      const bill = lockedRows.rows[0];
+      if (!bill) throw new HttpError(404, "Bill not found");
+      if (num(bill.paidAmount) > num(bill.refundedAmount)) {
+        throw new HttpError(409, "Refund remaining payments before voiding");
+      }
+      const [row] = await tx
+        .update(billsTable)
+        .set({
+          status: "void",
+          voidedAt: new Date(),
+          voidReason: parsed.data.reason,
+          voidedBy: req.user?.name ?? null,
+        })
+        .where(eq(billsTable.id, id))
+        .returning();
+      return row;
+    });
+    const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, updated.patientId));
+    res.json(shape(updated, pt!));
+  } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
+    throw e;
   }
-  const [updated] = await db
-    .update(billsTable)
-    .set({
-      status: "void",
-      voidedAt: new Date(),
-      voidReason: parsed.data.reason,
-      voidedBy: req.user?.name ?? null,
-    })
-    .where(eq(billsTable.id, id))
-    .returning();
-  const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, updated.patientId));
-  res.json(shape(updated, pt!));
 });
 
 // ---------------------------------------------------------------------------
@@ -444,46 +501,69 @@ router.post("/bills/:id/claim", requireRole("admin", "accountant", "receptionist
 // ---------------------------------------------------------------------------
 router.post("/bills/:id/pay", requireRole("admin", "accountant", "receptionist", "cashier"), async (req, res) => {
   const id = Number(req.params.id);
-  const [bill] = await db.select().from(billsTable).where(eq(billsTable.id, id));
-  if (!bill) return res.status(404).json({ error: "Not found" });
-  if (bill.status === "void") return res.status(409).json({ error: "Bill is voided" });
-  const total = num(bill.total);
-  const paid = num(bill.paidAmount);
-  const refunded = num(bill.refundedAmount);
-  const balance = r2(total - paid + refunded);
-  if (balance > 0) {
-    const mode = (req.body?.paymentMethod as string | undefined) ?? "cash";
-    const [{ next }] = (
-      await db.execute<{ next: string }>(
-        sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
-      )
-    ).rows;
-    await db.insert(billPaymentsTable).values({
-      billId: id,
-      receiptNumber: next,
-      amount: balance.toFixed(2),
-      mode,
-      receivedBy: req.user?.name ?? null,
+  const mode = (req.body?.paymentMethod as string | undefined) ?? "cash";
+  try {
+    const row = await db.transaction(async (tx) => {
+      const lockedRows = await tx.execute<typeof billsTable.$inferSelect>(
+        sql`SELECT * FROM bills WHERE id = ${id} FOR UPDATE`,
+      );
+      const bill = lockedRows.rows[0];
+      if (!bill) throw new HttpError(404, "Not found");
+      if (bill.status === "void") throw new HttpError(409, "Bill is voided");
+      // Attach to the caller's open cashier session inside the tx so legacy /pay
+      // uses the same reconciliation path as /payments and cannot leak unattributed
+      // cash collections into a closed drawer.
+      let openSession: number | null = null;
+      if (mode === "cash" && req.user) {
+        const sRows = await tx.execute<typeof cashierSessionsTable.$inferSelect>(
+          sql`SELECT * FROM cashier_sessions WHERE cashier_user_id = ${req.user.id} AND status = 'open' LIMIT 1 FOR UPDATE`,
+        );
+        if (sRows.rows[0]) openSession = sRows.rows[0].id;
+      }
+      const total = num(bill.total);
+      const paid = num(bill.paidAmount);
+      const refunded = num(bill.refundedAmount);
+      const balance = r2(total - paid + refunded);
+      if (balance > 0) {
+        const [{ next }] = (
+          await tx.execute<{ next: string }>(
+            sql`SELECT 'RCP' || to_char(now(),'YYYYMMDD') || lpad((coalesce(max(id),0)+1)::text, 4, '0') AS next FROM bill_payments`,
+          )
+        ).rows;
+        await tx.insert(billPaymentsTable).values({
+          billId: id,
+          receiptNumber: next,
+          amount: balance.toFixed(2),
+          mode,
+          receivedBy: req.user?.name ?? null,
+          cashierSessionId: openSession,
+        });
+        const [updated] = await tx
+          .update(billsTable)
+          .set({
+            status: "paid",
+            paidAmount: r2(paid + balance).toFixed(2),
+            paymentMethod: mode,
+            paidAt: new Date(),
+          })
+          .where(eq(billsTable.id, id))
+          .returning();
+        return updated;
+      }
+      return bill;
     });
-    await db
-      .update(billsTable)
-      .set({
-        status: "paid",
-        paidAmount: r2(paid + balance).toFixed(2),
-        paymentMethod: mode,
-        paidAt: new Date(),
-      })
-      .where(eq(billsTable.id, id));
+    const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
+    await sendNotification({
+      eventKey: "bill_paid",
+      channel: "both",
+      patientId: row.patientId,
+      variables: { billNumber: row.billNumber, total: row.total },
+    });
+    res.json(shape(row, pt!));
+  } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ error: e.message });
+    throw e;
   }
-  const [row] = await db.select().from(billsTable).where(eq(billsTable.id, id));
-  const [pt] = await db.select().from(patientsTable).where(eq(patientsTable.id, row.patientId));
-  await sendNotification({
-    eventKey: "bill_paid",
-    channel: "both",
-    patientId: row.patientId,
-    variables: { billNumber: row.billNumber, total: row.total },
-  });
-  res.json(shape(row, pt!));
 });
 
 export default router;

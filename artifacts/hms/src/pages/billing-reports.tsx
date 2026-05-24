@@ -82,7 +82,7 @@ function CollectionsTab({ from, to }: { from: string; to: string }) {
         <Button variant="outline" size="sm" disabled={rows.length === 0} onClick={() => downloadCsv(
           `collections-${from}-to-${to}.csv`,
           ["Date", "Mode", "Amount", "Count"],
-          rows.map((r) => [r.date, r.mode, r.amount.toFixed(2), r.count]),
+          rows.map((r) => [r.date ?? "", r.mode ?? "", r.amount.toFixed(2), r.count]),
         )}>
           <Download className="w-4 h-4 mr-2" /> CSV
         </Button>
